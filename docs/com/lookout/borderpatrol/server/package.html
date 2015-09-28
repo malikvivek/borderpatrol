@@ -92,7 +92,7 @@
 
         <div id="values" class="values members">
               <h3>Value Members</h3>
-              <ol><li name="com.lookout.borderpatrol.server.ServiceMatchers" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+              <ol><li name="com.lookout.borderpatrol.server.ServiceMatchers" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
       <a id="ServiceMatchers"></a>
       <a id="ServiceMatchers:ServiceMatchers"></a>
       <h4 class="signature">
@@ -109,19 +109,7 @@
       </a>
     </span>
       <p class="shortcomment cmt">This provides the Finch compatible <span class="extype" name="io.finch.route.Router">io.finch.route.Router</span> types for composing the logic behind Border Patrol's
-service inference.</p><div class="fullcomment"><div class="comment cmt"><p>This provides the Finch compatible <span class="extype" name="io.finch.route.Router">io.finch.route.Router</span> types for composing the logic behind Border Patrol's
-service inference.</p><p>We derive a service <code>name</code> (a <span class="extype" name="String">String</span> name referencing a <span class="extype" name="com.twitter.finagle.Name">Name</span>) either via the <code>Path</code>
-or given a path of <code>/</code> we use the subdomain of the host.</p><p>There are two ways to determine the intending service to route to:
- 1) <code>http://example.com/:service/rest/of/path</code> =&gt; extract <code>:service</code>, then lookup a matching <code>ServiceIdentifier</code>
- 2) <code>http://service.example.com/</code> =&gt; if path of <code>/</code>, extract subdomain <code>service</code>, lookup a matching
- <code>ServiceIdentifier</code></p><p><code>Path</code> based matching must _always_ override the fallback <code>subdomain</code> matching.
-</p></div><dl class="attributes block"> <div class="block">Example:
-               <ol><li class="cmt"><p>
-         Let's say we have a service named &quot;enterprise&quot;, if we
-         define the instance of that as:</p><pre><span class="kw">val</span> ent = Service(<span class="lit">"enterprise"</span>, Path(<span class="lit">"/ent"</span>), <span class="lit">"default"</span>)
-<span class="kw">val</span> biz = Service(<span class="lit">"business"</span>, Path(<span class="lit">"/biz"</span>), <span class="lit">"api"</span>)</pre><p>         The following urls would match the services:</p><ul><li>api.example.com/ent =&gt; ent</li><li>default.example.com/ =&gt; ent</li><li>default.example.com/biz =&gt; biz</li><li>api.example.com =&gt; biz</li><li>api.example.com/ent =&gt; ent
-         These would not match the services:</li><li>a.api.example.com =&gt; ???</li><li>example.com =&gt; ???</li></ul></li></ol>
-            </div></dl></div>
+service inference.</p>
     </li><li name="com.lookout.borderpatrol.server.models" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
       <a id="models"></a>
       <a id="models:models"></a>

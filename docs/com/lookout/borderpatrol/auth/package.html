@@ -47,9 +47,13 @@
       </span>
       </h4>
       
-          <div id="comment" class="fullcommenttop"><div class="toggleContainer block">
+          <div id="comment" class="fullcommenttop"><div class="comment cmt"><p>This provides the specification contracts for doing auth in the form of
+Type Classes in <a href="Access.html" class="extype" name="com.lookout.borderpatrol.auth.Access">auth.Access</a> and <a href="Identity.html" class="extype" name="com.lookout.borderpatrol.auth.Identity">auth.Identity</a></p><p>Taking SAML 2.0 and OAuth2 as example flows, we have defined a set of contracts and abstractions on those
+contracts to allow users of this library to implement instances of their specific authentication/authorization.</p><p>The flow for a typical SAML/OAuth2 involves a protected resource, a client (web browser), and an Identity Provider.
+Border Patrol can act as a translation layer for external representation of access and internal representation so
+that services behind it do not need to implement SAML/OAuth2.</p><p>The primary abstractions are:</p><ul><li><code>Identity</code> the external identity provider and types, e.g. SAML IdP</li><li><code>Access</code> the internal access provider and types, e.g. api tokens, jwt etc</li></ul></div><div class="toggleContainer block">
           <span class="toggle">Linear Supertypes</span>
-          <div class="superTypes hiddenContent"><a href="AuthFunctions.html" class="extype" name="com.lookout.borderpatrol.auth.AuthFunctions">AuthFunctions</a>, <a href="AuthImplicits.html" class="extype" name="com.lookout.borderpatrol.auth.AuthImplicits">AuthImplicits</a>, <a href="AuthTypeClasses.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypeClasses">AuthTypeClasses</a>, <a href="AuthTypes.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes">AuthTypes</a>, <span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
+          <div class="superTypes hiddenContent"><span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
         </div></div>
         
 
@@ -67,7 +71,7 @@
                 <span class="filtertype">Inherited<br />
                 </span>
                 <ol id="linearization">
-                  <li class="in" name="com.lookout.borderpatrol.auth"><span>auth</span></li><li class="in" name="com.lookout.borderpatrol.auth.AuthFunctions"><span>AuthFunctions</span></li><li class="in" name="com.lookout.borderpatrol.auth.AuthImplicits"><span>AuthImplicits</span></li><li class="in" name="com.lookout.borderpatrol.auth.AuthTypeClasses"><span>AuthTypeClasses</span></li><li class="in" name="com.lookout.borderpatrol.auth.AuthTypes"><span>AuthTypes</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
+                  <li class="in" name="com.lookout.borderpatrol.auth"><span>auth</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
                 </ol>
               </div><div id="ancestors">
             <span class="filtertype"></span>
@@ -88,244 +92,352 @@
 
         <div id="types" class="types members">
               <h3>Type Members</h3>
-              <ol><li name="com.lookout.borderpatrol.auth.AuthTypeClasses.AuthErrorHandler" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
-      <a id="AuthErrorHandlerextendsAnyRef"></a>
-      <a id="AuthErrorHandler:AuthErrorHandler"></a>
+              <ol><li name="com.lookout.borderpatrol.auth.Access" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
+      <a id="Access[A]extendsAnyRef"></a>
+      <a id="Access[A]:Access[A]"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">trait</span>
       </span>
       <span class="symbol">
-        <a href="AuthTypeClasses$AuthErrorHandler.html"><span class="name">AuthErrorHandler</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+        <a href="Access.html"><span class="name">Access</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypeClasses@AuthErrorHandlerextendsAnyRef" title="Permalink" target="_top">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@Access[A]extendsAnyRef" title="Permalink" target="_top">
         <img src="../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="AuthTypeClasses.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypeClasses">AuthTypeClasses</a></dd></dl></div>
-    </li><li name="com.lookout.borderpatrol.auth.AuthFunctions" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
-      <a id="AuthFunctionsextendsAuthImplicits"></a>
-      <a id="AuthFunctions:AuthFunctions"></a>
+      <p class="shortcomment cmt">Abstraction for some access data, e.g.</p><div class="fullcomment"><div class="comment cmt"><p>Abstraction for some access data, e.g. service token, grant, role, scope
+</p></div></div>
+    </li><li name="com.lookout.borderpatrol.auth.AccessIssuer" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="AccessIssuer[A,B]extendsService[com.lookout.borderpatrol.auth.AccessRequest[A],com.lookout.borderpatrol.auth.AccessResponse[B]]"></a>
+      <a id="AccessIssuer[A,B]:AccessIssuer[A,B]"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">trait</span>
       </span>
       <span class="symbol">
-        <a href="AuthFunctions.html"><span class="name">AuthFunctions</span></a><span class="result"> extends <a href="AuthImplicits.html" class="extype" name="com.lookout.borderpatrol.auth.AuthImplicits">AuthImplicits</a></span>
+        <a href="AccessIssuer.html"><span class="name">AccessIssuer</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>]</span><span class="result"> extends <span class="extype" name="com.twitter.finagle.Service">Service</span>[<a href="AccessRequest.html" class="extype" name="com.lookout.borderpatrol.auth.AccessRequest">AccessRequest</a>[<span class="extype" name="com.lookout.borderpatrol.auth.AccessIssuer.A">A</span>], <a href="AccessResponse.html" class="extype" name="com.lookout.borderpatrol.auth.AccessResponse">AccessResponse</a>[<span class="extype" name="com.lookout.borderpatrol.auth.AccessIssuer.B">B</span>]]</span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@AuthFunctionsextendsAuthImplicits" title="Permalink" target="_top">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@AccessIssuer[A,B]extendsService[com.lookout.borderpatrol.auth.AccessRequest[A],com.lookout.borderpatrol.auth.AccessResponse[B]]" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Describes a service that acts as an Access issuing endpoint, this would be something like an OAuth2 token
+service, or an LDAP server, or a database that holds access tokens for user credentials
+</p>
+    </li><li name="com.lookout.borderpatrol.auth.AccessRequest" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
+      <a id="AccessRequest[A]extendsAnyRef"></a>
+      <a id="AccessRequest[A]:AccessRequest[A]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="AccessRequest.html"><span class="name">AccessRequest</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@AccessRequest[A]extendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">The identification information needed by the <a href="AccessIssuer.html" class="extype" name="com.lookout.borderpatrol.auth.AccessIssuer">AccessIssuer</a>
+to issue access data for your request</p><div class="fullcomment"><div class="comment cmt"><p>The identification information needed by the <a href="AccessIssuer.html" class="extype" name="com.lookout.borderpatrol.auth.AccessIssuer">AccessIssuer</a>
+to issue access data for your request</p><p>This can be thought of as a function (A, ServiceIdentifier) =&gt; Req
+</p></div></div>
+    </li><li name="com.lookout.borderpatrol.auth.AccessResponse" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
+      <a id="AccessResponse[A]extendsAnyRef"></a>
+      <a id="AccessResponse[A]:AccessResponse[A]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="AccessResponse.html"><span class="name">AccessResponse</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@AccessResponse[A]extendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">This response contains the access data needed by an authenticated endpoint, e.g.</p><div class="fullcomment"><div class="comment cmt"><p>This response contains the access data needed by an authenticated endpoint, e.g. grants, tokens, api keys
+</p></div></div>
+    </li><li name="com.lookout.borderpatrol.auth.AuthError" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="AuthErrorextendsException"></a>
+      <a id="AuthError:AuthError"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="AuthError.html"><span class="name">AuthError</span></a><span class="result"> extends <span class="extype" name="scala.Exception">Exception</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@AuthErrorextendsException" title="Permalink" target="_top">
         <img src="../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       
-    </li><li name="com.lookout.borderpatrol.auth.AuthImplicits" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
-      <a id="AuthImplicitsextendsAuthTypeClasses"></a>
-      <a id="AuthImplicits:AuthImplicits"></a>
+    </li><li name="com.lookout.borderpatrol.auth.BorderAuth" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
+      <a id="BorderAuthextendsAnyRef"></a>
+      <a id="BorderAuth:BorderAuth"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">trait</span>
       </span>
       <span class="symbol">
-        <a href="AuthImplicits.html"><span class="name">AuthImplicits</span></a><span class="result"> extends <a href="AuthTypeClasses.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypeClasses">AuthTypeClasses</a></span>
+        <a href="BorderAuth.html"><span class="name">BorderAuth</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@AuthImplicitsextendsAuthTypeClasses" title="Permalink" target="_top">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@BorderAuthextendsAnyRef" title="Permalink" target="_top">
         <img src="../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypes.AuthInfo" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
-      <a id="AuthInfo[A]extendsProductwithSerializable"></a>
-      <a id="AuthInfo[A]:AuthInfo[A]"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">case class</span>
-      </span>
-      <span class="symbol">
-        <a href="AuthTypes$AuthInfo.html"><span class="name">AuthInfo</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="params">(<span name="info">info: <span class="extype" name="com.lookout.borderpatrol.auth.AuthTypes.AuthInfo.A">A</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes@AuthInfo[A]extendsProductwithSerializable" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="AuthTypes.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes">AuthTypes</a></dd></dl></div>
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypes.AuthResult" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
-      <a id="AuthResult[A]extendsProductwithSerializable"></a>
-      <a id="AuthResult[A]:AuthResult[A]"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">case class</span>
-      </span>
-      <span class="symbol">
-        <a href="AuthTypes$AuthResult.html"><span class="name">AuthResult</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="params">(<span name="result">result: <span class="extype" name="com.lookout.borderpatrol.auth.AuthTypes.AuthResult.A">A</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes@AuthResult[A]extendsProductwithSerializable" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="AuthTypes.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes">AuthTypes</a></dd></dl></div>
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypeClasses" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
-      <a id="AuthTypeClassesextendsAuthTypes"></a>
-      <a id="AuthTypeClasses:AuthTypeClasses"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">trait</span>
-      </span>
-      <span class="symbol">
-        <a href="AuthTypeClasses.html"><span class="name">AuthTypeClasses</span></a><span class="result"> extends <a href="AuthTypes.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes">AuthTypes</a></span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@AuthTypeClassesextendsAuthTypes" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypes" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
-      <a id="AuthTypesextendsAnyRef"></a>
-      <a id="AuthTypes:AuthTypes"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">trait</span>
-      </span>
-      <span class="symbol">
-        <a href="AuthTypes.html"><span class="name">AuthTypes</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@AuthTypesextendsAnyRef" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypeClasses.Authable" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
-      <a id="Authable[A]extendsAnyRef"></a>
-      <a id="Authable[A]:Authable[A]"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">trait</span>
-      </span>
-      <span class="symbol">
-        <a href="AuthTypeClasses$Authable.html"><span class="name">Authable</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypeClasses@Authable[A]extendsAnyRef" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="AuthTypeClasses.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypeClasses">AuthTypeClasses</a></dd></dl></div>
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypes.Basic" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
-      <a id="BasicextendsProductwithSerializable"></a>
-      <a id="Basic:Basic"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">case class</span>
-      </span>
-      <span class="symbol">
-        <a href="AuthTypes$Basic.html"><span class="name">Basic</span></a><span class="params">(<span name="auth">auth: <a href="AuthTypes.html#BasicAuthString=String" class="extmbr" name="com.lookout.borderpatrol.auth.AuthTypes.BasicAuthString">BasicAuthString</a></span>)</span><span class="params">(<span class="implicit">implicit </span><span name="conv">conv: (<a href="AuthTypes.html#BasicAuthString=String" class="extmbr" name="com.lookout.borderpatrol.auth.AuthTypes.BasicAuthString">BasicAuthString</a>) ⇒ <span class="extype" name="scala.util.Try">Try</span>[<a href="AuthTypes$Credential.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes.Credential">Credential</a>]</span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes@BasicextendsProductwithSerializable" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="AuthTypes.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes">AuthTypes</a></dd></dl></div>
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypes.BasicAuthString" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
-      <a id="BasicAuthString=String"></a>
-      <a id="BasicAuthString:BasicAuthString"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">type</span>
-      </span>
-      <span class="symbol">
-        <span class="name">BasicAuthString</span><span class="result"> = <span class="extype" name="java.lang.String">String</span></span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@BasicAuthString=String" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="AuthTypes.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes">AuthTypes</a></dd></dl></div>
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypeClasses.BorderAuth" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
-      <a id="BorderAuth[_]extendsAnyRef"></a>
-      <a id="BorderAuth[_]:BorderAuth[_]"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">trait</span>
-      </span>
-      <span class="symbol">
-        <a href="AuthTypeClasses$BorderAuth.html"><span class="name">BorderAuth</span></a><span class="tparams">[<span name="_">_</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypeClasses@BorderAuth[_]extendsAnyRef" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="AuthTypeClasses.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypeClasses">AuthTypeClasses</a></dd></dl></div>
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypeClasses.BorderFilter" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
-      <a id="BorderFilter[A]extendsFilter[com.twitter.finagle.httpx.Request,com.twitter.finagle.httpx.Response,com.lookout.borderpatrol.request.BorderRequest[A],com.twitter.finagle.httpx.Response]withAuthTypeClasses.this.BorderAuth[A]withAuthTypeClasses.this.AuthErrorHandler"></a>
+      <p class="shortcomment cmt">Given an authenticated route/endpoint, this type class will allow us to handle two use cases</p><div class="fullcomment"><div class="comment cmt"><p>Given an authenticated route/endpoint, this type class will allow us to handle two use cases</p><ul><li>Identified entity is asking for access to service at authenticated route/endpoint</li><li>Entity has not identified itself, must be prompted to identify
+</li></ul></div></div>
+    </li><li name="com.lookout.borderpatrol.auth.BorderFilter" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="BorderFilter[A]extendsFilter[com.lookout.borderpatrol.auth.AccessRequest[A],com.twitter.finagle.httpx.Response,com.lookout.borderpatrol.auth.BorderRequest[A],com.twitter.finagle.httpx.Response]"></a>
       <a id="BorderFilter[A]:BorderFilter[A]"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
-        <span class="kind">trait</span>
+        <span class="kind">class</span>
       </span>
       <span class="symbol">
-        <a href="AuthTypeClasses$BorderFilter.html"><span class="name">BorderFilter</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="result"> extends <span class="extype" name="com.twitter.finagle.Filter">Filter</span>[<span class="extype" name="com.twitter.finagle.httpx.Request">Request</span>, <span class="extype" name="com.twitter.finagle.httpx.Response">Response</span>, <a href="../package$$request$$BorderRequest.html" class="extype" name="com.lookout.borderpatrol.request.BorderRequest">BorderRequest</a>[<span class="extype" name="com.lookout.borderpatrol.auth.AuthTypeClasses.BorderFilter.A">A</span>], <span class="extype" name="com.twitter.finagle.httpx.Response">Response</span>] with <a href="AuthTypeClasses$BorderAuth.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypeClasses.BorderAuth">BorderAuth</a>[<span class="extype" name="com.lookout.borderpatrol.auth.AuthTypeClasses.BorderFilter.A">A</span>] with <a href="AuthTypeClasses$AuthErrorHandler.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypeClasses.AuthErrorHandler">AuthErrorHandler</a></span>
+        <a href="BorderFilter.html"><span class="name">BorderFilter</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="result"> extends <span class="extype" name="com.twitter.finagle.Filter">Filter</span>[<a href="AccessRequest.html" class="extype" name="com.lookout.borderpatrol.auth.AccessRequest">AccessRequest</a>[<span class="extype" name="com.lookout.borderpatrol.auth.BorderFilter.A">A</span>], <span class="extype" name="com.twitter.finagle.httpx.Response">Response</span>, <a href="BorderRequest.html" class="extype" name="com.lookout.borderpatrol.auth.BorderRequest">BorderRequest</a>[<span class="extype" name="com.lookout.borderpatrol.auth.BorderFilter.A">A</span>], <span class="extype" name="com.twitter.finagle.httpx.Response">Response</span>]</span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypeClasses@BorderFilter[A]extendsFilter[com.twitter.finagle.httpx.Request,com.twitter.finagle.httpx.Response,com.lookout.borderpatrol.request.BorderRequest[A],com.twitter.finagle.httpx.Response]withAuthTypeClasses.this.BorderAuth[A]withAuthTypeClasses.this.AuthErrorHandler" title="Permalink" target="_top">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@BorderFilter[A]extendsFilter[com.lookout.borderpatrol.auth.AccessRequest[A],com.twitter.finagle.httpx.Response,com.lookout.borderpatrol.auth.BorderRequest[A],com.twitter.finagle.httpx.Response]" title="Permalink" target="_top">
         <img src="../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="AuthTypeClasses.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypeClasses">AuthTypeClasses</a></dd></dl></div>
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypes.Credential" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
-      <a id="CredentialextendsProductwithSerializable"></a>
-      <a id="Credential:Credential"></a>
+      <p class="shortcomment cmt">Given an incoming request to an authenticated endpoint, this filter has two duties:</p><div class="fullcomment"><div class="comment cmt"><p>Given an incoming request to an authenticated endpoint, this filter has two duties:</p><ul><li>If there is no identity:<ul><li>we must send the browser a redirect to a page where we can get credentials</li><li>save the requested url with their session so that once they have authenticated, we can send them there</li></ul></li><li>If there is an identity, i.e. they have a sessionid with some stored auth <code>Identity[A]</code>:<ul><li>get <code>Access[A]</code> for the service they are requesting, either already cached in their session or by asking
+   the <code>AccessIssuer</code> for that access</li><li>issue the request to the downstream service with that access injected
+</li></ul></li></ul></div></div>
+    </li><li name="com.lookout.borderpatrol.auth.BorderRequest" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="BorderRequest[A]extendsProductwithSerializable"></a>
+      <a id="BorderRequest[A]:BorderRequest[A]"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">case class</span>
       </span>
       <span class="symbol">
-        <a href="AuthTypes$Credential.html"><span class="name">Credential</span></a><span class="params">(<span name="username">username: <span class="extype" name="scala.Predef.String">String</span></span>, <span name="password">password: <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+        <a href="BorderRequest.html"><span class="name">BorderRequest</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="params">(<span name="access">access: <a href="Access.html" class="extype" name="com.lookout.borderpatrol.auth.Access">Access</a>[<span class="extype" name="com.lookout.borderpatrol.auth.BorderRequest.A">A</span>]</span>, <span name="request">request: <span class="extype" name="com.twitter.finagle.httpx.Request">Request</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes@CredentialextendsProductwithSerializable" title="Permalink" target="_top">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@BorderRequest[A]extendsProductwithSerializable" title="Permalink" target="_top">
         <img src="../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="AuthTypes.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes">AuthTypes</a></dd></dl></div>
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypes.OAuth2" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
-      <a id="OAuth2extendsAnyRef"></a>
-      <a id="OAuth2:OAuth2"></a>
+      
+    </li><li name="com.lookout.borderpatrol.auth.Id" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Id[+A]extendsIdentity[A]withProductwithSerializable"></a>
+      <a id="Id[+A]:Id[A]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Id.html"><span class="name">Id</span></a><span class="tparams">[<span name="A">+A</span>]</span><span class="params">(<span name="id">id: <span class="extype" name="com.lookout.borderpatrol.auth.Id.A">A</span></span>)</span><span class="result"> extends <a href="Identity.html" class="extype" name="com.lookout.borderpatrol.auth.Identity">Identity</a>[<span class="extype" name="com.lookout.borderpatrol.auth.Id.A">A</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@Id[+A]extendsIdentity[A]withProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="com.lookout.borderpatrol.auth.IdentifyRequest" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
+      <a id="IdentifyRequest[A]extendsAnyRef"></a>
+      <a id="IdentifyRequest[A]:IdentifyRequest[A]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="IdentifyRequest.html"><span class="name">IdentifyRequest</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@IdentifyRequest[A]extendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">A request to gain an <code>Identity</code>, e.g.</p><div class="fullcomment"><div class="comment cmt"><p>A request to gain an <code>Identity</code>, e.g. email/password credentials</p><p>Note: this wouldn't be used for most cases of something providing external authentication, like in the case of
+SAML, since the user would have been redirected to an external IdP for logging in.
+</p></div></div>
+    </li><li name="com.lookout.borderpatrol.auth.IdentifyResponse" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
+      <a id="IdentifyResponse[A]extendsAnyRef"></a>
+      <a id="IdentifyResponse[A]:IdentifyResponse[A]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="IdentifyResponse.html"><span class="name">IdentifyResponse</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@IdentifyResponse[A]extendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">A response from the identity provider with some identity</p><div class="fullcomment"><div class="comment cmt"><p>A response from the identity provider with some identity</p><p>Example: SAML POST response to a successful login to a third party IdP
+</p></div></div>
+    </li><li name="com.lookout.borderpatrol.auth.Identity" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
+      <a id="Identity[+A]extendsAnyRef"></a>
+      <a id="Identity[+A]:Identity[A]"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier">sealed </span>
         <span class="kind">trait</span>
       </span>
       <span class="symbol">
-        <a href="AuthTypes$OAuth2.html"><span class="name">OAuth2</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+        <a href="Identity.html"><span class="name">Identity</span></a><span class="tparams">[<span name="A">+A</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes@OAuth2extendsAnyRef" title="Permalink" target="_top">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@Identity[+A]extendsAnyRef" title="Permalink" target="_top">
         <img src="../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="AuthTypes.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes">AuthTypes</a></dd></dl></div>
+      <p class="shortcomment cmt">This encapsulates the notion of an identifier that the AccessIssuer can understand.</p><div class="fullcomment"><div class="comment cmt"><p>This encapsulates the notion of an identifier that the AccessIssuer can understand.
+In the case of OAuth2 we would wrap a the Access Token grant, or for SAML we would wrap the SAML token, then we
+hand this off to the <a href="AccessIssuer.html" class="extype" name="com.lookout.borderpatrol.auth.AccessIssuer">AccessIssuer</a>
+</p></div></div>
+    </li><li name="com.lookout.borderpatrol.auth.IdentityFilter" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="IdentityFilter[A]extendsFilter[com.lookout.borderpatrol.auth.ServiceRequest,com.twitter.finagle.httpx.Response,com.lookout.borderpatrol.auth.AccessRequest[A],com.twitter.finagle.httpx.Response]"></a>
+      <a id="IdentityFilter[A]:IdentityFilter[A]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="IdentityFilter.html"><span class="name">IdentityFilter</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="result"> extends <span class="extype" name="com.twitter.finagle.Filter">Filter</span>[<a href="ServiceRequest.html" class="extype" name="com.lookout.borderpatrol.auth.ServiceRequest">ServiceRequest</a>, <span class="extype" name="com.twitter.finagle.httpx.Response">Response</span>, <a href="AccessRequest.html" class="extype" name="com.lookout.borderpatrol.auth.AccessRequest">AccessRequest</a>[<span class="extype" name="com.lookout.borderpatrol.auth.IdentityFilter.A">A</span>], <span class="extype" name="com.twitter.finagle.httpx.Response">Response</span>]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@IdentityFilter[A]extendsFilter[com.lookout.borderpatrol.auth.ServiceRequest,com.twitter.finagle.httpx.Response,com.lookout.borderpatrol.auth.AccessRequest[A],com.twitter.finagle.httpx.Response]" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Determines the identity of the requester, if no identity it responds with a redirect to the login page for that
+service
+</p>
+    </li><li name="com.lookout.borderpatrol.auth.IdentityProvider" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="IdentityProvider[A,B]extendsService[com.lookout.borderpatrol.auth.IdentifyRequest[A],com.lookout.borderpatrol.auth.IdentifyResponse[B]]"></a>
+      <a id="IdentityProvider[A,B]:IdentityProvider[A,B]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="IdentityProvider.html"><span class="name">IdentityProvider</span></a><span class="tparams">[<span name="A">A</span>, <span name="B">B</span>]</span><span class="result"> extends <span class="extype" name="com.twitter.finagle.Service">Service</span>[<a href="IdentifyRequest.html" class="extype" name="com.lookout.borderpatrol.auth.IdentifyRequest">IdentifyRequest</a>[<span class="extype" name="com.lookout.borderpatrol.auth.IdentityProvider.A">A</span>], <a href="IdentifyResponse.html" class="extype" name="com.lookout.borderpatrol.auth.IdentifyResponse">IdentifyResponse</a>[<span class="extype" name="com.lookout.borderpatrol.auth.IdentityProvider.B">B</span>]]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@IdentityProvider[A,B]extendsService[com.lookout.borderpatrol.auth.IdentifyRequest[A],com.lookout.borderpatrol.auth.IdentifyResponse[B]]" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Abstraction for those that are directing requests directly to the Identity Provider
+</p>
+    </li><li name="com.lookout.borderpatrol.auth.IdentityRequired" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="IdentityRequiredextendsAuthErrorwithProductwithSerializable"></a>
+      <a id="IdentityRequired:IdentityRequired"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="IdentityRequired.html"><span class="name">IdentityRequired</span></a><span class="params">(<span name="id">id: <a href="../ServiceIdentifier.html" class="extype" name="com.lookout.borderpatrol.ServiceIdentifier">ServiceIdentifier</a></span>, <span name="cause">cause: <span class="extype" name="scala.Throwable">Throwable</span> = <span class="symbol">new Exception</span></span>)</span><span class="result"> extends <a href="AuthError.html" class="extype" name="com.lookout.borderpatrol.auth.AuthError">AuthError</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@IdentityRequiredextendsAuthErrorwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">A response to the user that informs them what to do next when they try to access a protected resource
+Example: In the case of SAML it would be an http redirect to their IdP
+</p>
+    </li><li name="com.lookout.borderpatrol.auth.ServiceFilter" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ServiceFilterextendsFilter[com.twitter.finagle.httpx.Request,com.twitter.finagle.httpx.Response,com.lookout.borderpatrol.auth.ServiceRequest,com.twitter.finagle.httpx.Response]"></a>
+      <a id="ServiceFilter:ServiceFilter"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="ServiceFilter.html"><span class="name">ServiceFilter</span></a><span class="result"> extends <span class="extype" name="com.twitter.finagle.Filter">Filter</span>[<span class="extype" name="com.twitter.finagle.httpx.Request">Request</span>, <span class="extype" name="com.twitter.finagle.httpx.Response">Response</span>, <a href="ServiceRequest.html" class="extype" name="com.lookout.borderpatrol.auth.ServiceRequest">ServiceRequest</a>, <span class="extype" name="com.twitter.finagle.httpx.Response">Response</span>]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@ServiceFilterextendsFilter[com.twitter.finagle.httpx.Request,com.twitter.finagle.httpx.Response,com.lookout.borderpatrol.auth.ServiceRequest,com.twitter.finagle.httpx.Response]" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Determines the service that the request is trying to contact
+If the service doesn't exist, it returns a 404 Not Found response
+</p>
+    </li><li name="com.lookout.borderpatrol.auth.ServiceRequest" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ServiceRequestextendsProductwithSerializable"></a>
+      <a id="ServiceRequest:ServiceRequest"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="ServiceRequest.html"><span class="name">ServiceRequest</span></a><span class="params">(<span name="req">req: <span class="extype" name="com.twitter.finagle.httpx.Request">Request</span></span>, <span name="id">id: <a href="../ServiceIdentifier.html" class="extype" name="com.lookout.borderpatrol.ServiceIdentifier">ServiceIdentifier</a></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@ServiceRequestextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="com.lookout.borderpatrol.auth.SessionIdRequest" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SessionIdRequestextendsProductwithSerializable"></a>
+      <a id="SessionIdRequest:SessionIdRequest"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SessionIdRequest.html"><span class="name">SessionIdRequest</span></a><span class="params">(<span name="req">req: <span class="extype" name="com.twitter.finagle.httpx.Request">Request</span></span>, <span name="sid">sid: <a href="../sessionx/SessionId.html" class="extype" name="com.lookout.borderpatrol.sessionx.SessionId">SessionId</a></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@SessionIdRequestextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="com.lookout.borderpatrol.auth.TryOps" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="TryOps[A]extendsAnyVal"></a>
+      <a id="TryOps[A]:TryOps[A]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">implicit final </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="package$$TryOps.html"><span class="name">TryOps</span></a><span class="tparams">[<span name="A">A</span>]</span><span class="result"> extends <span class="extype" name="scala.AnyVal">AnyVal</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@TryOps[A]extendsAnyVal" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
     </li></ol>
             </div>
 
@@ -333,23 +445,91 @@
 
         <div id="values" class="values members">
               <h3>Value Members</h3>
-              <ol><li name="com.lookout.borderpatrol.auth.AuthImplicits.BasicAuth" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
-      <a id="BasicAuth"></a>
-      <a id="BasicAuth:BasicAuth"></a>
+              <ol><li name="com.lookout.borderpatrol.auth.Access" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Access"></a>
+      <a id="Access:Access"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">object</span>
       </span>
       <span class="symbol">
-        <a href="AuthImplicits$BasicAuth$.html"><span class="name">BasicAuth</span></a>
+        <a href="Access$.html"><span class="name">Access</span></a>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthImplicits@BasicAuth" title="Permalink" target="_top">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@Access" title="Permalink" target="_top">
         <img src="../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="AuthImplicits.html" class="extype" name="com.lookout.borderpatrol.auth.AuthImplicits">AuthImplicits</a></dd></dl></div>
+      
+    </li><li name="com.lookout.borderpatrol.auth.AccessRequest" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="AccessRequest"></a>
+      <a id="AccessRequest:AccessRequest"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="AccessRequest$.html"><span class="name">AccessRequest</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@AccessRequest" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="com.lookout.borderpatrol.auth.EmptyIdentity" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="EmptyIdentity"></a>
+      <a id="EmptyIdentity:EmptyIdentity"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="EmptyIdentity$.html"><span class="name">EmptyIdentity</span></a><span class="result"> extends <a href="Identity.html" class="extype" name="com.lookout.borderpatrol.auth.Identity">Identity</a>[<span class="extype" name="scala.Nothing">Nothing</span>] with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@EmptyIdentity" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="com.lookout.borderpatrol.auth.Identity" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Identity"></a>
+      <a id="Identity:Identity"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Identity$.html"><span class="name">Identity</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@Identity" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="com.lookout.borderpatrol.auth.keymaster" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="keymaster"></a>
+      <a id="keymaster:keymaster"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a href="keymaster/package.html"><span class="name">keymaster</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#com.lookout.borderpatrol.auth.package@keymaster" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
     </li></ol>
             </div>
 
@@ -359,15 +539,7 @@
         </div>
 
         <div id="inheritedMembers">
-        <div class="parent" name="com.lookout.borderpatrol.auth.AuthFunctions">
-              <h3>Inherited from <a href="AuthFunctions.html" class="extype" name="com.lookout.borderpatrol.auth.AuthFunctions">AuthFunctions</a></h3>
-            </div><div class="parent" name="com.lookout.borderpatrol.auth.AuthImplicits">
-              <h3>Inherited from <a href="AuthImplicits.html" class="extype" name="com.lookout.borderpatrol.auth.AuthImplicits">AuthImplicits</a></h3>
-            </div><div class="parent" name="com.lookout.borderpatrol.auth.AuthTypeClasses">
-              <h3>Inherited from <a href="AuthTypeClasses.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypeClasses">AuthTypeClasses</a></h3>
-            </div><div class="parent" name="com.lookout.borderpatrol.auth.AuthTypes">
-              <h3>Inherited from <a href="AuthTypes.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes">AuthTypes</a></h3>
-            </div><div class="parent" name="scala.AnyRef">
+        <div class="parent" name="scala.AnyRef">
               <h3>Inherited from <span class="extype" name="scala.AnyRef">AnyRef</span></h3>
             </div><div class="parent" name="scala.Any">
               <h3>Inherited from <span class="extype" name="scala.Any">Any</span></h3>

@@ -52,7 +52,7 @@
       </h4>
       
           <div id="comment" class="fullcommenttop"><div class="comment cmt"><p>Default implementations of <a href="EncryptedSessionStore.html" class="extype" name="com.lookout.borderpatrol.crypto.EncryptedSessionStore">EncryptedSessionStore</a> with
-<span class="extype" name="com.twitter.finagle.memcachedx">memcachedx</span> and an in-memory store for mocking
+<span class="extype" name="com.twitter.finagle.memcached">memcached</span> and an in-memory store for mocking
 </p></div><div class="toggleContainer block">
           <span class="toggle">Linear Supertypes</span>
           <div class="superTypes hiddenContent"><span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
@@ -103,17 +103,17 @@
         <span class="kind">case class</span>
       </span>
       <span class="symbol">
-        <a href="EncryptedSessionStore$$MemcachedStore.html"><span class="name">MemcachedStore</span></a><span class="params">(<span name="store">store: <span class="extype" name="com.twitter.finagle.memcachedx.BaseClient">BaseClient</span>[<span class="extype" name="com.twitter.io.Buf">Buf</span>]</span>)</span><span class="result"> extends <a href="EncryptedSessionStore.html" class="extype" name="com.lookout.borderpatrol.crypto.EncryptedSessionStore">EncryptedSessionStore</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+        <a href="EncryptedSessionStore$$MemcachedStore.html"><span class="name">MemcachedStore</span></a><span class="params">(<span name="store">store: <span class="extype" name="com.twitter.finagle.memcached.BaseClient">BaseClient</span>[<span class="extype" name="com.twitter.io.Buf">Buf</span>]</span>)</span><span class="result"> extends <a href="EncryptedSessionStore.html" class="extype" name="com.lookout.borderpatrol.crypto.EncryptedSessionStore">EncryptedSessionStore</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
       </span>
       </h4><span class="permalink">
       <a href="../../../../index.html#com.lookout.borderpatrol.crypto.EncryptedSessionStore$@MemcachedStoreextendsEncryptedSessionStorewithProductwithSerializable" title="Permalink" target="_top">
         <img src="../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      <p class="shortcomment cmt">Memcached backend to <a href="EncryptedSessionStore.html" class="extype" name="com.lookout.borderpatrol.crypto.EncryptedSessionStore">EncryptedSessionStore</a></p><div class="fullcomment"><div class="comment cmt"><p>Memcached backend to <a href="EncryptedSessionStore.html" class="extype" name="com.lookout.borderpatrol.crypto.EncryptedSessionStore">EncryptedSessionStore</a></p><pre><span class="kw">val</span> store = MemcachedStore(Memcachedx.newKetamaClient(<span class="lit">"localhost:11211"</span>))
+      <p class="shortcomment cmt">Memcached backend to <a href="EncryptedSessionStore.html" class="extype" name="com.lookout.borderpatrol.crypto.EncryptedSessionStore">EncryptedSessionStore</a></p><div class="fullcomment"><div class="comment cmt"><p>Memcached backend to <a href="EncryptedSessionStore.html" class="extype" name="com.lookout.borderpatrol.crypto.EncryptedSessionStore">EncryptedSessionStore</a></p><pre><span class="kw">val</span> store = MemcachedStore(Memcached.newKetamaClient(<span class="lit">"localhost:11211"</span>))
 <span class="kw">val</span> requestSession = store.get[httpx.Request](id)
 requestSession.onSuccess(s <span class="kw">=&gt;</span> log(s<span class="lit">"Success! you were going to ${s.data.uri}"</span>))
-              .onFailure(log)</pre></div><dl class="paramcmts block"><dt class="param">store</dt><dd class="cmt"><p>finagle <span class="extype" name="com.twitter.finagle.memcachedx.BaseClient">memcachedx.BaseClient</span> memcached backend</p></dd></dl></div>
+              .onFailure(log)</pre></div><dl class="paramcmts block"><dt class="param">store</dt><dd class="cmt"><p>finagle <span class="extype" name="com.twitter.finagle.memcached.BaseClient">memcached.BaseClient</span> memcached backend</p></dd></dl></div>
     </li></ol>
             </div>
 

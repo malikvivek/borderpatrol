@@ -1,22 +1,22 @@
 <!DOCTYPE html >
 <html>
         <head>
-          <title>Basic - com.lookout.borderpatrol.auth.AuthTypes.Basic</title>
-          <meta name="description" content="Basic - com.lookout.borderpatrol.auth.AuthTypes.Basic" />
-          <meta name="keywords" content="Basic com.lookout.borderpatrol.auth.AuthTypes.Basic" />
+          <title>MasterToken - com.lookout.borderpatrol.auth.keymaster.MasterToken</title>
+          <meta name="description" content="MasterToken - com.lookout.borderpatrol.auth.keymaster.MasterToken" />
+          <meta name="keywords" content="MasterToken com.lookout.borderpatrol.auth.keymaster.MasterToken" />
           <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
           
-      <link href="../../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
-      <link href="../../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
-      <script type="text/javascript" src="../../../../lib/jquery.js" id="jquery-js"></script>
-      <script type="text/javascript" src="../../../../lib/jquery-ui.js"></script>
-      <script type="text/javascript" src="../../../../lib/template.js"></script>
-      <script type="text/javascript" src="../../../../lib/tools.tooltip.js"></script>
+      <link href="../../../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../../../lib/tools.tooltip.js"></script>
       
       <script type="text/javascript">
          if(top === self) {
-            var url = '../../../../index.html';
-            var hash = 'com.lookout.borderpatrol.auth.AuthTypes$Basic';
+            var url = '../../../../../index.html';
+            var hash = 'com.lookout.borderpatrol.auth.keymaster.MasterToken';
             var anchor = window.location.hash;
             var anchor_opt = '';
             if (anchor.length >= 1)
@@ -28,13 +28,13 @@
         </head>
         <body class="type">
       <div id="definition">
-        <img alt="Class" src="../../../../lib/class_big.png" />
-        <p id="owner"><a href="../../../package.html" class="extype" name="com">com</a>.<a href="../../package.html" class="extype" name="com.lookout">lookout</a>.<a href="../package.html" class="extype" name="com.lookout.borderpatrol">borderpatrol</a>.<a href="package.html" class="extype" name="com.lookout.borderpatrol.auth">auth</a>.<a href="AuthTypes.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes">AuthTypes</a></p>
-        <h1>Basic</h1><h3><span class="morelinks"><div>Related Doc:
-            <a href="AuthTypes.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes">package AuthTypes</a>
+        <img alt="Class" src="../../../../../lib/class_big.png" />
+        <p id="owner"><a href="../../../../package.html" class="extype" name="com">com</a>.<a href="../../../package.html" class="extype" name="com.lookout">lookout</a>.<a href="../../package.html" class="extype" name="com.lookout.borderpatrol">borderpatrol</a>.<a href="../package.html" class="extype" name="com.lookout.borderpatrol.auth">auth</a>.<a href="package.html" class="extype" name="com.lookout.borderpatrol.auth.keymaster">keymaster</a></p>
+        <h1>MasterToken</h1><h3><span class="morelinks"><div>Related Doc:
+            <a href="package.html" class="extype" name="com.lookout.borderpatrol.auth.keymaster">package keymaster</a>
           </div></span></h3><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       </div>
@@ -45,13 +45,14 @@
         <span class="kind">case class</span>
       </span>
       <span class="symbol">
-        <span class="name">Basic</span><span class="params">(<span name="auth">auth: <a href="AuthTypes.html#BasicAuthString=String" class="extmbr" name="com.lookout.borderpatrol.auth.AuthTypes.BasicAuthString">BasicAuthString</a></span>)</span><span class="params">(<span class="implicit">implicit </span><span name="conv">conv: (<a href="AuthTypes.html#BasicAuthString=String" class="extmbr" name="com.lookout.borderpatrol.auth.AuthTypes.BasicAuthString">BasicAuthString</a>) ⇒ <span class="extype" name="scala.util.Try">Try</span>[<a href="AuthTypes$Credential.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes.Credential">Credential</a>]</span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+        <span class="name">MasterToken</span><span class="params">(<span name="value">value: <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="result"> extends <a href="Token.html" class="extype" name="com.lookout.borderpatrol.auth.keymaster.Token">Token</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
       </span>
       </h4>
       
-          <div id="comment" class="fullcommenttop"><div class="toggleContainer block">
+          <div id="comment" class="fullcommenttop"><div class="comment cmt"><p>Primary identifier, used to re-ask the issuing service for a service access token
+</p></div><div class="toggleContainer block">
           <span class="toggle">Linear Supertypes</span>
-          <div class="superTypes hiddenContent"><span class="extype" name="scala.Serializable">Serializable</span>, <span class="extype" name="java.io.Serializable">Serializable</span>, <span class="extype" name="scala.Product">Product</span>, <span class="extype" name="scala.Equals">Equals</span>, <span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
+          <div class="superTypes hiddenContent"><span class="extype" name="scala.Serializable">Serializable</span>, <span class="extype" name="java.io.Serializable">Serializable</span>, <span class="extype" name="scala.Product">Product</span>, <span class="extype" name="scala.Equals">Equals</span>, <a href="Token.html" class="extype" name="com.lookout.borderpatrol.auth.keymaster.Token">Token</a>, <span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
         </div></div>
         
 
@@ -69,7 +70,7 @@
                 <span class="filtertype">Inherited<br />
                 </span>
                 <ol id="linearization">
-                  <li class="in" name="com.lookout.borderpatrol.auth.AuthTypes.Basic"><span>Basic</span></li><li class="in" name="scala.Serializable"><span>Serializable</span></li><li class="in" name="java.io.Serializable"><span>Serializable</span></li><li class="in" name="scala.Product"><span>Product</span></li><li class="in" name="scala.Equals"><span>Equals</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
+                  <li class="in" name="com.lookout.borderpatrol.auth.keymaster.MasterToken"><span>MasterToken</span></li><li class="in" name="scala.Serializable"><span>Serializable</span></li><li class="in" name="java.io.Serializable"><span>Serializable</span></li><li class="in" name="scala.Product"><span>Product</span></li><li class="in" name="scala.Equals"><span>Equals</span></li><li class="in" name="com.lookout.borderpatrol.auth.keymaster.Token"><span>Token</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
                 </ol>
               </div><div id="ancestors">
             <span class="filtertype"></span>
@@ -88,20 +89,20 @@
         <div id="allMembers">
         <div id="constructors" class="members">
               <h3>Instance Constructors</h3>
-              <ol><li name="com.lookout.borderpatrol.auth.AuthTypes.Basic#&lt;init&gt;" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="&lt;init&gt;(auth:AuthTypes.this.BasicAuthString)(implicitconv:AuthTypes.this.BasicAuthString=&gt;scala.util.Try[AuthTypes.this.Credential]):AuthTypes.this.Basic"></a>
-      <a id="&lt;init&gt;:Basic"></a>
+              <ol><li name="com.lookout.borderpatrol.auth.keymaster.MasterToken#&lt;init&gt;" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="&lt;init&gt;(value:String):com.lookout.borderpatrol.auth.keymaster.MasterToken"></a>
+      <a id="&lt;init&gt;:MasterToken"></a>
       <h4 class="signature">
       <span class="modifier_kind">
         <span class="modifier"></span>
         <span class="kind">new</span>
       </span>
       <span class="symbol">
-        <span class="name">Basic</span><span class="params">(<span name="auth">auth: <a href="AuthTypes.html#BasicAuthString=String" class="extmbr" name="com.lookout.borderpatrol.auth.AuthTypes.BasicAuthString">BasicAuthString</a></span>)</span><span class="params">(<span class="implicit">implicit </span><span name="conv">conv: (<a href="AuthTypes.html#BasicAuthString=String" class="extmbr" name="com.lookout.borderpatrol.auth.AuthTypes.BasicAuthString">BasicAuthString</a>) ⇒ <span class="extype" name="scala.util.Try">Try</span>[<a href="AuthTypes$Credential.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes.Credential">Credential</a>]</span>)</span>
+        <span class="name">MasterToken</span><span class="params">(<span name="value">value: <span class="extype" name="scala.Predef.String">String</span></span>)</span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@&lt;init&gt;(auth:AuthTypes.this.BasicAuthString)(implicitconv:AuthTypes.this.BasicAuthString=&gt;scala.util.Try[AuthTypes.this.Credential]):AuthTypes.this.Basic" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@&lt;init&gt;(value:String):com.lookout.borderpatrol.auth.keymaster.MasterToken" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       
@@ -126,8 +127,8 @@
         <span title="gt4s: $bang$eq" class="name">!=</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@!=(x$1:Any):Boolean" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@!=(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
@@ -143,8 +144,8 @@
         <span title="gt4s: $hash$hash" class="name">##</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@##():Int" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@##():Int" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
@@ -160,8 +161,8 @@
         <span title="gt4s: $eq$eq" class="name">==</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@==(x$1:Any):Boolean" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@==(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
@@ -177,28 +178,11 @@
         <span class="name">asInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Any.asInstanceOf.T0">T0</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@asInstanceOf[T0]:T0" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@asInstanceOf[T0]:T0" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypes.Basic#auth" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="auth:AuthTypes.this.BasicAuthString"></a>
-      <a id="auth:BasicAuthString"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">val</span>
-      </span>
-      <span class="symbol">
-        <span class="name">auth</span><span class="result">: <a href="AuthTypes.html#BasicAuthString=String" class="extmbr" name="com.lookout.borderpatrol.auth.AuthTypes.BasicAuthString">BasicAuthString</a></span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@auth:AuthTypes.this.BasicAuthString" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      
     </li><li name="scala.AnyRef#clone" visbl="prt" data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="clone():Object"></a>
       <a id="clone():AnyRef"></a>
@@ -211,34 +195,17 @@
         <span class="name">clone</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.AnyRef">AnyRef</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@clone():Object" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@clone():Object" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../../../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
                 <span class="name">@throws</span><span class="args">(<span>
       
       <span class="defval" name="classOf[java.lang.CloneNotSupportedException]">...</span>
     </span>)</span>
               
         </dd></dl></div>
-    </li><li name="com.lookout.borderpatrol.auth.AuthTypes.Basic#credential" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
-      <a id="credential:scala.util.Try[AuthTypes.this.Credential]"></a>
-      <a id="credential:Try[Credential]"></a>
-      <h4 class="signature">
-      <span class="modifier_kind">
-        <span class="modifier"></span>
-        <span class="kind">val</span>
-      </span>
-      <span class="symbol">
-        <span class="name">credential</span><span class="result">: <span class="extype" name="scala.util.Try">Try</span>[<a href="AuthTypes$Credential.html" class="extype" name="com.lookout.borderpatrol.auth.AuthTypes.Credential">Credential</a>]</span>
-      </span>
-      </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@credential:scala.util.Try[AuthTypes.this.Credential]" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
-      </a>
-    </span>
-      
     </li><li name="scala.AnyRef#eq" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="eq(x$1:AnyRef):Boolean"></a>
       <a id="eq(AnyRef):Boolean"></a>
@@ -251,8 +218,8 @@
         <span class="name">eq</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@eq(x$1:AnyRef):Boolean" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@eq(x$1:AnyRef):Boolean" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
@@ -268,11 +235,11 @@
         <span class="name">finalize</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@finalize():Unit" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@finalize():Unit" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../../../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
                 <span class="name">@throws</span><span class="args">(<span>
       
       <span class="symbol">classOf[java.lang.Throwable]</span>
@@ -291,8 +258,8 @@
         <span class="name">getClass</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.Class">Class</span>[_]</span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@getClass():Class[_]" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@getClass():Class[_]" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
@@ -308,8 +275,8 @@
         <span class="name">isInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@isInstanceOf[T0]:Boolean" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@isInstanceOf[T0]:Boolean" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
@@ -325,8 +292,8 @@
         <span class="name">ne</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@ne(x$1:AnyRef):Boolean" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@ne(x$1:AnyRef):Boolean" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
@@ -342,8 +309,8 @@
         <span class="name">notify</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@notify():Unit" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@notify():Unit" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
@@ -359,8 +326,8 @@
         <span class="name">notifyAll</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@notifyAll():Unit" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@notifyAll():Unit" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
@@ -376,11 +343,28 @@
         <span class="name">synchronized</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="params">(<span name="arg0">arg0: ⇒ <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>)</span><span class="result">: <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@synchronized[T0](x$1:=&gt;T0):T0" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@synchronized[T0](x$1:=&gt;T0):T0" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="com.lookout.borderpatrol.auth.keymaster.MasterToken#value" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="value:String"></a>
+      <a id="value:String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">value</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@value:String" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
     </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="wait():Unit"></a>
       <a id="wait():Unit"></a>
@@ -393,8 +377,8 @@
         <span class="name">wait</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@wait():Unit" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@wait():Unit" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
@@ -416,8 +400,8 @@
         <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>, <span name="arg1">arg1: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@wait(x$1:Long,x$2:Int):Unit" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@wait(x$1:Long,x$2:Int):Unit" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
@@ -439,8 +423,8 @@
         <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
       </span>
       </h4><span class="permalink">
-      <a href="../../../../index.html#com.lookout.borderpatrol.auth.AuthTypes$Basic@wait(x$1:Long):Unit" title="Permalink" target="_top">
-        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.MasterToken@wait(x$1:Long):Unit" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
       <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
@@ -467,6 +451,8 @@
               <h3>Inherited from <span class="extype" name="scala.Product">Product</span></h3>
             </div><div class="parent" name="scala.Equals">
               <h3>Inherited from <span class="extype" name="scala.Equals">Equals</span></h3>
+            </div><div class="parent" name="com.lookout.borderpatrol.auth.keymaster.Token">
+              <h3>Inherited from <a href="Token.html" class="extype" name="com.lookout.borderpatrol.auth.keymaster.Token">Token</a></h3>
             </div><div class="parent" name="scala.AnyRef">
               <h3>Inherited from <span class="extype" name="scala.AnyRef">AnyRef</span></h3>
             </div><div class="parent" name="scala.Any">

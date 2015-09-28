@@ -90,8 +90,8 @@ Assuming you are storing it in memcached, which requires a type of <span class="
 }
 
 <span class="kw">implicit</span> <span class="kw">val</span> enc = SessionDataEncoder[Foo](
-  foo <span class="kw">=&gt;</span> Buf.U32BE(toBytes.value),
-  buf <span class="kw">=&gt;</span> <span class="kw">new</span> Foo { <span class="kw">override</span> <span class="kw">val</span> value = Buf.U32BE.unapply(b) }
+  foo <span class="kw">=&gt;</span> Buf.U32BE(foo.value),
+  buf <span class="kw">=&gt;</span> <span class="kw">new</span> Foo { <span class="kw">override</span> <span class="kw">val</span> value = Buf.U32BE.unapply(buf) }
 )
 
 <span class="kw">val</span> foo1 = <span class="kw">new</span> Foo { <span class="kw">override</span> <span class="kw">val</span> value = <span class="num">1</span> }
@@ -879,7 +879,7 @@ via mixins to the base <a href="SessionStore.html" class="extype" name="com.look
       </a>
     </span>
       <p class="shortcomment cmt">Default implementations of <a href="SessionStore.html" class="extype" name="com.lookout.borderpatrol.sessionx.SessionStore">SessionStore</a> with
-<span class="extype" name="com.twitter.finagle.memcachedx">memcachedx</span> and an in-memory store for mocking
+<span class="extype" name="com.twitter.finagle.memcached">memcached</span> and an in-memory store for mocking
 </p>
     </li><li name="com.lookout.borderpatrol.sessionx#TimeCodecJson" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
       <a id="TimeCodecJson:argonaut.CodecJson[com.twitter.util.Time]"></a>

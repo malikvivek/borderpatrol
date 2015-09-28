@@ -1,0 +1,287 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>keymaster - com.lookout.borderpatrol.auth.keymaster</title>
+          <meta name="description" content="keymaster - com.lookout.borderpatrol.auth.keymaster" />
+          <meta name="keywords" content="keymaster com.lookout.borderpatrol.auth.keymaster" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../../../../index.html';
+            var hash = 'com.lookout.borderpatrol.auth.keymaster.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img alt="Package" src="../../../../../lib/package_big.png" />
+        <p id="owner"><a href="../../../../package.html" class="extype" name="com">com</a>.<a href="../../../package.html" class="extype" name="com.lookout">lookout</a>.<a href="../../package.html" class="extype" name="com.lookout.borderpatrol">borderpatrol</a>.<a href="../package.html" class="extype" name="com.lookout.borderpatrol.auth">auth</a></p>
+        <h1>keymaster</h1><span class="permalink">
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.package" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">keymaster</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"><div class="toggleContainer block">
+          <span class="toggle">Linear Supertypes</span>
+          <div class="superTypes hiddenContent"><span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
+        </div></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        <div id="order">
+              <span class="filtertype">Ordering</span>
+              <ol>
+                
+                <li class="alpha in"><span>Alphabetic</span></li>
+                <li class="inherit out"><span>By inheritance</span></li>
+              </ol>
+            </div>
+        <div id="ancestors">
+                <span class="filtertype">Inherited<br />
+                </span>
+                <ol id="linearization">
+                  <li class="in" name="com.lookout.borderpatrol.auth.keymaster"><span>keymaster</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
+                </ol>
+              </div><div id="ancestors">
+            <span class="filtertype"></span>
+            <ol>
+              <li class="hideall out"><span>Hide All</span></li>
+              <li class="showall in"><span>Show all</span></li>
+            </ol>
+          </div>
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="com.lookout.borderpatrol.auth.keymaster.MasterToken" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="MasterTokenextendsTokenwithProductwithSerializable"></a>
+      <a id="MasterToken:MasterToken"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="MasterToken.html"><span class="name">MasterToken</span></a><span class="params">(<span name="value">value: <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="result"> extends <a href="Token.html" class="extype" name="com.lookout.borderpatrol.auth.keymaster.Token">Token</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.package@MasterTokenextendsTokenwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Primary identifier, used to re-ask the issuing service for a service access token
+</p>
+    </li><li name="com.lookout.borderpatrol.auth.keymaster.ServiceToken" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ServiceTokenextendsTokenwithProductwithSerializable"></a>
+      <a id="ServiceToken:ServiceToken"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="ServiceToken.html"><span class="name">ServiceToken</span></a><span class="params">(<span name="value">value: <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="result"> extends <a href="Token.html" class="extype" name="com.lookout.borderpatrol.auth.keymaster.Token">Token</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.package@ServiceTokenextendsTokenwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Service access token to be injected into request to service
+</p>
+    </li><li name="com.lookout.borderpatrol.auth.keymaster.ServiceTokens" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ServiceTokensextendsProductwithSerializable"></a>
+      <a id="ServiceTokens:ServiceTokens"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="ServiceTokens.html"><span class="name">ServiceTokens</span></a><span class="params">(<span name="services">services: <span class="extype" name="scala.Predef.Map">Map</span>[<span class="extype" name="scala.Predef.String">String</span>, <a href="ServiceToken.html" class="extype" name="com.lookout.borderpatrol.auth.keymaster.ServiceToken">ServiceToken</a>] = <span class="symbol">Map.empty[String, ServiceToken]</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.package@ServiceTokensextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">A mapping of service names to service tokens
+</p>
+    </li><li name="com.lookout.borderpatrol.auth.keymaster.Token" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="TokenextendsAnyRef"></a>
+      <a id="Token:Token"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">sealed </span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="Token.html"><span class="name">Token</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.package@TokenextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">A Token is an abstraction for the opaque string value for the JSON map that Keymaster returns
+</p>
+    </li><li name="com.lookout.borderpatrol.auth.keymaster.Tokens" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="TokensextendsProductwithSerializable"></a>
+      <a id="Tokens:Tokens"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Tokens.html"><span class="name">Tokens</span></a><span class="params">(<span name="master">master: <a href="MasterToken.html" class="extype" name="com.lookout.borderpatrol.auth.keymaster.MasterToken">MasterToken</a></span>, <span name="services">services: <a href="ServiceTokens.html" class="extype" name="com.lookout.borderpatrol.auth.keymaster.ServiceTokens">ServiceTokens</a></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.package@TokensextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">This is the primary interface for accessing tokens
+The incoming format from Keymaster is like this:
+{
+ &quot;auth_service&quot; : &quot;MMM&quot;,
+ &quot;service_tokens&quot; : { &quot;service_a&quot;: &quot;AAA&quot;, &quot;service_b&quot;: &quot;BBB&quot; }
+}
+</p><div class="fullcomment"><div class="comment cmt"><p>This is the primary interface for accessing tokens
+The incoming format from Keymaster is like this:
+{
+ &quot;auth_service&quot; : &quot;MMM&quot;,
+ &quot;service_tokens&quot; : { &quot;service_a&quot;: &quot;AAA&quot;, &quot;service_b&quot;: &quot;BBB&quot; }
+}
+</p></div><dl class="attributes block"> <div class="block">Example:
+               <ol><li class="cmt"><p>
+        Tokens.empty.service(&quot;service_name&quot;) // returns None
+        decode[Tokens](jsonString) // result in circe decode result</p></li></ol>
+            </div></dl></div>
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="com.lookout.borderpatrol.auth.keymaster.EmptyToken" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="EmptyToken"></a>
+      <a id="EmptyToken:EmptyToken"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="EmptyToken$.html"><span class="name">EmptyToken</span></a><span class="result"> extends <a href="Token.html" class="extype" name="com.lookout.borderpatrol.auth.keymaster.Token">Token</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.package@EmptyToken" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">The token is missing
+</p>
+    </li><li name="com.lookout.borderpatrol.auth.keymaster.Keymaster" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Keymaster"></a>
+      <a id="Keymaster:Keymaster"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Keymaster$.html"><span class="name">Keymaster</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.package@Keymaster" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="com.lookout.borderpatrol.auth.keymaster.Tokens" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Tokens"></a>
+      <a id="Tokens:Tokens"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Tokens$.html"><span class="name">Tokens</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#com.lookout.borderpatrol.auth.keymaster.package@Tokens" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        <div class="parent" name="scala.AnyRef">
+              <h3>Inherited from <span class="extype" name="scala.AnyRef">AnyRef</span></h3>
+            </div><div class="parent" name="scala.Any">
+              <h3>Inherited from <span class="extype" name="scala.Any">Any</span></h3>
+            </div>
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>

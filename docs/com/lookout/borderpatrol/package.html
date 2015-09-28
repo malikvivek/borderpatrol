@@ -127,6 +127,44 @@ interact with HTTP services.</p></div><div class="toggleContainer block">
       </a>
     </span>
       
+    </li><li name="com.lookout.borderpatrol.ServiceIdentifier" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ServiceIdentifierextendsProductwithSerializable"></a>
+      <a id="ServiceIdentifier:ServiceIdentifier"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="ServiceIdentifier.html"><span class="name">ServiceIdentifier</span></a><span class="params">(<span name="name">name: <span class="extype" name="scala.Predef.String">String</span></span>, <span name="path">path: <span class="extype" name="com.twitter.finagle.httpx.path.Path">Path</span></span>, <span name="subdomain">subdomain: <span class="extype" name="scala.Predef.String">String</span></span>, <span name="login">login: <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#com.lookout.borderpatrol.package@ServiceIdentifierextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">An identifier for Border Patrol to determine by <code>path</code> or
+by <code>subdomain</code> which service a request should be routed to
+</p><div class="fullcomment"><div class="comment cmt"><p>An identifier for Border Patrol to determine by <code>path</code> or
+by <code>subdomain</code> which service a request should be routed to
+</p></div><dl class="paramcmts block"><dt class="param">name</dt><dd class="cmt"><p>The name that can be used to refer to a <span class="extype" name="com.twitter.finagle.Name">com.twitter.finagle.Name</span></p></dd><dt class="param">path</dt><dd class="cmt"><p>The external url path prefix that routes to the internal service</p></dd><dt class="param">subdomain</dt><dd class="cmt"><p>A default fall-back when path is only <code>/</code></p></dd><dt class="param">login</dt><dd class="cmt"><p>The location to send a user when a request to this service is Unauthorized</p></dd></dl></div>
+    </li><li name="com.lookout.borderpatrol.ServiceMatcher" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="ServiceMatcherextendsProductwithSerializable"></a>
+      <a id="ServiceMatcher:ServiceMatcher"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="ServiceMatcher.html"><span class="name">ServiceMatcher</span></a><span class="params">(<span name="services">services: <span class="extype" name="scala.Predef.Set">Set</span>[<a href="ServiceIdentifier.html" class="extype" name="com.lookout.borderpatrol.ServiceIdentifier">ServiceIdentifier</a>]</span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#com.lookout.borderpatrol.package@ServiceMatcherextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
     </li><li name="com.lookout.borderpatrol.StringOps" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
       <a id="StringOpsextendsAnyVal"></a>
       <a id="StringOps:StringOps"></a>
@@ -168,7 +206,7 @@ interact with HTTP services.</p></div><div class="toggleContainer block">
 
         <div id="values" class="values members">
               <h3>Value Members</h3>
-              <ol><li name="com.lookout.borderpatrol.auth" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+              <ol><li name="com.lookout.borderpatrol.auth" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="auth"></a>
       <a id="auth:auth"></a>
       <h4 class="signature">
@@ -184,7 +222,12 @@ interact with HTTP services.</p></div><div class="toggleContainer block">
         <img src="../../../lib/permalink.png" alt="Permalink" />
       </a>
     </span>
-      
+      <p class="shortcomment cmt">This provides the specification contracts for doing auth in the form of
+Type Classes in <a href="auth/Access.html" class="extype" name="com.lookout.borderpatrol.auth.Access">auth.Access</a> and <a href="auth/Identity.html" class="extype" name="com.lookout.borderpatrol.auth.Identity">auth.Identity</a></p><div class="fullcomment"><div class="comment cmt"><p>This provides the specification contracts for doing auth in the form of
+Type Classes in <a href="auth/Access.html" class="extype" name="com.lookout.borderpatrol.auth.Access">auth.Access</a> and <a href="auth/Identity.html" class="extype" name="com.lookout.borderpatrol.auth.Identity">auth.Identity</a></p><p>Taking SAML 2.0 and OAuth2 as example flows, we have defined a set of contracts and abstractions on those
+contracts to allow users of this library to implement instances of their specific authentication/authorization.</p><p>The flow for a typical SAML/OAuth2 involves a protected resource, a client (web browser), and an Identity Provider.
+Border Patrol can act as a translation layer for external representation of access and internal representation so
+that services behind it do not need to implement SAML/OAuth2.</p><p>The primary abstractions are:</p><ul><li><code>Identity</code> the external identity provider and types, e.g. SAML IdP</li><li><code>Access</code> the internal access provider and types, e.g. api tokens, jwt etc</li></ul></div></div>
     </li><li name="com.lookout.borderpatrol.crypto" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
       <a id="crypto"></a>
       <a id="crypto:crypto"></a>
@@ -347,8 +390,8 @@ Assuming you are storing it in memcached, which requires a type of <span class="
 }
 
 <span class="kw">implicit</span> <span class="kw">val</span> enc = SessionDataEncoder[Foo](
-  foo <span class="kw">=&gt;</span> Buf.U32BE(toBytes.value),
-  buf <span class="kw">=&gt;</span> <span class="kw">new</span> Foo { <span class="kw">override</span> <span class="kw">val</span> value = Buf.U32BE.unapply(b) }
+  foo <span class="kw">=&gt;</span> Buf.U32BE(foo.value),
+  buf <span class="kw">=&gt;</span> <span class="kw">new</span> Foo { <span class="kw">override</span> <span class="kw">val</span> value = Buf.U32BE.unapply(buf) }
 )
 
 <span class="kw">val</span> foo1 = <span class="kw">new</span> Foo { <span class="kw">override</span> <span class="kw">val</span> value = <span class="num">1</span> }
