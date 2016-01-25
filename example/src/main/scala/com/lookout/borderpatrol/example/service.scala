@@ -170,7 +170,8 @@ object service {
           ServiceFilter(serviceMatcher) andThen /* Validate that its our service */
           SessionIdFilter(config.sessionStore) andThen /* Get or allocate Session/SignedId */
           BorderService(identityProviderChainMap(config.sessionStore),
-            accessIssuerChainMap(config.sessionStore)) /* Glue that connects to identity & access service */
+            accessIssuerChainMap(config.sessionStore),
+            serviceMatcher) /* Glue that connects to identity & access service */
     }
   }
 }
