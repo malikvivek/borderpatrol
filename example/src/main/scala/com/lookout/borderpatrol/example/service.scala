@@ -140,7 +140,7 @@ object service {
    */
   def identityProviderChainMap(sessionStore: SessionStore)(
     implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
-  Map[String, Service[SessionIdRequest, Response]] =
+  Map[String, Service[BorderRequest, Response]] =
     Map("keymaster" -> keymasterIdentityProviderChain(sessionStore))
 
   /**
@@ -150,7 +150,7 @@ object service {
    */
   def accessIssuerChainMap(sessionStore: SessionStore)(
     implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
-  Map[String, Service[SessionIdRequest, Response]] =
+  Map[String, Service[BorderRequest, Response]] =
     Map("keymaster" -> keymasterAccessIssuerChain(sessionStore))
 
   /**
@@ -163,11 +163,11 @@ object service {
     RoutingService.byPath {
       case "/logout" =>
         ExceptionFilter() andThen /* Convert exceptions to responses */
-          ServiceFilter(serviceMatcher) andThen /* Validate that its our service */
+          CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
           LogoutService(config.sessionStore)
       case _ =>
         ExceptionFilter() andThen /* Convert exceptions to responses */
-          ServiceFilter(serviceMatcher) andThen /* Validate that its our service */
+          CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
           SessionIdFilter(config.sessionStore) andThen /* Get or allocate Session/SignedId */
           BorderService(identityProviderChainMap(config.sessionStore),
             accessIssuerChainMap(config.sessionStore),

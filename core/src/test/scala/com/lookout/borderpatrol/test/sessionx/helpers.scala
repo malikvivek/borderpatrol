@@ -5,7 +5,7 @@ import java.net.URL
 import com.lookout.borderpatrol.Binder.{BindRequest, MBinder}
 import com.lookout.borderpatrol.auth.OAuth2.OAuth2CodeVerify
 import com.lookout.borderpatrol._
-import com.lookout.borderpatrol.auth.ServiceRequest
+import com.lookout.borderpatrol.auth.CustomerIdRequest
 import com.lookout.borderpatrol.sessionx.SecretStores.InMemorySecretStore
 import com.twitter.finagle.http.Method.{Put, Get}
 import com.twitter.finagle.http.path.Path

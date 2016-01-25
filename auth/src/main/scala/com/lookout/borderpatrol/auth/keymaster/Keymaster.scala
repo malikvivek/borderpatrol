@@ -18,7 +18,12 @@ import com.twitter.util.Future
 object Keymaster {
   import Tokens._
 
-  case class KeymasterIdentifyReq(req: SessionIdRequest, credential: Credential) extends IdentifyRequest[Credential]
+  case class KeymasterIdentifyReq(req: Request, customerId: CustomerIdentifier, serviceId: ServiceIdentifier,
+                                  sessionId: SignedId, credential: Credential) extends IdentifyRequest[Credential]
+  object KeymasterIdentifyReq {
+    def apply(sr: BorderRequest, credential: Credential): KeymasterIdentifyReq =
+      KeymasterIdentifyReq(sr.req, sr.customerId, sr.serviceId, sr.sessionId, credential)
+  }
   case class KeymasterIdentifyRes(tokens: Tokens) extends IdentifyResponse[Tokens] {
     val identity = Identity(tokens)
   }
@@ -81,10 +86,10 @@ object Keymaster {
    * Handles Keymaster transforms for internal and OAuth2
    */
   case class KeymasterTransformFilter(oAuth2CodeVerify: OAuth2CodeVerify)(implicit statsReceiver: StatsReceiver)
-      extends Filter[SessionIdRequest, Response, KeymasterIdentifyReq, Response] {
+      extends Filter[BorderRequest, Response, KeymasterIdentifyReq, Response] {
     private[this] val log = Logger.getLogger(getClass.getSimpleName)
 
-    def transformInternal(req: SessionIdRequest): Future[InternalAuthCredential] =
+    def transformInternal(req: BorderRequest): Future[InternalAuthCredential] =
       (for {
         u <- req.req.params.get("username")
         p <- req.req.params.get("password")
@@ -94,14 +99,14 @@ object Keymaster {
           "transformBasic: Failed to parse the Request"))
       }
 
-    def transformOAuth2(req: SessionIdRequest, protoManager: OAuth2CodeProtoManager): Future[OAuth2CodeCredential] = {
+    def transformOAuth2(req: BorderRequest, protoManager: OAuth2CodeProtoManager): Future[OAuth2CodeCredential] = {
       for {
           accessClaimSet <- oAuth2CodeVerify.codeToClaimsSet(req, protoManager)
       } yield OAuth2CodeCredential(accessClaimSet.getStringClaim("upn"), accessClaimSet.getSubject,
         req.customerId, req.serviceId)
     }
 
-    def apply(req: SessionIdRequest,
+    def apply(req: BorderRequest,
               service: Service[KeymasterIdentifyReq, Response]): Future[Response] = {
       for {
         transformed: Credential <- req.customerId.loginManager.protoManager match {
@@ -142,13 +147,13 @@ object Keymaster {
           tokenResponse <- service(req)
           session <- Session(tokenResponse.identity.id, AuthenticatedTag)
           _ <- store.update[Tokens](session)
-          originReq <- requestFromSessionStore(req.req.sessionId)
-          _ <- store.delete(req.req.sessionId)
+          originReq <- requestFromSessionStore(req.sessionId)
+          _ <- store.delete(req.sessionId)
         } yield tap(Response(Status.Found))(res => {
           sessionAuthenticated.incr
           res.location = originReq.uri
           res.addCookie(session.id.asCookie())
-          log.log(Level.DEBUG, s"Session: ${req.req.sessionId.toLogIdString}} is authenticated, " +
+          log.log(Level.DEBUG, s"Session: ${req.sessionId.toLogIdString}} is authenticated, " +
             s"allocated new Session: ${session.id.toLogIdString} and redirecting to location: ${res.location}")
         })
     }
@@ -228,7 +233,7 @@ object Keymaster {
    * @param store
    */
   def keymasterIdentityProviderChain(store: SessionStore)(
-    implicit secretStoreApi: SecretStoreApi, statsReceiver: StatsReceiver): Service[SessionIdRequest, Response] =
+    implicit secretStoreApi: SecretStoreApi, statsReceiver: StatsReceiver): Service[BorderRequest, Response] =
       LoginManagerFilter(LoginManagerBinder) andThen
         KeymasterTransformFilter(new OAuth2CodeVerify) andThen
         KeymasterPostLoginFilter(store) andThen
@@ -240,7 +245,7 @@ object Keymaster {
    * @param store
    */
   def keymasterAccessIssuerChain(store: SessionStore)(
-    implicit secretStoreApi: SecretStoreApi, statsReceiver: StatsReceiver): Service[SessionIdRequest, Response] =
+    implicit secretStoreApi: SecretStoreApi, statsReceiver: StatsReceiver): Service[BorderRequest, Response] =
       RewriteFilter() andThen
         IdentityFilter[Tokens](store) andThen
         AccessFilter[Tokens, ServiceToken](ServiceIdentifierBinder) andThen

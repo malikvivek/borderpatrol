@@ -150,7 +150,7 @@ object OAuth2 {
      * @param protoManager
      * @return
      */
-    def codeToClaimsSet(req: SessionIdRequest, protoManager: OAuth2CodeProtoManager): Future[JWTClaimsSet] = {
+    def codeToClaimsSet(req: BorderRequest, protoManager: OAuth2CodeProtoManager): Future[JWTClaimsSet] = {
       for {
         aadToken <- protoManager.codeToToken(
           req.req.host, req.req.getParam("code")).flatMap(res => res.status match {

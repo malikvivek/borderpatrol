@@ -24,10 +24,10 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     }
 
   //  Test Services
-  val serviceFilterTestService = mkTestService[ServiceRequest, Response] { req => Future.value(Response(Status.Ok)) }
-  val sessionIdFilterTestService = mkTestService[BorderRequest, Response] { req => Future.value(Response(Status.Ok)) }
+  val serviceFilterTestService = mkTestService[CustomerIdRequest, Response] { req => Future.value(Response(Status.Ok)) }
+  val sessionIdFilterTestService = mkTestService[SessionIdRequest, Response] { req => Future.value(Response(Status.Ok)) }
   val identityFilterTestService = mkTestService[AccessIdRequest[Request], Response] { req => Future.value(Response(Status.Ok)) }
-  val workingService = mkTestService[SessionIdRequest, Response] { req => Response(Status.Ok).toFuture }
+  val workingService = mkTestService[BorderRequest, Response] { req => Response(Status.Ok).toFuture }
   val workingMap = Map("keymaster" -> workingService)
 
   //  Mock SessionStore client
@@ -40,11 +40,11 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     }
   }
 
-  behavior of "ServiceFilter"
+  behavior of "CustomerIdFilter"
 
   it should "succeed and return output of upstream Service if Request is destined to a known Service" in {
     // Execute
-    val output = (ServiceFilter(serviceMatcher) andThen serviceFilterTestService)(req("enterprise", "/ent"))
+    val output = (CustomerIdFilter(serviceMatcher) andThen serviceFilterTestService)(req("enterprise", "/ent"))
 
     // Validate
     Await.result(output).status should be (Status.Ok)
@@ -52,7 +52,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
   it should "return NotFound Status if Request is destined to an unknown Service" in {
     // Execute
-    val output = (ServiceFilter(serviceMatcher) andThen serviceFilterTestService)(req("foo", "/bar"))
+    val output = (CustomerIdFilter(serviceMatcher) andThen serviceFilterTestService)(req("foo", "/bar"))
 
     // Validate
     Await.result(output).status should be (Status.NotFound)
@@ -60,8 +60,8 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
   behavior of "SessionIdFilter"
 
-  it should "succeed and return output of upstream Service if ServiceRequest contains SignedId" in {
-    val testService = mkTestService[BorderRequest, Response] {
+  it should "succeed and return output of upstream Service if CustomerIdRequest contains SignedId" in {
+    val testService = mkTestService[SessionIdRequest, Response] {
       req => {
         assert(req.req.path == "/ent")
         Future.value(Response(Status.Ok))
@@ -77,19 +77,19 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     request.addCookie(cooki)
 
     //  Execute
-    val output = (SessionIdFilter(sessionStore) andThen testService)(ServiceRequest(request, cust1))
+    val output = (SessionIdFilter(sessionStore) andThen testService)(CustomerIdRequest(request, cust1))
 
     //  Verify
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "return redirect to login URI, if no SignedId present in the SessionIdRequest" in {
+  it should "return redirect to login URI, if no SignedId present in the BorderRequest" in {
 
     // Create request
     val request = req("enterprise", "/ent")
 
     // Execute
-    val output = (SessionIdFilter(sessionStore) andThen sessionIdFilterTestService)(ServiceRequest(request, cust1))
+    val output = (SessionIdFilter(sessionStore) andThen sessionIdFilterTestService)(CustomerIdRequest(request, cust1))
 
     // Validate
     Await.result(output).status should be (Status.Found)
@@ -99,13 +99,13 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(sessionData).path should be equals(request.path)
   }
 
-  it should "return redirect to login URI, if no SignedId present in the SessionIdRequest for OAuth2Code" in {
+  it should "return redirect to login URI, if no SignedId present in the BorderRequest for OAuth2Code" in {
 
     // Create request
     val request = req("sky", "/umb")
 
     // Execute
-    val output = (SessionIdFilter(sessionStore) andThen sessionIdFilterTestService)(ServiceRequest(request, cust2))
+    val output = (SessionIdFilter(sessionStore) andThen sessionIdFilterTestService)(CustomerIdRequest(request, cust2))
 
     // Validate
     Await.result(output).status should be (Status.Found)
@@ -121,7 +121,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = Request("/umb")
 
     // Execute
-    val output = (SessionIdFilter(sessionStore) andThen sessionIdFilterTestService)(ServiceRequest(request, cust2))
+    val output = (SessionIdFilter(sessionStore) andThen sessionIdFilterTestService)(CustomerIdRequest(request, cust2))
 
     // Validate
     val caught = the [Exception] thrownBy {
@@ -131,7 +131,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
   }
 
   it should "propagate the error Status code returned by the upstream Service" in {
-    val testService = mkTestService[BorderRequest, Response] { request => Future.value(Response(Status.NotFound))}
+    val testService = mkTestService[SessionIdRequest, Response] { request => Future.value(Response(Status.NotFound))}
 
     // Allocate and Session
     val sessionId = sessionid.untagged
@@ -142,14 +142,14 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     request.addCookie(cooki)
 
     // Execute
-    val output = (SessionIdFilter(sessionStore) andThen testService)(ServiceRequest(request, cust1))
+    val output = (SessionIdFilter(sessionStore) andThen testService)(CustomerIdRequest(request, cust1))
 
     // Verify
     Await.result(output).status should be (Status.NotFound)
   }
 
   it should "propagate the Exception thrown by the upstream Service" in {
-    val testService = mkTestService[BorderRequest, Response] {
+    val testService = mkTestService[SessionIdRequest, Response] {
       request => Future.exception(new Exception("SessionIdFilter test failure"))
     }
 
@@ -162,7 +162,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     request.addCookie(cooki)
 
     // Execute
-    val output = (SessionIdFilter(sessionStore) andThen testService)(ServiceRequest(request, cust1))
+    val output = (SessionIdFilter(sessionStore) andThen testService)(CustomerIdRequest(request, cust1))
 
     // Verify
     val caught = the [Exception] thrownBy {
@@ -179,7 +179,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "/ent")
 
     // Execute
-    val output = (SessionIdFilter(mockSessionStore) andThen sessionIdFilterTestService)(ServiceRequest(request, cust1))
+    val output = (SessionIdFilter(mockSessionStore) andThen sessionIdFilterTestService)(CustomerIdRequest(request, cust1))
 
     // Verify
     val caught = the [Exception] thrownBy {
@@ -209,7 +209,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     //  Execute
     val output = (IdentityFilter[Int](sessionStore) andThen testService)(
-      SessionIdRequest(request, cust1, one, sessionId))
+      BorderRequest(request, cust1, one, sessionId))
 
     //  Verify
     Await.result(output).status should be (Status.Ok)
@@ -227,7 +227,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Execute
     val output = (IdentityFilter[Request](sessionStore) andThen identityFilterTestService)(
-      SessionIdRequest(request, cust1, one, sessionId))
+      BorderRequest(request, cust1, one, sessionId))
 
     // Verify
     Await.result(output).status should be (Status.Found)
@@ -253,7 +253,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Execute
     val output = (IdentityFilter[Request](mockSessionStore) andThen identityFilterTestService)(
-      SessionIdRequest(request, cust1, one, sessionId))
+      BorderRequest(request, cust1, one, sessionId))
 
     // Verify
     val caught = the [Exception] thrownBy {
@@ -283,7 +283,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Execute
     val output = (IdentityFilter[Request](mockSessionStore) andThen identityFilterTestService)(
-      SessionIdRequest(request, cust1, one, sessionId))
+      BorderRequest(request, cust1, one, sessionId))
 
     // Verify
     val caught = the [Exception] thrownBy {
@@ -372,7 +372,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
   behavior of "BorderService"
 
   it should "successfully reach the upstream service path via access service chain, if authenticated" in {
-    val identityService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityService = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
     val identityProviderMap = Map("keymaster" -> identityService)
 
     // Allocate and Session
@@ -383,14 +383,14 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Original request
     val output = BorderService(identityProviderMap, workingMap, serviceMatcher)(
-      BorderRequest(request, cust1, sessionId))
+      SessionIdRequest(request, cust1, sessionId))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
   }
 
   it should "successfully reach the loginManager path via identity service chain, if unauthenticated " in {
-    val accessService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke identity service") }
+    val accessService = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
     val accessServiceMap = Map("keymaster" -> accessService)
 
     // Allocate and Session
@@ -401,14 +401,14 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Original request
     val output = BorderService(workingMap, accessServiceMap, serviceMatcher)(
-      BorderRequest(request, cust1, sessionId))
+      SessionIdRequest(request, cust1, sessionId))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
   }
 
   it should "successfully reach the loginManager login post path via identity service chain, if unauthenticated" in {
-    val accessService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke identity service") }
+    val accessService = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
     val accessServiceMap = Map("keymaster" -> accessService)
 
     // Allocate and Session
@@ -419,7 +419,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Original request
     val output = BorderService(workingMap, accessServiceMap, serviceMatcher)(
-      BorderRequest(request, cust1, sessionId))
+      SessionIdRequest(request, cust1, sessionId))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
@@ -435,7 +435,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     //  Execute
     val output = BorderService(workingMap, workingMap, serviceMatcher)(
-      BorderRequest(request, cust1, sessionId))
+      SessionIdRequest(request, cust1, sessionId))
 
     //  Verify
     Await.result(output).status should be (Status.Found)
@@ -452,7 +452,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     //  Execute
     val output = BorderService(workingMap, workingMap, serviceMatcher)(
-      BorderRequest(request, cust1, sessionId))
+      SessionIdRequest(request, cust1, sessionId))
 
     //  Verify
     Await.result(output).status should be (Status.NotFound)
@@ -468,7 +468,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     //  Execute
     val output = BorderService(workingMap, workingMap, serviceMatcher)(
-      BorderRequest(request, cust1, sessionId))
+      SessionIdRequest(request, cust1, sessionId))
 
     //  Verify
     Await.result(output).status should be (Status.NotFound)
@@ -484,7 +484,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     //  Execute
     val output = BorderService(workingMap, workingMap, serviceMatcher)(
-      BorderRequest(request, cust1, sessionId))
+      SessionIdRequest(request, cust1, sessionId))
 
     //  Verify
     Await.result(output).status should be (Status.NotFound)
@@ -503,7 +503,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val caught = the [AccessIssuerError] thrownBy {
       // Execute
       val output = BorderService(workingMap, accessIssuerMap, serviceMatcher)(
-        BorderRequest(request, cust1, sessionId))
+        SessionIdRequest(request, cust1, sessionId))
     }
     caught.getMessage should equal ("Failed to find AccessIssuer Service Chain for keymaster")
   }
@@ -521,7 +521,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val caught = the [IdentityProviderError] thrownBy {
       // Execute
       val output = BorderService(identityProviderMap, workingMap, serviceMatcher)(
-        BorderRequest(request, cust1, sessionId))
+        SessionIdRequest(request, cust1, sessionId))
     }
     caught.getMessage should equal ("Failed to find IdentityProvider Service Chain for keymaster")
   }
@@ -529,7 +529,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
   behavior of "LoginManagerFilter"
 
   it should "succeed and invoke the method on loginManager" in {
-    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Should not get here") }
+    val testService = mkTestService[BorderRequest, Response] { _ => fail("Should not get here") }
     val testLoginManagerBinder = mkTestLoginManagerBinder { _ => Response(Status.Ok).toFuture }
 
     // Allocate and Session
@@ -540,14 +540,14 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Execute
     val output = (LoginManagerFilter(testLoginManagerBinder) andThen testService)(
-      SessionIdRequest(request, cust1, one, sessionId))
+      BorderRequest(request, cust1, one, sessionId))
 
     // Validate
     Await.result(output).status should be (Status.Ok)
   }
 
   it should "succeed and invoke the method on keymaster service" in {
-    val testService = mkTestService[SessionIdRequest, Response] { _ => Response(Status.Ok).toFuture }
+    val testService = mkTestService[BorderRequest, Response] { _ => Response(Status.Ok).toFuture }
     val testLoginManagerBinder = mkTestLoginManagerBinder { _ => fail("Should not get here") }
 
     // Allocate and Session
@@ -558,14 +558,14 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Execute
     val output = (LoginManagerFilter(testLoginManagerBinder) andThen testService)(
-      SessionIdRequest(request, cust1, one, sessionId))
+      BorderRequest(request, cust1, one, sessionId))
 
     // Validate
     Await.result(output).status should be (Status.Ok)
   }
 
   it should "succeed and invoke the non GET or POST method on keymaster service" in {
-    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Should not get here") }
+    val testService = mkTestService[BorderRequest, Response] { _ => fail("Should not get here") }
     val testLoginManagerBinder = mkTestLoginManagerBinder { _ => Response(Status.Ok).toFuture }
 
     // Allocate and Session
@@ -576,7 +576,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Execute
     val output = (LoginManagerFilter(testLoginManagerBinder) andThen testService)(
-      SessionIdRequest(request, cust1, one, sessionId))
+      BorderRequest(request, cust1, one, sessionId))
 
     // Validate
     Await.result(output).status should be (Status.Ok)
@@ -616,7 +616,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
   behavior of "RewriteFilter"
 
   it should "succeed and include service token in the request and invoke the REST API of upstream service" in {
-    val testService = mkTestService[SessionIdRequest, Response] {
+    val testService = mkTestService[BorderRequest, Response] {
       req => {
         // Verify path is unchanged in the request
         assert(req.req.uri.startsWith(one.path.toString))
@@ -632,14 +632,14 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Execute
     val output = (RewriteFilter() andThen testService)(
-      SessionIdRequest(request, cust1, one, sessionId))
+      BorderRequest(request, cust1, one, sessionId))
 
     // Validate
     Await.result(output).status should be (Status.Ok)
   }
 
   it should "succeed and include service token in the request and invoke rewritten URL on upstream service" in {
-    val testService = mkTestService[SessionIdRequest, Response] {
+    val testService = mkTestService[BorderRequest, Response] {
       req => {
         // Verify path is rewritten in the request
         assert(req.req.uri.startsWith(two.rewritePath.get.toString))
@@ -655,7 +655,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Execute
     val output = (RewriteFilter() andThen testService)(
-      SessionIdRequest(request, cust2, two, sessionId))
+      BorderRequest(request, cust2, two, sessionId))
 
     // Validate
     Await.result(output).status should be (Status.Ok)
@@ -677,7 +677,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     request.addCookie(cooki)
 
     // Execute
-    val output = LogoutService(sessionStore).apply(ServiceRequest(request, cust1))
+    val output = LogoutService(sessionStore).apply(CustomerIdRequest(request, cust1))
 
     // Validate
     Await.result(output).status should be (Status.Found)
@@ -692,7 +692,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "/logout")
 
     // Execute
-    val output = LogoutService(sessionStore).apply(ServiceRequest(request, cust1))
+    val output = LogoutService(sessionStore).apply(CustomerIdRequest(request, cust1))
 
     // Validate
     Await.result(output).status should be (Status.Found)
