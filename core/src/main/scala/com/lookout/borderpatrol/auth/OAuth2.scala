@@ -3,10 +3,9 @@ package com.lookout.borderpatrol.auth
 import java.net.URL
 import java.security.PublicKey
 import java.security.interfaces.{ECPublicKey, RSAPublicKey}
-import java.util.logging.Logger
 import javax.xml.bind.DatatypeConverter
 
-import com.twitter.logging.Level
+import com.twitter.logging.{Logger, Level}
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -58,7 +57,7 @@ object OAuth2 {
    * This class downloads and manages the certificates and verifies the tokens
    */
   class OAuth2CodeVerify {
-    private[this] val log = Logger.getLogger(getClass.getSimpleName)
+    private[this] val log = Logger.get(getClass.getPackage.getName)
     private[this] var certificates: Map[String, String] = Map.empty[String, String]
 
     private[this] def find(name: String): Option[String] =
@@ -93,7 +92,7 @@ object OAuth2 {
             val thumb = DatatypeConverter.printBase64Binary(md.digest(dec)).replaceAll("=", "").replaceAll("/", "_")
             // Add it to the cache
             add(thumb, node.text)
-            log.log(Level.DEBUG, s"downloaded a certificate for thumbprint: " + thumb)
+            log.debug(s"downloaded a certificate for thumbprint: " + thumb)
           })
 
           // Find again or throw exception
@@ -131,12 +130,12 @@ object OAuth2 {
           BpCertificateError.apply)
       } yield signedJWT.verify(verifier(cert.getPublicKey)) match {
         case true => {
-          log.log(Level.DEBUG, "Verified the signature on the AccessToken for: " +
+          log.debug("Verified the signature on the AccessToken for: " +
             s"${signedJWT.getJWTClaimsSet.getStringClaim("upn")}, with a certificate of thumbprint: " + thumbprint)
           signedJWT.getJWTClaimsSet
         }
         case false => {
-          log.log(Level.DEBUG, "Failed to verified the signature on the AccessToken for: " +
+          log.debug("Failed to verified the signature on the AccessToken for: " +
             s"${signedJWT.getJWTClaimsSet.getStringClaim("upn")}, with a certificate of thumbprint: " + thumbprint)
           throw new Exception("failed to verify signature")
         }

@@ -1,7 +1,5 @@
 package com.lookout.borderpatrol.auth.keymaster
 
-import java.util.logging.Logger
-
 import com.lookout.borderpatrol.auth.OAuth2.OAuth2CodeVerify
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.lookout.borderpatrol.sessionx._
@@ -11,7 +9,7 @@ import com.lookout.borderpatrol.auth._
 import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.finagle.{Filter, Service}
 import com.twitter.finagle.http._
-import com.twitter.logging.Level
+import com.twitter.logging.{Logger, Level}
 import com.twitter.util.Future
 
 
@@ -39,7 +37,7 @@ object Keymaster {
   case class KeymasterIdentityProvider(binder: MBinder[Manager])
                                       (implicit statsReceiver: StatsReceiver)
       extends IdentityProvider[Credential, Tokens] {
-    private[this] val log = Logger.getLogger(getClass.getSimpleName)
+    private[this] val log = Logger.get(getClass.getPackage.getName)
     private[this] val requestSends = statsReceiver.counter("keymaster.identity.provider.request.sends")
     private[this] val responseParsingFailed =
       statsReceiver.counter("keymaster.identity.provider.response.parsing.failed")
@@ -72,7 +70,7 @@ object Keymaster {
           )
         //  Preserve Response Status code by throwing AccessDenied exceptions
         case _ => {
-          log.log(Level.DEBUG, s"IdentityProvider denied user: ${req.credential.uniqueId} " +
+          log.debug(s"IdentityProvider denied user: ${req.credential.uniqueId} " +
             s"with status: ${res.status} for user")
           responseFailed.incr
           Future.exception(IdentityProviderError(res.status,
@@ -87,7 +85,7 @@ object Keymaster {
    */
   case class KeymasterTransformFilter(oAuth2CodeVerify: OAuth2CodeVerify)(implicit statsReceiver: StatsReceiver)
       extends Filter[BorderRequest, Response, KeymasterIdentifyReq, Response] {
-    private[this] val log = Logger.getLogger(getClass.getSimpleName)
+    private[this] val log = Logger.get(getClass.getPackage.getName)
 
     def transformInternal(req: BorderRequest): Future[InternalAuthCredential] =
       (for {
@@ -129,7 +127,7 @@ object Keymaster {
   case class KeymasterPostLoginFilter(store: SessionStore)
                                      (implicit secretStoreApi: SecretStoreApi, statsReceiver: StatsReceiver)
       extends Filter[KeymasterIdentifyReq, Response, IdentifyRequest[Credential], IdentifyResponse[Tokens]] {
-    private[this] val log = Logger.getLogger(getClass.getSimpleName)
+    private[this] val log = Logger.get(getClass.getPackage.getName)
     private[this] val sessionAuthenticated = statsReceiver.counter("keymaster.session.authenticated")
 
     /**
@@ -153,7 +151,7 @@ object Keymaster {
           sessionAuthenticated.incr
           res.location = originReq.uri
           res.addCookie(session.id.asCookie())
-          log.log(Level.DEBUG, s"Session: ${req.sessionId.toLogIdString}} is authenticated, " +
+          log.debug(s"Session: ${req.sessionId.toLogIdString}} is authenticated, " +
             s"allocated new Session: ${session.id.toLogIdString} and redirecting to location: ${res.location}")
         })
     }
@@ -167,7 +165,7 @@ object Keymaster {
   case class KeymasterAccessIssuer(binder: MBinder[Manager], store: SessionStore)
                                   (implicit statsReceiver: StatsReceiver)
       extends AccessIssuer[Tokens, ServiceToken] {
-    private[this] val log = Logger.getLogger(getClass.getSimpleName)
+    private[this] val log = Logger.get(getClass.getPackage.getName)
     private[this] val requestSends = statsReceiver.counter("keymaster.access.issuer.request.sends")
     private[this] val responseParsingFailed =
       statsReceiver.counter("keymaster.access.issuer.response.parsing.failed")
@@ -215,7 +213,7 @@ object Keymaster {
             )
           //  Preserve Response Status code by throwing AccessDenied exceptions
           case _ => {
-            log.log(Level.DEBUG, s"AccessIssuer denied access to service: ${req.serviceId.name} " +
+            log.debug(s"AccessIssuer denied access to service: ${req.serviceId.name} " +
               s"with status: ${res.status}")
             responseFailed.incr
             Future.exception(AccessIssuerError(res.status,

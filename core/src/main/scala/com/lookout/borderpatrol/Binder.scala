@@ -2,10 +2,10 @@ package com.lookout.borderpatrol
 
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
-import java.util.logging.Logger
 
 import com.twitter.finagle.{Http, Service}
 import com.twitter.finagle.http.{Response, Request}
+import com.twitter.logging.Logger
 import com.twitter.util.Future
 import scala.collection.JavaConverters._
 import scala.language.postfixOps
@@ -72,7 +72,7 @@ object Binder {
 
 
 object BinderBase {
-  val log = Logger.getLogger(getClass.getSimpleName)
+  val log = Logger.get(getClass.getPackage.getName)
   val cache: collection.concurrent.Map[String, Service[Request, Response]] =
     new ConcurrentHashMap[String, Service[Request, Response]] asScala
 
