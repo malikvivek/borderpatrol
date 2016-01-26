@@ -2,7 +2,6 @@ package com.lookout.borderpatrol.sessionx
 
 import java.net.URL
 import java.util.concurrent.TimeUnit
-import java.util.logging.Logger
 import javax.xml.bind.DatatypeConverter
 
 import argonaut.Parse
@@ -15,7 +14,7 @@ import com.lookout.borderpatrol.BinderBase
 import com.lookout.borderpatrol.util.Combinators._
 import com.twitter.finagle.http.{Method, Status, Request}
 import com.twitter.finagle.util.DefaultTimer
-import com.twitter.logging.Level
+import com.twitter.logging.{Logger, Level}
 import com.twitter.util._
 
 import scala.util.{Success, Failure}
@@ -81,7 +80,7 @@ object SecretStores {
    */
   case class ConsulSecretStore(key: String, consulUrls: Set[URL], var _secrets: Secrets)
       extends SecretStoreApi {
-    private[this] val log = Logger.getLogger(getClass.getName)
+    private[this] val log = Logger.get(getClass.getPackage.getName)
 
     /* Kick off a poll timer */
     DefaultTimer.twitter.schedule(Time.now)(pollSecrets)
@@ -116,13 +115,12 @@ object SecretStores {
     private[this] def processPolledSecrets(secrets: Option[Secrets], result: Boolean): Unit =
       (secrets, result) match {
         case (Some(s), true) =>
-          log.log(Level.DEBUG,
-            s"ConsulSecretStore: Received a new Secret from Consul with an expiry: ${s.current.expiry}")
+          log.info(s"ConsulSecretStore: Received a new Secret from Consul with an id: ${s.current.id}")
           _secrets = s
           DefaultTimer.twitter.schedule(_secrets.current.expiry)(pollSecrets)
 
         case _ =>
-          log.log(Level.DEBUG, "ConsulSecretStore: Failed to get Secrets from Consul, trying again soon in 1 minute")
+          log.debug("ConsulSecretStore: Failed to get Secrets from Consul, trying again soon in 1 minute")
           DefaultTimer.twitter.schedule(Time.now + Duration(1, TimeUnit.MINUTES))(pollSecrets)
       }
 
@@ -141,7 +139,7 @@ object SecretStores {
         (_, secrets, result) <- fetchSecretsFromConsul(3, result, secrets)
       } yield processPolledSecrets(secrets, result)) handle {
         case e: Throwable =>
-          log.log(Level.ERROR, s"ConsulSecretStore: Failed to sync Secrets from Consul with: ${e.getMessage}, " +
+          log.error(s"ConsulSecretStore: Failed to sync Secrets from Consul with: ${e.getMessage}, " +
             s"trying again soon in 1 minute")
           DefaultTimer.twitter.schedule(Time.now + Duration(1, TimeUnit.MINUTES))(pollSecrets)
       }
@@ -199,8 +197,8 @@ object SecretStores {
           req.contentType = "application/json"
         })).flatMap(res => res.status match {
             case Status.Ok =>
-              log.log(Level.DEBUG, "ConsulSecretStore: LEADER: Updated the new Secrets on Consul with an expiry: " +
-                newSecrets.current.expiry)
+              log.info("ConsulSecretStore: LEADER: Updated the new Secrets on Consul with an id: " +
+                newSecrets.current.id)
               Future.value((Some(newSecrets), res.contentString == "true"))
             case _ => Future.exception(ConsulError(s"Step-${step}: Failed to set Secrets with an error response " +
               s"from Consul: ${res.status}"))

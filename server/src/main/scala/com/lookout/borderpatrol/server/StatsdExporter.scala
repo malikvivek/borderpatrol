@@ -3,11 +3,12 @@ package com.lookout.borderpatrol.server
 import java.net.InetAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
-import java.util.logging.Logger
+
 import com.twitter.common.metrics.Metrics
 import com.twitter.finagle.stats._
 import com.twitter.finagle.util.{InetSocketAddressUtil, DefaultTimer}
 import com.twitter.io.Buf
+import com.twitter.logging.Logger
 import com.twitter.util.{Duration, Timer, NonFatal}
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.Map
@@ -15,7 +16,7 @@ import scala.util.Try
 
 
 class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", duration: Duration, hostAndPort: String) {
-  val log = Logger.getLogger(getClass.getSimpleName)
+  val log = Logger.get(getClass.getPackage.getName)
 
   private[this] val addr = InetSocketAddressUtil.parseHosts(hostAndPort).head
   private[this] val channel = DatagramChannel.open()

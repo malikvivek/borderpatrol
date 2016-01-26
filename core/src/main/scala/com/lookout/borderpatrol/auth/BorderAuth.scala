@@ -1,7 +1,5 @@
 package com.lookout.borderpatrol.auth
 
-import java.util.logging.Logger
-
 import com.lookout.borderpatrol.Binder.{BindRequest, MBinder}
 import com.lookout.borderpatrol.util.Combinators._
 import com.lookout.borderpatrol.{CustomerIdentifier, LoginManager, ServiceIdentifier, ServiceMatcher}
@@ -10,7 +8,7 @@ import com.twitter.finagle.http.path.{Root, Path}
 import com.twitter.finagle.http.{Cookie, Status, Request, Response}
 import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.finagle.{SimpleFilter, Service, Filter}
-import com.twitter.logging.Level
+import com.twitter.logging.{Logger, Level}
 import com.twitter.util.Future
 import scala.util.{Failure, Success}
 
@@ -44,18 +42,18 @@ object AccessIdRequest {
  */
 case class CustomerIdFilter(matchers: ServiceMatcher)
     extends Filter[Request, Response, CustomerIdRequest, Response] {
-  private[this] val log = Logger.getLogger(getClass.getSimpleName)
+  private[this] val log = Logger.get(getClass.getPackage.getName)
 
   def apply(req: Request, service: Service[CustomerIdRequest, Response]): Future[Response] = {
     req.host.flatMap(matchers.subdomain) match {
       case Some(cid) => {
-        log.log(Level.DEBUG, s"Processing: Request(${req.method} " +
+        log.debug(s"Processing: Request(${req.method} " +
           s"${req.host.fold("null-hostname")(h => s"${h}${req.path}")}) " +
           s"with CustomerIdentifier: ${cid.subdomain}")
          service(CustomerIdRequest(req, cid))
       }
       case None => tap(Response(Status.NotFound))(r => {
-        log.log(Level.DEBUG, "Failed to find CustomerIdentifier for " +
+        log.debug("Failed to find CustomerIdentifier for " +
           s"Request(${req.method}, ${req.host.fold("null-hostname")(h => s"${h}${req.path}")})")
         r.contentString = s"${req.path}: Unknown Path/Service(${Status.NotFound.code})"
         r.contentType = "text/plain"
@@ -69,7 +67,7 @@ case class CustomerIdFilter(matchers: ServiceMatcher)
  */
 case class SessionIdFilter(store: SessionStore)(implicit secretStore: SecretStoreApi)
     extends Filter[CustomerIdRequest, Response, SessionIdRequest, Response] {
-  private[this] val log = Logger.getLogger(getClass.getSimpleName)
+  private[this] val log = Logger.get(getClass.getPackage.getName)
 
   /**
    * Passes the SignedId to the next in the filter chain. If any failures decoding the SignedId occur
@@ -87,7 +85,7 @@ case class SessionIdFilter(store: SessionStore)(implicit secretStore: SecretStor
         } yield tap(Response(Status.Found)) { res =>
           res.location = req.customerId.loginManager.protoManager.redirectLocation(req.req.host)
           res.addCookie(session.id.asCookie())
-          log.log(Level.DEBUG, s"${req.req}, allocating a new session: " +
+          log.debug(s"${req.req}, allocating a new session: " +
             s"${session.id.toLogIdString}, redirecting to location: ${res.location}")
         }
     }
@@ -110,10 +108,10 @@ case class BorderService(identityProviderMap: Map[String, Service[BorderRequest,
                          accessIssuerMap: Map[String, Service[BorderRequest, Response]],
                          matchers: ServiceMatcher)
     extends Service[SessionIdRequest, Response] {
-  private[this] val log = Logger.getLogger(getClass.getSimpleName)
+  private[this] val log = Logger.get(getClass.getPackage.getName)
 
   def sendToIdentityProvider(req: BorderRequest): Future[Response] = {
-    log.log(Level.DEBUG, s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
+    log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
       s"to identity provider chain for service: ${req.serviceId.name}")
     identityProviderMap.get(req.customerId.loginManager.identityManager.name) match {
       case Some(ip) => ip(req)
@@ -123,7 +121,7 @@ case class BorderService(identityProviderMap: Map[String, Service[BorderRequest,
   }
 
   def sendToAccessIssuer(req: BorderRequest): Future[Response] = {
-    log.log(Level.DEBUG, s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
+    log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
       s"to access issuer chain for service: ${req.serviceId.name}")
     accessIssuerMap.get(req.customerId.loginManager.accessManager.name) match {
       case Some(ip) => ip(req)
@@ -136,7 +134,7 @@ case class BorderService(identityProviderMap: Map[String, Service[BorderRequest,
     tap(Response(Status.Found))(res => res.location = location)
 
   def redirectToService(req: BorderRequest): Future[Response] = {
-    log.log(Level.DEBUG, s"Redirecting the ${req.req} for Authenticated Session: ${req.sessionId.toLogIdString} " +
+    log.debug(s"Redirecting the ${req.req} for Authenticated Session: ${req.sessionId.toLogIdString} " +
       s"to upstream service, location: ${req.serviceId.path}")
     redirectTo(req.serviceId.path.toString).toFuture
   }
@@ -144,7 +142,7 @@ case class BorderService(identityProviderMap: Map[String, Service[BorderRequest,
 
   def redirectToLogin(req: SessionIdRequest): Future[Response] = {
     val path = req.customerId.loginManager.protoManager.redirectLocation(req.req.host)
-    log.log(Level.DEBUG, s"Redirecting the ${req.req} for Untagged Session: ${req.sessionId.toLogIdString} " +
+    log.debug(s"Redirecting the ${req.req} for Untagged Session: ${req.sessionId.toLogIdString} " +
       s"to login service, location: ${path}")
     redirectTo(path).toFuture
   }
@@ -173,11 +171,11 @@ case class BorderService(identityProviderMap: Map[String, Service[BorderRequest,
  */
 case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreApi)
   extends Service[CustomerIdRequest, Response] {
-  private[this] val log = Logger.getLogger(getClass.getSimpleName)
+  private[this] val log = Logger.get(getClass.getPackage.getName)
 
   def apply(req: CustomerIdRequest): Future[Response] = {
     SignedId.fromRequest(req.req, SignedId.sessionIdCookieName).foreach(sid => {
-      log.log(Level.DEBUG, s"Logging out Session: ${sid.toLogIdString}")
+      log.debug(s"Logging out Session: ${sid.toLogIdString}")
       store.delete(sid)
     })
     tap(Response(Status.Found)) { res =>
@@ -188,7 +186,7 @@ case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreA
           res.addCookie(SignedId.toExpiredCookie(name))
         case _ =>
       }
-      log.log(Level.DEBUG, s"W/ Session: Redirecting to default service path: ${res.location}")
+      log.debug(s"Redirecting to default service path: ${res.location}")
     }.toFuture
   }
 }
@@ -199,7 +197,7 @@ case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreA
  */
 case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(implicit secretStore: SecretStoreApi)
     extends Filter[BorderRequest, Response, AccessIdRequest[A], Response] {
-  private[this] val log = Logger.getLogger(getClass.getName)
+  private[this] val log = Logger.get(getClass.getPackage.getName)
 
   def identity(sessionId: SignedId): Future[Identity[A]] =
     (for {
@@ -235,7 +233,7 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(implicit 
  */
 case class LoginManagerFilter(binder: MBinder[LoginManager])(implicit statsReceiver: StatsReceiver)
     extends Filter[BorderRequest, Response, BorderRequest, Response] {
-  private[this] val log = Logger.getLogger(getClass.getSimpleName)
+  private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val requestSends = statsReceiver.counter("login.manager.request.sends")
 
   def apply(req: BorderRequest,
@@ -244,7 +242,7 @@ case class LoginManagerFilter(binder: MBinder[LoginManager])(implicit statsRecei
       case req.customerId.loginManager.protoManager.loginConfirm => service(req)
       case _ => {
         requestSends.incr
-        log.log(Level.DEBUG, s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
+        log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
           s"to the Login Manager: ${req.customerId.loginManager.name}")
         binder(BindRequest(req.customerId.loginManager, req.req))
       }
@@ -258,7 +256,7 @@ case class LoginManagerFilter(binder: MBinder[LoginManager])(implicit statsRecei
  */
 case class AccessFilter[A, B](binder: MBinder[ServiceIdentifier])(implicit statsReceiver: StatsReceiver)
     extends Filter[AccessIdRequest[A], Response, AccessRequest[A], AccessResponse[B]] {
-  private[this] val log = Logger.getLogger(getClass.getSimpleName)
+  private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val requestSends = statsReceiver.counter("upstream.service.request.sends")
 
   def apply(req: AccessIdRequest[A],
@@ -267,7 +265,7 @@ case class AccessFilter[A, B](binder: MBinder[ServiceIdentifier])(implicit stats
       accessResp => binder(BindRequest(req.serviceId,
         tap(req.req) { r => {
           requestSends.incr
-          log.log(Level.DEBUG, s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
+          log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
             s"to the upstream service: ${req.serviceId.name}")
           r.headerMap.add("Auth-Token", accessResp.access.access.toString)
         }})
@@ -293,38 +291,25 @@ case class RewriteFilter() extends SimpleFilter[BorderRequest, Response] {
  * Top level filter that maps exceptions into appropriate status codes
  */
 case class ExceptionFilter() extends SimpleFilter[Request, Response] {
-  private[this] val log = Logger.getLogger(getClass.getSimpleName)
+  private[this] val log = Logger.get(getClass.getPackage.getName)
+
+  private[this] def warningAndResponse(msg: String, status: Status): Response = {
+    log.warning(msg)
+    tap(Response(status))(
+      r => { r.contentString = msg; r.contentType = "text/plain" }
+    )
+  }
 
   /**
    * Tells the service how to handle certain types of servable errors (i.e. PetstoreError)
    */
   def errorHandler: PartialFunction[Throwable, Response] = {
-    case error: SessionError => {
-      log.warning(error.getMessage)
-      tap(Response(Status.InternalServerError))(
-        r => { r.contentString = error.message; r.contentType = "text/plain" }
-      )
-    }
-    case error: AccessDenied => {
-      log.warning(error.getMessage)
-      tap(Response(error.status))(
-        r => { r.contentString = "AccessDenied: " + error.msg; r.contentType = "text/plain" }
-      )
-    }
-    case error: AccessIssuerError => {
-      log.warning(error.getMessage)
-      tap(Response(error.status))(
-        r => { r.contentString = error.msg; r.contentType = "text/plain" }
-      )
-    }
-    case error: IdentityProviderError => {
-      log.warning(error.getMessage)
-      tap(Response(error.status))(
-        r => { r.contentString = error.msg; r.contentType = "text/plain" }
-      )
-    }
+    case error: SessionError => warningAndResponse(error.getMessage, Status.InternalServerError)
+    case error: AccessDenied => warningAndResponse("AccessDenied: " + error.getMessage, error.status)
+    case error: AccessIssuerError => warningAndResponse(error.getMessage, error.status)
+    case error: IdentityProviderError => warningAndResponse(error.getMessage, error.status)
     case error: Exception => {
-      log.warning(error.getMessage)
+      log.error(error, error.getMessage)
       tap(Response(Status.InternalServerError))(
         r => { r.contentString = error.getMessage; r.contentType = "text/plain" }
       )
