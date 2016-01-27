@@ -22,8 +22,7 @@
       "proto": {
         "type": "Internal",
         "loginConfirm": "/signin",
-        "path": "/a",
-        "hosts": ["http://localhost:8081"]
+        "authorizePath": "/a"
       }
     },
     {
@@ -64,6 +63,19 @@
       "path": "/top",
       "rewritePath": "/internal/top",
       "name": "two"
+    },
+    {
+      "hosts": ["http://localhost:8081"],
+      "path": "/a",
+      "protected": false,
+      "name": "checkpoint"
+    },
+    {
+      "hosts": ["http://localhost:8081"],
+      "path": "/logout",
+      "rewritePath": "/signout",
+      "protected": false,
+      "name": "logout"
     }
   ],
   "customerIdentifiers": [

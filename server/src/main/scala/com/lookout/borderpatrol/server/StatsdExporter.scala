@@ -6,7 +6,7 @@ import java.nio.channels.DatagramChannel
 
 import com.twitter.common.metrics.Metrics
 import com.twitter.finagle.stats._
-import com.twitter.finagle.util.{InetSocketAddressUtil, DefaultTimer}
+import com.twitter.finagle.util.{HashedWheelTimer, InetSocketAddressUtil, DefaultTimer}
 import com.twitter.io.Buf
 import com.twitter.logging.Logger
 import com.twitter.util.{Duration, Timer, NonFatal}
@@ -15,16 +15,11 @@ import scala.collection.Map
 import scala.util.Try
 
 
-class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", duration: Duration, hostAndPort: String) {
-  val log = Logger.get(getClass.getPackage.getName)
-
+case class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", duration: Duration,
+                          hostAndPort: String) {
+  private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val addr = InetSocketAddressUtil.parseHosts(hostAndPort).head
   private[this] val channel = DatagramChannel.open()
-
-  // Alternate constructor
-  def this(config: StatsdExporterConfig) = this(MetricsStatsReceiver.defaultRegistry, DefaultTimer.twitter,
-    config.prefix.getOrDefault(Try(InetAddress.getLocalHost.getHostName).getOrDefault("localhost")),
-    Duration.fromSeconds(config.durationInSec), config.host)
 
   // Schedule exporter
   timer.schedule(duration)(report)
@@ -91,4 +86,9 @@ class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", durat
   }
 }
 
-
+object StatsdExporter {
+  def apply(config: StatsdExporterConfig): StatsdExporter =
+    StatsdExporter(MetricsStatsReceiver.defaultRegistry, HashedWheelTimer(),
+      config.prefix.getOrDefault(Try(InetAddress.getLocalHost.getHostName).getOrDefault("localhost")),
+      Duration.fromSeconds(config.durationInSec), config.host)
+}

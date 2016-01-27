@@ -49,10 +49,6 @@ object Binder {
   /**
    * implicit values for evidence parameter of type BinderContext
    */
-  implicit object LoginManagerBinderContext extends BinderContext[LoginManager] {
-    def name(lm: LoginManager): String = lm.name
-    def hosts(lm: LoginManager): Set[URL] = lm.protoManager.hosts
-  }
   implicit object ManagerBinderContext extends BinderContext[Manager] {
     def name(m: Manager): String = m.name
     def hosts(m: Manager): Set[URL] = m.hosts
@@ -65,7 +61,6 @@ object Binder {
   /**
    * Binder objects
    */
-  case object LoginManagerBinder extends MBinder[LoginManager]
   case object ManagerBinder extends MBinder[Manager]
   case object ServiceIdentifierBinder extends MBinder[ServiceIdentifier]
 }

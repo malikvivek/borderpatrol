@@ -13,7 +13,7 @@ import io.circe.generic.semiauto._
 import com.lookout.borderpatrol.BinderBase
 import com.lookout.borderpatrol.util.Combinators._
 import com.twitter.finagle.http.{Method, Status, Request}
-import com.twitter.finagle.util.DefaultTimer
+import com.twitter.finagle.util.{HashedWheelTimer, DefaultTimer}
 import com.twitter.logging.{Logger, Level}
 import com.twitter.util._
 
@@ -78,12 +78,13 @@ object SecretStores {
    * @param consulUrls
    * @param _secrets
    */
-  case class ConsulSecretStore(key: String, consulUrls: Set[URL], var _secrets: Secrets)
+  case class ConsulSecretStore(key: String, consulUrls: Set[URL], var _secrets: Secrets,
+                               timer: Timer = HashedWheelTimer())
       extends SecretStoreApi {
     private[this] val log = Logger.get(getClass.getPackage.getName)
 
     /* Kick off a poll timer */
-    DefaultTimer.twitter.schedule(Time.now)(pollSecrets)
+    timer.schedule(Time.now)(pollSecrets)
 
     /**
      * Get the current secret from the cache layer
@@ -117,11 +118,11 @@ object SecretStores {
         case (Some(s), true) =>
           log.info(s"ConsulSecretStore: Received a new Secret from Consul with an id: ${s.current.id}")
           _secrets = s
-          DefaultTimer.twitter.schedule(_secrets.current.expiry)(pollSecrets)
+          timer.schedule(_secrets.current.expiry)(pollSecrets)
 
         case _ =>
           log.debug("ConsulSecretStore: Failed to get Secrets from Consul, trying again soon in 1 minute")
-          DefaultTimer.twitter.schedule(Time.now + Duration(1, TimeUnit.MINUTES))(pollSecrets)
+          timer.schedule(Time.now + Duration(1, TimeUnit.MINUTES))(pollSecrets)
       }
 
     /**
@@ -141,7 +142,7 @@ object SecretStores {
         case e: Throwable =>
           log.error(s"ConsulSecretStore: Failed to sync Secrets from Consul with: ${e.getMessage}, " +
             s"trying again soon in 1 minute")
-          DefaultTimer.twitter.schedule(Time.now + Duration(1, TimeUnit.MINUTES))(pollSecrets)
+          timer.schedule(Time.now + Duration(1, TimeUnit.MINUTES))(pollSecrets)
       }
 
     /**

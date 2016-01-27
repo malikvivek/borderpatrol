@@ -6,11 +6,11 @@ import com.twitter.finagle.http.path.Path
 class ServiceMatcherSpec extends BorderPatrolSuite {
   import sessionx.helpers._
 
-  val sOneOne = ServiceIdentifier("eOne", urls, Path("/ent1"), None)
-  val sOneTwo = ServiceIdentifier("eTwo", urls, Path("/ent2"), None)
-  val sTwo = ServiceIdentifier("two", urls, Path("/api"), None)
-  val sThree = ServiceIdentifier("three", urls, Path("/apis"), None)
-  val sFour = ServiceIdentifier("four", urls, Path("/apis/test"), None)
+  val sOneOne = ServiceIdentifier("eOne", urls, Path("/ent1"), None, true)
+  val sOneTwo = ServiceIdentifier("eTwo", urls, Path("/ent2"), None, true)
+  val sTwo = ServiceIdentifier("two", urls, Path("/api"), None, true)
+  val sThree = ServiceIdentifier("three", urls, Path("/apis"), None, true)
+  val sFour = ServiceIdentifier("four", urls, Path("/apis/test"), None, true)
   val serviceIds = Set(sOneOne, sOneTwo, sTwo, sThree, sFour)
   val cOne = CustomerIdentifier("enterprise", sOneOne, checkpointLoginManager)
   val cTwo = CustomerIdentifier("api", two, umbrellaLoginManager)
@@ -46,9 +46,9 @@ class ServiceMatcherSpec extends BorderPatrolSuite {
   }
 
   it should "match the longest get" in {
-    testServiceMatcher.get(req("enterprise", "/")) should be(None)
+    testServiceMatcher.get(req("enterprise", "/")).value should be((cOne, sOneOne))
     testServiceMatcher.get(req("enterprise", "/ent2")).value should be((cOne, sOneTwo))
-    testServiceMatcher.get(req("enterprise", "/check")).value should be((cOne, sOneOne))
+    testServiceMatcher.get(req("enterprise", "/check")) should be(None)
     testServiceMatcher.get(req("enterprise", "/loginConfirm")).value should be((cOne, sOneOne))
     testServiceMatcher.get(req("api", "/check")) should be(None)
     testServiceMatcher.get(req("api", "/loginConfirm")) should be(None)

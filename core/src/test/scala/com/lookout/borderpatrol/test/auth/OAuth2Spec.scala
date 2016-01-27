@@ -26,7 +26,12 @@ class OAuth2Spec extends BorderPatrolSuite {
   import OAuth2._
 
   override def afterEach(): Unit = {
-    BinderBase.clear
+    try {
+      super.afterEach() // To be stackable, must call super.afterEach
+    }
+    finally {
+      BinderBase.clear
+    }
   }
 
   // Mock

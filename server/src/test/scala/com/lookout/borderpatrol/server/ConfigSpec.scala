@@ -5,7 +5,7 @@ import java.net.URL
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test.{sessionx, BorderPatrolSuite}
 import com.lookout.borderpatrol._
-import com.twitter.finagle.Memcached
+import com.twitter.finagle.{memcached, Memcached}
 import com.twitter.finagle.http.path.Path
 import cats.data.Xor
 import io.circe._
@@ -19,10 +19,19 @@ class ConfigSpec extends BorderPatrolSuite {
   import sessionx.helpers._
   import Config._
 
+  override def afterEach(): Unit = {
+    try {
+      super.afterEach() // To be stackable, must call super.afterEach
+    }
+    finally {
+      BinderBase.clear
+    }
+  }
+
   // Stores
   val defaultSecretStore = SecretStores.InMemorySecretStore(Secrets(Secret(), Secret()))
   val defaultSessionStore = SessionStores.InMemoryStore
-  val memcachedSessionStore = SessionStores.MemcachedStore(Memcached.client.newRichClient("localhost:1234"))
+  val memcachedSessionStore = SessionStores.MemcachedStore(new memcached.MockClient())
   val consulSecretStore = SecretStores.ConsulSecretStore("testBpKey", Set(new URL("http://localhost:1234")))
 
   // StatdExporter
@@ -52,7 +61,7 @@ class ConfigSpec extends BorderPatrolSuite {
     def decodeFromJson(json: Json): ServiceIdentifier =
       decode[ServiceIdentifier](json.toString()) match {
         case Xor.Right(a) => a
-        case Xor.Left(b) => ServiceIdentifier("failed", urls, Path("f"), None)
+        case Xor.Left(b) => ServiceIdentifier("failed", urls, Path("f"), None, false)
       }
 
     val partialContents = Json.fromFields(Seq(
@@ -106,14 +115,18 @@ class ConfigSpec extends BorderPatrolSuite {
     serverConfig.findLoginManager("checkpoint") should be(checkpointLoginManager)
     serverConfig.findIdentityManager("keymaster") should be(keymasterIdManager)
     serverConfig.findAccessManager("keymaster") should be(keymasterAccessManager)
+    serverConfig.findServiceIdentifier("one") should be(one)
     the[InvalidConfigError] thrownBy {
-      serverConfig.findLoginManager("foo") should be(checkpointLoginManager)
+      serverConfig.findLoginManager("foo")
     }
     the[InvalidConfigError] thrownBy {
-      serverConfig.findIdentityManager("foo") should be(keymasterIdManager)
+      serverConfig.findIdentityManager("foo")
     }
     the[InvalidConfigError] thrownBy {
-      serverConfig.findAccessManager("foo") should be(keymasterAccessManager)
+      serverConfig.findAccessManager("foo")
+    }
+    the[InvalidConfigError] thrownBy {
+      serverConfig.findServiceIdentifier("foo")
     }
   }
 
@@ -177,7 +190,7 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception due to lack of Session Store config" in {
     val partialContents = Json.fromFields(Seq(
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
+      ("secretStore", consulSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
       ("customerIdentifiers", cids.asJson),
       ("serviceIdentifiers", sids.asJson),
@@ -196,7 +209,7 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception due to invalid Session Store config" in {
     val partialContents = Json.fromFields(Seq(
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
+      ("secretStore", consulSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", Json.obj(("type", Json.string("woof")))),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
       ("customerIdentifiers", cids.asJson),
@@ -362,7 +375,7 @@ class ConfigSpec extends BorderPatrolSuite {
       ("serviceIdentifiers", sids.asJson),
       ("loginManagers", (loginManagers +
         LoginManager("checkpoint", keymasterIdManager, keymasterAccessManager,
-          InternalAuthProtoManager(Path("/some"), Path("/some"), urls))).asJson),
+          InternalAuthProtoManager(Path("/some"), Path("/some")))).asJson),
       ("identityManagers", Set(keymasterIdManager).asJson),
       ("accessManagers", Set(keymasterAccessManager).asJson)))
 
@@ -381,7 +394,7 @@ class ConfigSpec extends BorderPatrolSuite {
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
       ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", (sids + ServiceIdentifier("one", urls, Path("/some"), None)).asJson),
+      ("serviceIdentifiers", (sids + ServiceIdentifier("one", urls, Path("/some"), None, false)).asJson),
       ("loginManagers", loginManagers.asJson),
       ("identityManagers", Set(keymasterIdManager).asJson),
       ("accessManagers", Set(keymasterAccessManager).asJson)))
@@ -402,7 +415,7 @@ class ConfigSpec extends BorderPatrolSuite {
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
       ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", (sids + ServiceIdentifier("some", urls, Path("/ent"), None)).asJson),
+      ("serviceIdentifiers", (sids + ServiceIdentifier("some", urls, Path("/ent"), None, false)).asJson),
       ("loginManagers", loginManagers.asJson),
       ("identityManagers", Set(keymasterIdManager).asJson),
       ("accessManagers", Set(keymasterAccessManager).asJson)))

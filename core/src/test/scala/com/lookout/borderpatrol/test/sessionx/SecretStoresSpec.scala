@@ -19,7 +19,12 @@ class SecretStoresSpec extends BorderPatrolSuite {
   import sessionx.helpers.{secretStore => store, _}, secrets._
 
   override def afterEach(): Unit = {
-    BinderBase.clear
+    try {
+      super.afterEach() // To be stackable, must call super.afterEach
+    }
+    finally {
+      BinderBase.clear
+    }
   }
 
   //val secretsJsonString = SecretsEncoder.EncodeJson.encode(testSecrets).nospaces
@@ -117,6 +122,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
       consulSecretStore.current should be (testSecrets.current)
       consulSecretStore.previous should be (testSecrets.previous)
       consulSecretStore.current should not be (testExpiredSecrets.current)
+      consulSecretStore.timer.stop()
 
     } finally {
       server.close()
@@ -160,6 +166,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
 
       /* Validate (previous of new Secrets matches with current of old Secrets) */
       consulSecretStore.previous should be (testExpiredSecrets.current)
+      consulSecretStore.timer.stop()
 
     } finally {
       server.close()
@@ -200,6 +207,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
 
       /* Validate (previous of new Secrets matches with current of old Secrets) */
       consulSecretStore.previous should be (testSecrets.current)
+      consulSecretStore.timer.stop()
 
     } finally {
       server.close()
@@ -244,6 +252,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
       /* Validate */
       consulSecretStore.current should be (testSecrets.current)
       consulSecretStore.previous should be (testSecrets.previous)
+      consulSecretStore.timer.stop()
 
     } finally {
       server.close()
@@ -287,6 +296,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
       /* Validate (exception thrown by Step-1 GET parsing is caught internally, _secrets remains unchanged) */
       consulSecretStore.current should be (testSecrets.current)
       consulSecretStore.previous should be (testSecrets.previous)
+      consulSecretStore.timer.stop()
 
     } finally {
       server.close()
@@ -330,6 +340,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
        */
       consulSecretStore.current should be (testSecrets.current)
       consulSecretStore.previous should be (testSecrets.previous)
+      consulSecretStore.timer.stop()
 
     } finally {
       server.close()
@@ -368,6 +379,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
       /* Validate (exception thrown is caught internally, _secrets remains unchanged) */
       consulSecretStore.current should be (testSecrets.current)
       consulSecretStore.previous should be (testSecrets.previous)
+      consulSecretStore.timer.stop()
 
     } finally {
       server.close()
@@ -412,6 +424,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
       /* Validate (failure is handled internally, Secrets remain unchanged due to failure) */
       consulSecretStore.current should be (testSecrets.current)
       consulSecretStore.previous should be (testSecrets.previous)
+      consulSecretStore.timer.stop()
 
     } finally {
       server.close()
@@ -458,6 +471,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
       /* Validate (exception thrown is caught internally, _secrets remains unchanged) */
       consulSecretStore.current should be (testSecrets.current)
       consulSecretStore.previous should be (testSecrets.previous)
+      consulSecretStore.timer.stop()
 
     } finally {
       server.close()

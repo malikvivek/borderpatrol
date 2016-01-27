@@ -14,7 +14,8 @@ import com.twitter.finagle.http.path.Path
  * @param rewritePath The (optional) internal url path prefix to the internal service. If present,
  *                    it replaces the external path in the Request URI
  */
-case class ServiceIdentifier(name: String, hosts: Set[URL], path: Path, rewritePath: Option[Path]) {
+case class ServiceIdentifier(name: String, hosts: Set[URL], path: Path, rewritePath: Option[Path],
+                             protekted: Boolean) {
   def isServicePath(p: Path): Boolean =
     p.startsWith(path)
 }
