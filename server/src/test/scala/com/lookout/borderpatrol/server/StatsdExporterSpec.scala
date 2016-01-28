@@ -27,15 +27,14 @@ class StatsdExporterSpec extends BorderPatrolSuite {
     server.receive(buf1)
     buf1.flip()
     val buf2 = Buf.ByteBuffer.Owned(buf1)
-    return Buf.Utf8.unapply(buf2)
+    Buf.Utf8.unapply(buf2)
   }
 
-  private[this] def receiveStats: IndexedSeq[String] = {
-    for {
-      i <- 1 to 50
-      rbuf <- receiveStat
-    }  yield rbuf
-  }
+  private[this] def receiveAllStats(stats: Set[String]): Set[String] =
+    receiveStat match {
+      case Some(s) if s.nonEmpty => receiveAllStats(stats + s)
+      case _ => stats
+    }
 
   behavior of "StatsdExporter"
 
@@ -52,7 +51,7 @@ class StatsdExporterSpec extends BorderPatrolSuite {
     val c = metrics1.createCounter("counter1")
     c.increment()
     exporter1.report()
-    receiveStats.contains("ut.counter1:1|c") should be (true)
+    receiveAllStats(Set.empty[String]).contains("ut.counter1:1|c") should be (true)
     exporter1.timer.stop()
   }
 
@@ -67,7 +66,8 @@ class StatsdExporterSpec extends BorderPatrolSuite {
     val gauge = metrics2.registerGauge(g)
     x = 10
     exporter2.report()
-    receiveStats.contains("ut.gauge1:10|g") should be (true)
+    Thread.sleep(100)
+    receiveAllStats(Set.empty[String]).contains("ut.gauge1:10|g") should be (true)
     exporter2.timer.stop()
   }
 
@@ -78,7 +78,7 @@ class StatsdExporterSpec extends BorderPatrolSuite {
     val r = new scala.util.Random(10000)
     val histo = metrics3.createHistogram("histo")
     exporter3.report()
-    val stats = receiveStats
+    val stats = receiveAllStats(Set.empty[String])
     stats.contains("ut.histo.count:0|g") should be (true)
     stats.contains("ut.histo.avg:0.00|t") should be (true)
     stats.contains("ut.histo.min:0|t") should be (true)

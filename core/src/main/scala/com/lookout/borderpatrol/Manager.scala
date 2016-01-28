@@ -6,22 +6,57 @@ import com.twitter.finagle.http.path.Path
 import com.twitter.logging.Logger
 import com.twitter.util.Future
 
+/**
+ * Manager represents upstream access and identity managers
+ * @param name name of the manager
+ * @param path path to the manager
+ * @param hosts endpoints for the manager
+ */
 case class Manager(name: String, path: Path, hosts: Set[URL])
 
+/**
+ * Login Manager defines various collections of the identity manager, access manager and proto manager.
+ * The customerIdentifier configuration picks the login manager appropriate for their cloud.
+ *
+ * @param name name of the login manager
+ * @param identityManager identity manager used by the given login manager
+ * @param accessManager access manager
+ * @param protoManager protocol used by the login manager
+ */
 case class LoginManager(name: String, identityManager: Manager, accessManager: Manager,
                         protoManager: ProtoManager)
 
+/**
+ * ProtoManager defines parameters specific to the protocol
+ */
 trait ProtoManager {
   val loginConfirm: Path
   def redirectLocation(host: Option[String]): String
   def isMatchingPath(p: Path): Boolean = Set(loginConfirm).filter(p.startsWith(_)).nonEmpty
 }
 
+/**
+ * Internal authentication, that merely redirects user to internal service that does the authentication
+ *
+ * @param loginConfirm path intercepted by bordetpatrol and internal authentication service posts
+ *                     the authentication response on this path
+ * @param authorizePath path of the internal authentication service where client is redirected
+ */
 case class InternalAuthProtoManager(loginConfirm: Path, authorizePath: Path)
     extends ProtoManager {
   def redirectLocation(host: Option[String]): String = authorizePath.toString
 }
 
+/**
+ * OAuth code framework, that redirects user to OAuth2 server.
+ *
+ * @param loginConfirm path intercepted by borderpatrol and OAuth2 server posts the oAuth2 code on this path
+ * @param authorizeUrl URL of the OAuth2 service where client is redirected for authenticaiton
+ * @param tokenUrl URL of the OAuth2 server to convert OAuth2 code to OAuth2 token
+ * @param certificateUrl URL of the OAuth2 server to fetch the certificate for verifying token signature
+ * @param clientId Id used for communicating with OAuth2 server
+ * @param clientSecret Secret used for communicating with OAuth2 server
+ */
 case class OAuth2CodeProtoManager(loginConfirm: Path, authorizeUrl: URL, tokenUrl: URL, certificateUrl: URL,
                                   clientId: String, clientSecret: String)
     extends ProtoManager{

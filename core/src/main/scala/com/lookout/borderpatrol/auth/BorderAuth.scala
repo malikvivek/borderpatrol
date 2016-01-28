@@ -235,7 +235,8 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(implicit 
       sessionMaybe <- store.get[A](sessionId)
     } yield sessionMaybe.fold[Identity[A]](EmptyIdentity)(s => Id(s.data))) handle {
       case e => {
-        log.warning(s"Failed to retrieve Identity for Session: ${sessionId}, from sessionStore with: ${e.getMessage}")
+        log.warning(s"Failed to retrieve Identity for Session: ${sessionId.toLogIdString}, " +
+          s"from sessionStore with: ${e.getMessage}")
         EmptyIdentity
       }
     }
