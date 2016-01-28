@@ -71,7 +71,7 @@ object Keymaster {
         //  Preserve Response Status code by throwing AccessDenied exceptions
         case _ => {
           log.debug(s"IdentityProvider denied user: ${req.credential.uniqueId} " +
-            s"with status: ${res.status} for user")
+            s"with status: ${res.status}")
           responseFailed.incr
           Future.exception(IdentityProviderError(res.status,
             s"Invalid credentials for user ${req.credential.uniqueId}"))
@@ -232,7 +232,6 @@ object Keymaster {
    */
   def keymasterIdentityProviderChain(store: SessionStore)(
     implicit secretStoreApi: SecretStoreApi, statsReceiver: StatsReceiver): Service[BorderRequest, Response] =
-      LoginManagerFilter(LoginManagerBinder) andThen
         KeymasterTransformFilter(new OAuth2CodeVerify) andThen
         KeymasterPostLoginFilter(store) andThen
         KeymasterIdentityProvider(ManagerBinder)

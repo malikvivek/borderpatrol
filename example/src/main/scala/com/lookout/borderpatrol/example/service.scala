@@ -23,6 +23,7 @@
  */
 package com.lookout.borderpatrol.example
 
+import com.lookout.borderpatrol.Binder.ServiceIdentifierBinder
 import com.lookout.borderpatrol.ServiceMatcher
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.auth.keymaster.Keymaster._
@@ -118,21 +119,27 @@ object MockService {
   }
 
   def getMockRoutingService(implicit config: ServerConfig): Service[Request, Response] = {
-    val checkpointLoginManager = config.findLoginManager("checkpoint")
+    val checkpoint = config.findServiceIdentifier("checkpoint")
     val keymasterIdManager = config.findIdentityManager("keymaster")
     val keymasterAccessManager = config.findAccessManager("keymaster")
+    val logout = config.findServiceIdentifier("logout")
+    implicit val secretStore = config.secretStore
+    val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
 
     RoutingService.byPathObject {
       case keymasterAccessManager.path => mockKeymasterAccessIssuerService
       case keymasterIdManager.path => mockKeymasterIdentityService
-      case path if checkpointLoginManager.protoManager.getOwnedPaths.contains(path) => mockCheckpointService
+      case path if path.startsWith(checkpoint.path) => mockCheckpointService
+      case path if path.startsWith(logout.rewritePath.fold(path)(p => p)) =>
+        ExceptionFilter() andThen /* Convert exceptions to responses */
+        CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
+        LogoutService(config.sessionStore)
       case _ => mockUpstreamService
     }
   }
 }
 
 object service {
-
   /**
    * Get IdentityProvider map of name -> Service chain
    *
@@ -160,18 +167,12 @@ object service {
     implicit val secretStore = config.secretStore
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
 
-    RoutingService.byPath {
-      case "/logout" =>
-        ExceptionFilter() andThen /* Convert exceptions to responses */
-          CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
-          LogoutService(config.sessionStore)
-      case _ =>
-        ExceptionFilter() andThen /* Convert exceptions to responses */
-          CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
-          SessionIdFilter(config.sessionStore) andThen /* Get or allocate Session/SignedId */
-          BorderService(identityProviderChainMap(config.sessionStore),
-            accessIssuerChainMap(config.sessionStore),
-            serviceMatcher) /* Glue that connects to identity & access service */
-    }
+    ExceptionFilter() andThen /* Convert exceptions to responses */
+      CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
+      SessionIdFilter(config.sessionStore) andThen /* Get or allocate Session/SignedId */
+      BorderService(identityProviderChainMap(config.sessionStore),
+        accessIssuerChainMap(config.sessionStore),
+        serviceMatcher,
+        ServiceIdentifierBinder) /* Glue that connects to identity & access service */
   }
 }

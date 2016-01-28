@@ -38,14 +38,14 @@ object AccessIdRequest {
  * Determines the service that the request is trying to contact
  * If the service doesn't exist, it returns a 404 Not Found response
  *
- * @param matchers
+ * @param matcher
  */
-case class CustomerIdFilter(matchers: ServiceMatcher)
+case class CustomerIdFilter(matcher: ServiceMatcher)
     extends Filter[Request, Response, CustomerIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
   def apply(req: Request, service: Service[CustomerIdRequest, Response]): Future[Response] = {
-    req.host.flatMap(matchers.subdomain) match {
+    req.host.flatMap(matcher.subdomain) match {
       case Some(cid) => {
         log.debug(s"Processing: Request(${req.method} " +
           s"${req.host.fold("null-hostname")(h => s"${h}${req.path}")}) " +
@@ -92,7 +92,11 @@ case class SessionIdFilter(store: SessionStore)(implicit secretStore: SecretStor
 }
 
 /**
- * This is a border service that glues the main chain with identityProvider or accessIssuer chains
+ * This is a border service that glues the main chain with
+ * - unprotected upstream service chain
+ * - identityProvider chain or
+ * - accessIssuer chain
+ *
  * E.g.
  * - If SignedId is authenticated
  *   - if path is NOT a service path, then return Status NotFound
@@ -106,9 +110,14 @@ case class SessionIdFilter(store: SessionStore)(implicit secretStore: SecretStor
  */
 case class BorderService(identityProviderMap: Map[String, Service[BorderRequest, Response]],
                          accessIssuerMap: Map[String, Service[BorderRequest, Response]],
-                         matchers: ServiceMatcher)
+                         matcher: ServiceMatcher,
+                         serviceBinder: MBinder[ServiceIdentifier])(implicit statsReceiver: StatsReceiver)
     extends Service[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
+  private[this] val requestSends = statsReceiver.counter("unprotected.upstream.service.request.sends")
+  private[this] val unprotectedServiceChain = RewriteFilter() andThen Service.mk[BorderRequest, Response] {
+    br => serviceBinder(BindRequest(br.serviceId, br.req)) }
+
 
   def sendToIdentityProvider(req: BorderRequest): Future[Response] = {
     log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
@@ -130,6 +139,14 @@ case class BorderService(identityProviderMap: Map[String, Service[BorderRequest,
     }
   }
 
+  def sendToUnprotectedService(req: BorderRequest): Future[Response] = {
+    requestSends.incr
+    log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
+      s"to the unprotected upstream service: ${req.serviceId.name}")
+    /* Route through a Rewrite filter */
+    unprotectedServiceChain(req)
+  }
+
   def redirectTo(location: String): Response =
     tap(Response(Status.Found))(res => res.location = location)
 
@@ -139,7 +156,6 @@ case class BorderService(identityProviderMap: Map[String, Service[BorderRequest,
     redirectTo(req.serviceId.path.toString).toFuture
   }
 
-
   def redirectToLogin(req: SessionIdRequest): Future[Response] = {
     val path = req.customerId.loginManager.protoManager.redirectLocation(req.req.host)
     log.debug(s"Redirecting the ${req.req} for Untagged Session: ${req.sessionId.toLogIdString} " +
@@ -147,18 +163,33 @@ case class BorderService(identityProviderMap: Map[String, Service[BorderRequest,
     redirectTo(path).toFuture
   }
 
+  /**
+   * Matching order:
+   * 1. Untagged/Authenticated, ServiceIdentifier NOT found, but path matches Root i.e. "/"
+   * 2. Untagged, ServiceIdentifier found/Not, but path matches LoginManager confirm path
+   * 3. Untagged/Authenticated, Unprotected ServiceIdentifier found
+   * 4. Authenticated, protected ServiceIdentifier found
+   * 5. Authenticated, ServiceIdentifier NOT found
+   * 6. Untagged
+   *
+   * @param req
+   * @return
+   */
   def apply(req: SessionIdRequest): Future[Response] =
-    (req.sessionId.tag, matchers.path(Path(req.req.path))) match {
-      /* If no path provided, then redirect to default service */
+    (req.sessionId.tag, matcher.path(Path(req.req.path))) match {
+      /* 1. redirect to default service */
       case (_, None) if Root.startsWith(Path(req.req.path)) =>
         redirectToService(BorderRequest(req, req.customerId.defaultServiceId))
-      case (AuthenticatedTag, Some(serviceId)) => sendToAccessIssuer(BorderRequest(req, serviceId))
-      /* If path doesn't match the services, then return a NotFound */
-      case (AuthenticatedTag, None) => Response(Status.NotFound).toFuture
-      /* If path matches Login Manager, then send it to Identity Provider */
-      case (Untagged, None) if req.customerId.isLoginManagerPath(Path(req.req.path))  =>
+      /* 2. dispatch to Identity Provider chain */
+      case (Untagged, _) if req.customerId.isLoginManagerPath(Path(req.req.path)) =>
         sendToIdentityProvider(BorderRequest(req, req.customerId.defaultServiceId))
-      /* For untagged sessions, redirect it to Login */
+      /* 3. dispatch to unprotected service */
+      case (_, Some(serviceId)) if !serviceId.protekted => sendToUnprotectedService(BorderRequest(req, serviceId))
+      /* 4. dispatch to protected service via accessIssuer chain */
+      case (AuthenticatedTag, Some(serviceId)) => sendToAccessIssuer(BorderRequest(req, serviceId))
+      /* 5. return a NotFound */
+      case (AuthenticatedTag, None) => Response(Status.NotFound).toFuture
+      /* 6. redirect it to Login */
       case (Untagged, _) => redirectToLogin(req)
     }
 }
@@ -204,13 +235,14 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(implicit 
       sessionMaybe <- store.get[A](sessionId)
     } yield sessionMaybe.fold[Identity[A]](EmptyIdentity)(s => Id(s.data))) handle {
       case e => {
-        log.warning(s"Failed to retrieve Identity for Session: ${sessionId}, from sessionStore with: ${e.getMessage}")
+        log.warning(s"Failed to retrieve Identity for Session: ${sessionId.toLogIdString}, " +
+          s"from sessionStore with: ${e.getMessage}")
         EmptyIdentity
       }
     }
 
   def apply(req: BorderRequest, service: Service[AccessIdRequest[A], Response]): Future[Response] =
-    identity(req.sessionId).flatMap(i => i match {
+    identity(req.sessionId).flatMap {
       case id: Id[A] => service(AccessIdRequest(req, id))
       case EmptyIdentity => for {
         s <- Session(req.req)
@@ -221,31 +253,6 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(implicit 
           log.info(s"Failed to find Session: ${req.sessionId.toLogIdString} for Request: ${req.req}, " +
             s"allocating a new session: ${s.id.toLogIdString}, redirecting to location: ${res.location}")
         }
-    })
-}
-
-/**
- * Decodes the methods Get and Post differently
- * - Get is directed to login form
- * - Post processes the login credentials
- *
- * @param binder It binds to upstream login provider using the information passed in LoginManager
- */
-case class LoginManagerFilter(binder: MBinder[LoginManager])(implicit statsReceiver: StatsReceiver)
-    extends Filter[BorderRequest, Response, BorderRequest, Response] {
-  private[this] val log = Logger.get(getClass.getPackage.getName)
-  private[this] val requestSends = statsReceiver.counter("login.manager.request.sends")
-
-  def apply(req: BorderRequest,
-            service: Service[BorderRequest, Response]): Future[Response] =
-    Path(req.req.path) match {
-      case req.customerId.loginManager.protoManager.loginConfirm => service(req)
-      case _ => {
-        requestSends.incr
-        log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
-          s"to the Login Manager: ${req.customerId.loginManager.name}")
-        binder(BindRequest(req.customerId.loginManager, req.req))
-      }
     }
 }
 
@@ -266,7 +273,7 @@ case class AccessFilter[A, B](binder: MBinder[ServiceIdentifier])(implicit stats
         tap(req.req) { r => {
           requestSends.incr
           log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
-            s"to the upstream service: ${req.serviceId.name}")
+            s"to the protected upstream service: ${req.serviceId.name}")
           r.headerMap.add("Auth-Token", accessResp.access.access.toString)
         }})
       )

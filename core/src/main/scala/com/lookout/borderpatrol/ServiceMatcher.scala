@@ -1,7 +1,7 @@
 package com.lookout.borderpatrol
 
 import com.twitter.finagle.http.Request
-import com.twitter.finagle.http.path.Path
+import com.twitter.finagle.http.path.{Root, Path}
 
 /*
  * We derive a service `name` (a [[String]] name referencing a [[com.twitter.finagle.Name Name]]) via the `Path`
@@ -86,7 +86,8 @@ case class ServiceMatcher(customerIds: Set[CustomerIdentifier], serviceIds: Set[
   def get(req: Request): Option[(CustomerIdentifier, ServiceIdentifier)] =
     (req.host.flatMap(subdomain), path(Path(req.path))) match {
       case (Some(cid), Some(sid)) => Some((cid, sid))
-      case (Some(cid), None) if (cid.isLoginManagerPath(Path(req.path))) => Some((cid, cid.defaultServiceId))
+      case (Some(cid), None) if cid.isLoginManagerPath(Path(req.path)) => Some((cid, cid.defaultServiceId))
+      case (Some(cid), None) if Root.startsWith(Path(req.path)) => Some((cid, cid.defaultServiceId))
       case _ => None
     }
 }

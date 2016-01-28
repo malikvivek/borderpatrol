@@ -36,6 +36,9 @@ case class ServerConfig(secretStore: SecretStoreApi,
 
   def findLoginManager(n: String): LoginManager = loginManagers.find(_.name == n)
     .getOrElse(throw new InvalidConfigError("Failed to find LoginManager for: " + n))
+
+  def findServiceIdentifier(n: String): ServiceIdentifier = serviceIdentifiers.find(_.name == n)
+    .getOrElse(throw new InvalidConfigError("Failed to find ServiceIdentifier for: " + n))
 }
 
 case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String)
@@ -104,8 +107,7 @@ object Config {
     case bpm: InternalAuthProtoManager => Json.fromFields(Seq(
       ("type", Json.string("Internal")),
       ("loginConfirm", bpm.loginConfirm.asJson),
-      ("path", bpm.path.asJson),
-      ("hosts", bpm.hsts.asJson)))
+      ("authorizePath", bpm.authorizePath.asJson)))
     case opm: OAuth2CodeProtoManager => Json.fromFields(Seq(
       ("type", Json.string("OAuth2Code")),
       ("loginConfirm", opm.loginConfirm.asJson),
@@ -120,9 +122,8 @@ object Config {
       case "Internal" =>
         for {
           loginConfirm <- c.downField("loginConfirm").as[Path]
-          path <- c.downField("path").as[Path]
-          hosts <- c.downField("hosts").as[Set[URL]]
-        } yield InternalAuthProtoManager(loginConfirm, path, hosts)
+          authorizePath <- c.downField("authorizePath").as[Path]
+        } yield InternalAuthProtoManager(loginConfirm, authorizePath)
       case "OAuth2Code" =>
         for {
           loginConfirm <- c.downField("loginConfirm").as[Path]
@@ -169,7 +170,8 @@ object Config {
       ("name", sid.name.asJson),
       ("hosts", sid.hosts.asJson),
       ("path", sid.path.asJson),
-      ("rewritePath", sid.rewritePath.asJson)))
+      ("rewritePath", sid.rewritePath.asJson),
+      ("protected", sid.protekted.asJson)))
   }
   implicit val decodeServiceIdentifier: Decoder[ServiceIdentifier] =
     Decoder.instance { c =>
@@ -178,7 +180,8 @@ object Config {
         hosts <- c.downField("hosts").as[Set[URL]]
         path <- c.downField("path").as[Path]
         rewritePathOption <- c.downField("rewritePath").as[Option[Path]]
-      } yield ServiceIdentifier(name, hosts, path, rewritePathOption)
+        protectedOption <- c.downField("protected").as[Option[Boolean]]
+      } yield ServiceIdentifier(name, hosts, path, rewritePathOption, protectedOption.getOrElse(true))
     }
 
   // Encoder/Decoder for CustomerIdentifier
@@ -280,18 +283,6 @@ object Config {
   }
 
   /**
-   * Validate ProtoManager configuration
-   * @param field
-   * @param lmName
-   * @param protoManager
-   */
-  def validateProtoManagerConfig(field: String, lmName: String, protoManager: ProtoManager): Unit = {
-    protoManager match {
-      case ipm: InternalAuthProtoManager => validateHostsConfig(field, lmName, protoManager.hosts)
-      case opm: OAuth2CodeProtoManager =>
-    }
-  }
-  /**
    * Validate Login Manager configurartion
    * @param field
    * @param loginManagers
@@ -300,9 +291,6 @@ object Config {
     // Find if loginManagers have duplicate entries
     if (loginManagers.size > loginManagers.map(lm => lm.name).size)
       throw new DuplicateConfigError("name", field)
-
-    // Make sure hosts in LoginManager have http or https protocol
-    loginManagers.map(lm => validateProtoManagerConfig(field, lm.name, lm.protoManager))
   }
 
   /**

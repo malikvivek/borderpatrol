@@ -22,7 +22,12 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
   import Tokens._
 
   override def afterEach(): Unit = {
-    BinderBase.clear
+    try {
+      super.afterEach() // To be stackable, must call super.afterEach
+    }
+    finally {
+      BinderBase.clear
+    }
   }
 
   //  Tokens
@@ -513,36 +518,6 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
   }
 
   behavior of "keymasterIdentityProviderChain"
-
-  it should "succeed and invoke the GET on loginManager" in {
-    val server = com.twitter.finagle.Http.serve(
-      "localhost:5678", mkTestService[Request, Response]{request =>
-        if (request.path.contains("check")) Response(Status.Ok).toFuture
-        else Response(Status.BadRequest).toFuture
-      })
-
-    try {
-      // Allocate and Session
-      val sessionId = sessionid.untagged
-
-      // Login manager request
-      val loginRequest = req("enterprise", "/check",
-        ("username" -> "foo"), ("password" -> "bar"))
-
-      // Original request
-      val origReq = req("enterprise", "/ent", ("fake" -> "drake"))
-      sessionStore.update[Request](Session(sessionId, origReq))
-
-      // Execute
-      val output = keymasterIdentityProviderChain(sessionStore).apply(
-        BorderRequest(loginRequest, cust1, one, sessionId))
-
-      // Validate
-      Await.result(output).status should be(Status.Ok)
-    } finally {
-      server.close()
-    }
-  }
 
   it should "succeed and invoke the GET on identityManager" in {
     val server = com.twitter.finagle.Http.serve(

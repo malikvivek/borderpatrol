@@ -15,7 +15,7 @@ object BorderPatrolApp extends TwitterServer with Config {
     implicit val bpStatsReceiver = statsReceiver
 
     // Create a StatsD exporter
-    val statsdReporter = new StatsdExporter(serverConfig.statsdExporterConfig)
+    val statsdReporter = StatsdExporter(serverConfig.statsdExporterConfig)
 
     // Create a server
     val server1 = Http.serve(":8080", MainServiceChain)

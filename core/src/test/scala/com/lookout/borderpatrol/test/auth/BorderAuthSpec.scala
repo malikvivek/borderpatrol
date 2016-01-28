@@ -3,6 +3,7 @@ package com.lookout.borderpatrol.auth
 import com.lookout.borderpatrol.sessionx.SessionStores.MemcachedStore
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test.BorderPatrolSuite
+import com.lookout.borderpatrol.test.sessionx
 import com.twitter.finagle.http._
 import com.twitter.finagle.memcached
 import com.twitter.finagle.memcached.GetResult
@@ -11,7 +12,7 @@ import com.twitter.util.{Await, Future, Time}
 
 
 class BorderAuthSpec extends BorderPatrolSuite  {
-  import com.lookout.borderpatrol.test.sessionx.helpers.{secretStore => store, _}
+  import sessionx.helpers.{secretStore => store, _}
 
   // Method to decode SessionData from the sessionId in Response
   def sessionDataFromResponse(resp: Response): Future[Request] =
@@ -374,6 +375,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
   it should "successfully reach the upstream service path via access service chain, if authenticated" in {
     val identityService = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
     val identityProviderMap = Map("keymaster" -> identityService)
+    val testSidBinder = mkTestSidBinder { _ => fail("TestSidBinder should not be invoked for this test") }
 
     // Allocate and Session
     val sessionId = sessionid.authenticated
@@ -382,16 +384,20 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "/ent")
 
     // Original request
-    val output = BorderService(identityProviderMap, workingMap, serviceMatcher)(
+    val output = BorderService(identityProviderMap, workingMap, serviceMatcher, testSidBinder).apply(
       SessionIdRequest(request, cust1, sessionId))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "successfully reach the loginManager path via identity service chain, if unauthenticated " in {
+  it should "successfully reach the unprotected upstream service path, if unauthenticated" in {
     val accessService = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
     val accessServiceMap = Map("keymaster" -> accessService)
+    val testSidBinder = mkTestSidBinder { req => {
+      assert(req.context == checkpointSid)
+      Response(Status.Ok).toFuture
+    }}
 
     // Allocate and Session
     val sessionId = sessionid.untagged
@@ -400,16 +406,39 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "/check")
 
     // Original request
-    val output = BorderService(workingMap, accessServiceMap, serviceMatcher)(
+    val output = BorderService(workingMap, accessServiceMap, serviceMatcher, testSidBinder).apply(
       SessionIdRequest(request, cust1, sessionId))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "successfully reach the loginManager login post path via identity service chain, if unauthenticated" in {
+  it should "successfully reach the unprotected upstream service path, if authenticated" in {
     val accessService = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
     val accessServiceMap = Map("keymaster" -> accessService)
+    val testSidBinder = mkTestSidBinder { req => {
+      assert(req.context == checkpointSid)
+      Response(Status.Ok).toFuture
+    }}
+
+    // Allocate and Session
+    val sessionId = sessionid.authenticated
+
+    // Login POST request
+    val request = req("enterprise", "/check")
+
+    // Original request
+    val output = BorderService(workingMap, accessServiceMap, serviceMatcher, testSidBinder).apply(
+      SessionIdRequest(request, cust1, sessionId))
+
+    //  Validate
+    Await.result(output).status should be (Status.Ok)
+  }
+
+  it should "successfully reach the loginManager confirm path via identity provider chain, if unauthenticated" in {
+    val accessService = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val accessServiceMap = Map("keymaster" -> accessService)
+    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
 
     // Allocate and Session
     val sessionId = sessionid.untagged
@@ -418,14 +447,51 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "/loginConfirm")
 
     // Original request
-    val output = BorderService(workingMap, accessServiceMap, serviceMatcher)(
+    val output = BorderService(workingMap, accessServiceMap, serviceMatcher, testSidBinder).apply(
       SessionIdRequest(request, cust1, sessionId))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "send a redirect if session is unauthenticated and trying to reach upstream service" in {
+  it should "send a redirect to default service if session is unauthenticated and trying to reach Root path" in {
+    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+
+    //  Allocate and Session
+    val sessionId = sessionid.untagged
+
+    //  Create request
+    val request = req("enterprise", "")
+
+    //  Execute
+    val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
+      SessionIdRequest(request, cust1, sessionId))
+
+    //  Verify
+    Await.result(output).status should be (Status.Found)
+    Await.result(output).location.value should be ("/ent")
+  }
+
+  it should "send a redirect to default service if session is authenticated and trying to reach Root path" in {
+    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+
+    //  Allocate and Session
+    val sessionId = sessionid.authenticated
+
+    //  Create request
+    val request = req("enterprise", "/")
+
+    //  Execute
+    val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
+      SessionIdRequest(request, cust1, sessionId))
+
+    //  Verify
+    Await.result(output).status should be (Status.Found)
+    Await.result(output).location.value should be ("/ent")
+  }
+
+  it should "send a redirect to login if session is unauthenticated and trying to reach upstream service" in {
+    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
 
     //  Allocate and Session
     val sessionId = sessionid.untagged
@@ -434,7 +500,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "/ent/dothis")
 
     //  Execute
-    val output = BorderService(workingMap, workingMap, serviceMatcher)(
+    val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
       SessionIdRequest(request, cust1, sessionId))
 
     //  Verify
@@ -442,7 +508,26 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(output).location.value should be ("/check")
   }
 
-  it should "return a Status.NotFound if session is authenticated and trying to reach LoginManager login post Path" in {
+  it should "send a redirect to login if session is unauthenticated and trying to reach unknown service" in {
+    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+
+    //  Allocate and Session
+    val sessionId = sessionid.untagged
+
+    //  Create request
+    val request = req("enterprise", "/unknown")
+
+    //  Execute
+    val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
+      SessionIdRequest(request, cust1, sessionId))
+
+    //  Verify
+    Await.result(output).status should be (Status.Found)
+    Await.result(output).location.value should be ("/check")
+  }
+
+  it should "return a Status.NotFound if session is authenticated and trying to reach LoginManager confirm" in {
+    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
 
     //  Allocate and Session
     val sessionId = sessionid.authenticated
@@ -451,23 +536,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "/loginConfirm")
 
     //  Execute
-    val output = BorderService(workingMap, workingMap, serviceMatcher)(
-      SessionIdRequest(request, cust1, sessionId))
-
-    //  Verify
-    Await.result(output).status should be (Status.NotFound)
-  }
-
-  it should "return a Status.NotFound if session is authenticated and trying to reach LoginManager path" in {
-
-    //  Allocate and Session
-    val sessionId = sessionid.authenticated
-
-    //  Create request
-    val request = req("enterprise", "/check/something")
-
-    //  Execute
-    val output = BorderService(workingMap, workingMap, serviceMatcher)(
+    val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
       SessionIdRequest(request, cust1, sessionId))
 
     //  Verify
@@ -475,6 +544,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
   }
 
   it should "return a Status.NotFound if session is authenticated and trying to reach unknown path" in {
+    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
 
     //  Allocate and Session
     val sessionId = sessionid.authenticated
@@ -483,7 +553,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "/unknown")
 
     //  Execute
-    val output = BorderService(workingMap, workingMap, serviceMatcher)(
+    val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
       SessionIdRequest(request, cust1, sessionId))
 
     //  Verify
@@ -492,6 +562,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
   it should "throw an AccessIssuerError if it fails to find AccessIssuer service chain" in {
     val accessIssuerMap = Map("foo" -> workingService)
+    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
 
     // Allocate and Session
     val sessionId = sessionid.authenticated
@@ -502,7 +573,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     // Validate
     val caught = the [AccessIssuerError] thrownBy {
       // Execute
-      val output = BorderService(workingMap, accessIssuerMap, serviceMatcher)(
+      val output = BorderService(workingMap, accessIssuerMap, serviceMatcher, testSidBinder).apply(
         SessionIdRequest(request, cust1, sessionId))
     }
     caught.getMessage should equal ("Failed to find AccessIssuer Service Chain for keymaster")
@@ -510,76 +581,21 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
   it should "throw an IdentityProviderError if it fails to find IdentityProvider service chain" in {
     val identityProviderMap = Map("foo" -> workingService)
+    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
 
     // Allocate and Session
     val sessionId = sessionid.untagged
 
     // Login POST request
-    val request = req("enterprise", "/check")
+    val request = req("enterprise", "/loginConfirm")
 
     // Validate
     val caught = the [IdentityProviderError] thrownBy {
       // Execute
-      val output = BorderService(identityProviderMap, workingMap, serviceMatcher)(
+      val output = BorderService(identityProviderMap, workingMap, serviceMatcher, testSidBinder).apply(
         SessionIdRequest(request, cust1, sessionId))
     }
     caught.getMessage should equal ("Failed to find IdentityProvider Service Chain for keymaster")
-  }
-
-  behavior of "LoginManagerFilter"
-
-  it should "succeed and invoke the method on loginManager" in {
-    val testService = mkTestService[BorderRequest, Response] { _ => fail("Should not get here") }
-    val testLoginManagerBinder = mkTestLoginManagerBinder { _ => Response(Status.Ok).toFuture }
-
-    // Allocate and Session
-    val sessionId = sessionid.untagged
-
-    // Create request
-    val request = req("enterprise", "/check")
-
-    // Execute
-    val output = (LoginManagerFilter(testLoginManagerBinder) andThen testService)(
-      BorderRequest(request, cust1, one, sessionId))
-
-    // Validate
-    Await.result(output).status should be (Status.Ok)
-  }
-
-  it should "succeed and invoke the method on keymaster service" in {
-    val testService = mkTestService[BorderRequest, Response] { _ => Response(Status.Ok).toFuture }
-    val testLoginManagerBinder = mkTestLoginManagerBinder { _ => fail("Should not get here") }
-
-    // Allocate and Session
-    val sessionId = sessionid.untagged
-
-    // Create request
-    val request = Request(Method.Post, "/loginConfirm")
-
-    // Execute
-    val output = (LoginManagerFilter(testLoginManagerBinder) andThen testService)(
-      BorderRequest(request, cust1, one, sessionId))
-
-    // Validate
-    Await.result(output).status should be (Status.Ok)
-  }
-
-  it should "succeed and invoke the non GET or POST method on keymaster service" in {
-    val testService = mkTestService[BorderRequest, Response] { _ => fail("Should not get here") }
-    val testLoginManagerBinder = mkTestLoginManagerBinder { _ => Response(Status.Ok).toFuture }
-
-    // Allocate and Session
-    val sessionId = sessionid.untagged
-
-    // Create request
-    val request = Request(Method.Head, "/ent")
-
-    // Execute
-    val output = (LoginManagerFilter(testLoginManagerBinder) andThen testService)(
-      BorderRequest(request, cust1, one, sessionId))
-
-    // Validate
-    Await.result(output).status should be (Status.Ok)
   }
 
   behavior of "AccessFilter"
@@ -666,7 +682,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
   it should "succeed to logout by deleting session from store and redirecting to default service" in {
     // Allocate and Session
     val sessionId = sessionid.authenticated
-    val cooki = sessionId.asCookie()
+    val sessionCookie = sessionId.asCookie()
 
     // Session data
     val sessionData = 999
@@ -674,7 +690,15 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Create request
     val request = req("enterprise", "/logout")
-    request.addCookie(cooki)
+    request.addCookie(sessionCookie)
+
+    // Add more cookies
+    val signedId1 = sessionid.untagged
+    val cooki1 = signedId1.asCookie("border_some")
+    request.addCookie(cooki1)
+    val signedId2 = sessionid.untagged
+    val cooki2 = signedId2.asCookie("some")
+    request.addCookie(cooki2)
 
     // Execute
     val output = LogoutService(sessionStore).apply(CustomerIdRequest(request, cust1))
@@ -682,8 +706,10 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     // Validate
     Await.result(output).status should be (Status.Found)
     Await.result(output).location.get should be (cust1.defaultServiceId.path.toString)
-    Await.result(output).cookies.get(SignedId.sessionIdCookieName).get.value should be ("")
-    Await.result(output).cookies.get(SignedId.sessionIdCookieName).get.isDiscard should be (true)
+    Await.result(output).cookies.get(sessionCookie.name).get.value should be ("")
+    Await.result(output).cookies.get(sessionCookie.name).get.isDiscard should be (true)
+    Await.result(output).cookies.get(cooki1.name).get.value should be ("")
+    Await.result(output).cookies.get(cooki2.name) should be (None)
     Await.result(sessionStore.get[Int](sessionId)) should be (None)
   }
 
