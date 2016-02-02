@@ -94,10 +94,9 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Validate
     Await.result(output).status should be (Status.Found)
-    Await.result(output).location should be equals(
-      cust1.loginManager.protoManager.redirectLocation(None))
+    Await.result(output).location.get should be (request.path)
     val sessionData = sessionDataFromResponse(Await.result(output))
-    Await.result(sessionData).path should be equals(request.path)
+    Await.result(sessionData).path should be (request.path)
   }
 
   it should "return redirect to login URI, if no SignedId present in the BorderRequest for OAuth2Code" in {
@@ -110,25 +109,9 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Validate
     Await.result(output).status should be (Status.Found)
-    Await.result(output).location should be equals(
-      cust2.loginManager.protoManager.redirectLocation(request.host))
+    Await.result(output).location.get should be (request.uri)
     val sessionData = sessionDataFromResponse(Await.result(output))
-    Await.result(sessionData).path should be equals(request.path)
-  }
-
-  it should "throw an exception if SignedId and Host are not present in the HTTP Request for OAuth2Code" in {
-
-    // Create request
-    val request = Request("/umb")
-
-    // Execute
-    val output = (SessionIdFilter(sessionStore) andThen sessionIdFilterTestService)(CustomerIdRequest(request, cust2))
-
-    // Validate
-    val caught = the [Exception] thrownBy {
-      Await.result(output)
-    }
-    caught.getMessage should equal ("Host not found in HTTP Request")
+    Await.result(sessionData).path should be (request.path)
   }
 
   it should "propagate the error Status code returned by the upstream Service" in {
@@ -216,7 +199,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "return a redirect to login UTI, if it fails Session lookup using SignedId" in {
+  it should "return a redirect to login URL, if it fails Session lookup using SignedId" in {
 
     // Allocate and Session
     val sessionId = sessionid.untagged
@@ -232,12 +215,11 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Verify
     Await.result(output).status should be (Status.Found)
-    Await.result(output).location should be equals(
-      cust1.loginManager.protoManager.redirectLocation(None))
+    Await.result(output).location.get should be (request.uri)
     val returnedSessionId = SignedId.fromResponse(Await.result(output)).toFuture
-    Await.result(returnedSessionId) should not equals(sessionId)
+    Await.result(returnedSessionId) should not be (sessionId)
     val sessionData = sessionDataFromResponse(Await.result(output))
-    Await.result(sessionData).path should be equals(request.path)
+    Await.result(sessionData).path should be (request.path)
   }
 
   it should "propagate the exception thrown by SessionStore.get operation" in {
@@ -723,6 +705,19 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     // Validate
     Await.result(output).status should be (Status.Found)
     Await.result(output).location.get should be (cust1.defaultServiceId.path.toString)
+    Await.result(output).cookies.get(SignedId.sessionIdCookieName) should be (None)
+  }
+
+  it should "succeed to logout the requests w/o sessionId by simply redirecting to logged out page" in {
+    // Create request
+    val request = req("sky", "/logout")
+
+    // Execute
+    val output = LogoutService(sessionStore).apply(CustomerIdRequest(request, cust2))
+
+    // Validate
+    Await.result(output).status should be (Status.Found)
+    Await.result(output).location.get should be (cust2.loginManager.protoManager.loggedOutUrl.get.toString)
     Await.result(output).cookies.get(SignedId.sessionIdCookieName) should be (None)
   }
 }

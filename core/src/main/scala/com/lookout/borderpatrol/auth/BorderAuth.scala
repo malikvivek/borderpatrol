@@ -83,7 +83,11 @@ case class SessionIdFilter(store: SessionStore)(implicit secretStore: SecretStor
           session <- Session(req.req)
           _ <- store.update(session)
         } yield tap(Response(Status.Found)) { res =>
-          res.location = req.customerId.loginManager.protoManager.redirectLocation(req.req.host)
+          /**
+           * Session allocated, redirect to same location again (it could be unprotected and may not
+           * need authentication)
+           */
+          res.location = req.req.uri
           res.addCookie(session.id.asCookie())
           log.debug(s"${req.req}, allocating a new session: " +
             s"${session.id.toLogIdString}, redirecting to location: ${res.location}")
@@ -157,7 +161,7 @@ case class BorderService(identityProviderMap: Map[String, Service[BorderRequest,
   }
 
   def redirectToLogin(req: SessionIdRequest): Future[Response] = {
-    val path = req.customerId.loginManager.protoManager.redirectLocation(req.req.host)
+    val path = req.customerId.loginManager.protoManager.redirectLocation
     log.debug(s"Redirecting the ${req.req} for Untagged Session: ${req.sessionId.toLogIdString} " +
       s"to login service, location: ${path}")
     redirectTo(path).toFuture
@@ -210,14 +214,17 @@ case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreA
       store.delete(sid)
     })
     tap(Response(Status.Found)) { res =>
-      res.location = req.customerId.defaultServiceId.path.toString
+      // Redirect to service or the logged out path
+      res.location = req.customerId.loginManager.protoManager.loggedOutUrl.fold(
+        req.customerId.defaultServiceId.path.toString)(_.toString)
+
       // Expire all BP cookies present in the Request
       req.req.cookies.foreach[Unit] {
         case (name: String, cookie: Cookie) if name.startsWith("border_") =>
           res.addCookie(SignedId.toExpiredCookie(name))
         case _ =>
       }
-      log.debug(s"Redirecting to default service path: ${res.location}")
+      log.debug(s"After logout, redirecting to: ${res.location}")
     }.toFuture
   }
 }
@@ -248,7 +255,11 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(implicit 
         s <- Session(req.req)
         _ <- store.update(s)
       } yield tap(Response(Status.Found)) { res =>
-          res.location = req.customerId.loginManager.protoManager.redirectLocation(req.req.host)
+          /**
+           * Session allocated, redirect to same location again (it could be unprotected and may not
+           * need authentication)
+           */
+          res.location = req.req.uri
           res.addCookie(s.id.asCookie()) // add SignedId value as a Cookie
           log.info(s"Failed to find Session: ${req.sessionId.toLogIdString} for Request: ${req.req}, " +
             s"allocating a new session: ${s.id.toLogIdString}, redirecting to location: ${res.location}")
