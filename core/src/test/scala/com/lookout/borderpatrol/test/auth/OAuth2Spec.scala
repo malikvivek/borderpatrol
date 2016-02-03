@@ -305,6 +305,25 @@ class OAuth2Spec extends BorderPatrolSuite {
       "http://localhost:9999/tokenUrl with java.net.ConnectException: Connection refused:")
   }
 
+  /** this exception is thrown by codeToToken method in OAuth2CodeProtoManager */
+  it should "throw an Exception on if it receives HTTP request w/ OAuth2 code but without hostname" in {
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login POST request
+    val loginRequest = Request("/signin", ("code" -> "XYZ123"))
+
+    // BorderRequest
+    val sessionIdRequest = BorderRequest(loginRequest, cust2, two, sessionId)
+
+    // Validate
+    val caught = the[Exception] thrownBy {
+      // Execute
+      val output = new OAuth2CodeVerify().codeToClaimsSet(sessionIdRequest, oauth2CodeProtoManager)
+    }
+    caught.getMessage should be("Host not found in HTTP Request")
+  }
+
   it should "throw an exception if fails to parse OAuth2 AAD Token in the response" in {
     val server = com.twitter.finagle.Http.serve(
       "localhost:4567", mkTestService[Request, Response] { req =>
