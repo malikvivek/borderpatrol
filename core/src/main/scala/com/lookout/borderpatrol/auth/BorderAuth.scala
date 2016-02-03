@@ -161,7 +161,7 @@ case class BorderService(identityProviderMap: Map[String, Service[BorderRequest,
   }
 
   def redirectToLogin(req: SessionIdRequest): Future[Response] = {
-    val path = req.customerId.loginManager.protoManager.redirectLocation
+    val path = req.customerId.loginManager.protoManager.redirectLocation(req.req.host)
     log.debug(s"Redirecting the ${req.req} for Untagged Session: ${req.sessionId.toLogIdString} " +
       s"to login service, location: ${path}")
     redirectTo(path).toFuture

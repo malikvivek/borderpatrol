@@ -508,6 +508,24 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(output).location.value should be ("/check")
   }
 
+  it should "throw an exception while attempting a redirect to login and Host is not missing from HTTP Request" in {
+    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+
+    //  Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Create request
+    val request = Request("/umb")
+
+    // Validate
+    val caught = the[Exception] thrownBy {
+      // Execute
+      val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
+        SessionIdRequest(request, cust2, sessionId))
+    }
+    caught.getMessage should equal("Host not found in HTTP Request")
+  }
+
   it should "return a Status.NotFound if session is authenticated and trying to reach LoginManager confirm" in {
     val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
 

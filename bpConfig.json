@@ -1,6 +1,5 @@
 {
-  "port": "8080",
-  "externalEndpoint": "http://localhost:8080",
+  "listeningPort": "8080",
   "statsdReporter": {
      "host": "localhost:8125",
      "durationInSec": 60,
