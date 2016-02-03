@@ -14,6 +14,7 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import scala.reflect.io.File
 
+import io.circe.Encoder
 
 class ConfigSpec extends BorderPatrolSuite {
   import sessionx.helpers._
@@ -29,8 +30,6 @@ class ConfigSpec extends BorderPatrolSuite {
   }
 
   // Stores
-  val defaultSecretStore = SecretStores.InMemorySecretStore(Secrets(Secret(), Secret()))
-  val defaultSessionStore = SessionStores.InMemoryStore
   val memcachedSessionStore = SessionStores.MemcachedStore(new memcached.MockClient())
   val consulSecretStore = SecretStores.ConsulSecretStore("testBpKey", Set(new URL("http://localhost:1234")))
 
@@ -38,10 +37,10 @@ class ConfigSpec extends BorderPatrolSuite {
   val defaultStatsdExporterConfig = StatsdExporterConfig("host", 300, "prefix")
 
   // Configs
-  val serverConfig = ServerConfig(defaultSecretStore, defaultSessionStore, defaultStatsdExporterConfig, cids, sids,
-    loginManagers, Set(keymasterIdManager), Set(keymasterAccessManager))
-  val serverConfig1 = ServerConfig(consulSecretStore, memcachedSessionStore, defaultStatsdExporterConfig, cids, sids,
-    loginManagers, Set(keymasterIdManager), Set(keymasterAccessManager))
+  val serverConfig = ServerConfig(bpPort, bpExtUrl, defaultSecretStore, defaultSessionStore, defaultStatsdExporterConfig,
+    cids, sids, loginManagers, Set(keymasterIdManager), Set(keymasterAccessManager))
+  val serverConfig1 = ServerConfig(bpPort, bpExtUrl, consulSecretStore, memcachedSessionStore, defaultStatsdExporterConfig,
+    cids, sids, loginManagers, Set(keymasterIdManager), Set(keymasterAccessManager))
 
   // Verify
   def verifyServerConfig(a: ServerConfig, b: ServerConfig): Unit = {
@@ -57,7 +56,6 @@ class ConfigSpec extends BorderPatrolSuite {
   behavior of "Config"
 
   it should "uphold encoding/decoding ServiceIdentifier" in {
-
     def decodeFromJson(json: Json): ServiceIdentifier =
       decode[ServiceIdentifier](json.toString()) match {
         case Xor.Right(a) => a
@@ -103,8 +101,8 @@ class ConfigSpec extends BorderPatrolSuite {
       val encoded = config.asJson
       decode[ServerConfig](encoded.toString()) match {
         case Xor.Right(a) => a
-        case Xor.Left(b) => ServerConfig(defaultSecretStore, defaultSessionStore, defaultStatsdExporterConfig,
-          Set(), Set(), Set(), Set(), Set())
+        case Xor.Left(b) => ServerConfig(bpPort, bpExtUrl, defaultSecretStore, defaultSessionStore,
+          defaultStatsdExporterConfig, Set(), Set(), Set(), Set(), Set())
       }
     }
     verifyServerConfig(encodeDecode(serverConfig), serverConfig)
@@ -146,11 +144,34 @@ class ConfigSpec extends BorderPatrolSuite {
     val caught = the [ConfigError] thrownBy {
       readServerConfig(tempInvalidFile.toCanonical.toString)
     }
-    caught.getMessage should include regex ("Failed to decode following fields: secretStore")
+    caught.getMessage should include regex ("Failed to decode following fields: port")
+  }
+
+  it should "raise a ConfigError exception due to lack of BorderPatrol url config" in {
+    val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
+      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
+      ("statsdReporter", defaultStatsdExporterConfig.asJson),
+      ("customerIdentifiers", cids.asJson),
+      ("serviceIdentifiers", sids.asJson),
+      ("loginManagers", Set(checkpointLoginManager).asJson),
+      ("identityManagers", Set(keymasterIdManager).asJson),
+      ("accessManagers", Set(keymasterAccessManager).asJson)))
+
+    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
+    tempFile.writeAll(partialContents.toString)
+
+    val caught = the [ConfigError] thrownBy {
+      readServerConfig(tempFile.toCanonical.toString)
+    }
+    caught.getMessage should include regex ("Failed to decode following fields: externalEndpoint")
   }
 
   it should "raise a ConfigError exception due to lack of Secret Store config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
       ("customerIdentifiers", cids.asJson),
@@ -170,6 +191,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception due to invalid of Secret Store config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", Json.obj(("type", Json.string("woof")))),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
@@ -190,6 +213,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception due to lack of Session Store config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", consulSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
       ("customerIdentifiers", cids.asJson),
@@ -209,6 +234,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception due to invalid Session Store config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", consulSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", Json.obj(("type", Json.string("woof")))),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
@@ -229,6 +256,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception due to lack of Statsd Reporter config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("customerIdentifiers", cids.asJson),
@@ -243,11 +272,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val caught = the [ConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
-    caught.getMessage should include regex ("Failed to decode following fields: statsdReporter")
+    caught.getMessage should include regex ("Failed to decode following fields: port, statsdReporter")
   }
 
   it should "raise a ConfigError exception due to lack of CustomerIdentifier config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
@@ -267,6 +298,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception due to lack of ServiceIdentifier config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
@@ -286,6 +319,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception if identityManager that is used in LoginManager is missing" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
@@ -306,6 +341,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception if duplicate are configured in idManagers config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
@@ -327,6 +364,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception if accessManager that is used in LoginManager is missing" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
@@ -347,6 +386,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception if duplicates are configured in accessManagers config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
@@ -368,6 +409,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception if duplicates are configured in loginManagers config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
@@ -375,7 +418,7 @@ class ConfigSpec extends BorderPatrolSuite {
       ("serviceIdentifiers", sids.asJson),
       ("loginManagers", (loginManagers +
         LoginManager("checkpoint", keymasterIdManager, keymasterAccessManager,
-          InternalAuthProtoManager(Path("/some"), Path("/some")))).asJson),
+          InternalAuthProtoManager(Path("/some"), Path("/some"), None))).asJson),
       ("identityManagers", Set(keymasterIdManager).asJson),
       ("accessManagers", Set(keymasterAccessManager).asJson)))
 
@@ -390,6 +433,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception if duplicate names are configured in serviceIdentifiers config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
@@ -411,6 +456,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception if duplicate paths are configured in serviceIdentifiers config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
@@ -432,6 +479,8 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a ConfigError exception if duplicate subdomains are configured in customerIdentifiers config" in {
     val partialContents = Json.fromFields(Seq(
+      ("port", bpPort.asJson),
+      ("externalEndpoint", bpExtUrl.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),

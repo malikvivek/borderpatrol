@@ -151,8 +151,7 @@ object OAuth2 {
      */
     def codeToClaimsSet(req: BorderRequest, protoManager: OAuth2CodeProtoManager): Future[JWTClaimsSet] = {
       for {
-        aadToken <- protoManager.codeToToken(
-          req.req.host, req.req.getParam("code")).flatMap(res => res.status match {
+        aadToken <- protoManager.codeToToken(req.req.getParam("code")).flatMap(res => res.status match {
           //  Parse for Tokens if Status.Ok
           case Status.Ok =>
             OAuth2.derive[AadToken](res.contentString).fold[Future[AadToken]](

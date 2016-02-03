@@ -19,7 +19,9 @@ import io.circe.syntax._
 import scala.io.Source
 
 
-case class ServerConfig(secretStore: SecretStoreApi,
+case class ServerConfig(port: Int,
+                        externalEndpoint: URL,
+                        secretStore: SecretStoreApi,
                         sessionStore: SessionStore,
                         statsdExporterConfig: StatsdExporterConfig,
                         customerIdentifiers: Set[CustomerIdentifier],
@@ -52,7 +54,7 @@ object Config {
   val defaultSecretStore = SecretStores.InMemorySecretStore(Secrets(Secret(), Secret()))
   val defaultSessionStore = SessionStores.InMemoryStore
   val serverConfigFields = Set("secretStore", "sessionStore", "customerIdentifiers", "serviceIdentifiers",
-    "loginManagers", "identityManagers", "accessManager", "statsdReporter")
+    "loginManagers", "identityManagers", "accessManager", "statsdReporter", "port", "externalEndpoint")
 
   // Encoder/Decoder for Path
   implicit val encodePath: Encoder[Path] = Encoder[String].contramap(_.toString)
@@ -107,32 +109,37 @@ object Config {
     case bpm: InternalAuthProtoManager => Json.fromFields(Seq(
       ("type", Json.string("Internal")),
       ("loginConfirm", bpm.loginConfirm.asJson),
-      ("authorizePath", bpm.authorizePath.asJson)))
+      ("authorizePath", bpm.authorizePath.asJson),
+      ("loggedOutUrl", bpm.loggedOutUrl.asJson)))
     case opm: OAuth2CodeProtoManager => Json.fromFields(Seq(
       ("type", Json.string("OAuth2Code")),
       ("loginConfirm", opm.loginConfirm.asJson),
       ("authorizeUrl", opm.authorizeUrl.asJson),
       ("tokenUrl", opm.tokenUrl.asJson),
       ("certificateUrl", opm.certificateUrl.asJson),
+      ("loggedOutUrl", opm.loggedOutUrl.asJson),
       ("clientId", opm.clientId.asJson),
       ("clientSecret", opm.clientSecret.asJson)))
   }
-  implicit val decodeProtoManager: Decoder[ProtoManager] = Decoder.instance { c =>
+  def decodeProtoManager(bpExternalEndpoint: URL): Decoder[ProtoManager] = Decoder.instance { c =>
     c.downField("type").as[String].flatMap {
       case "Internal" =>
         for {
           loginConfirm <- c.downField("loginConfirm").as[Path]
           authorizePath <- c.downField("authorizePath").as[Path]
-        } yield InternalAuthProtoManager(loginConfirm, authorizePath)
+          loggedOutUrl <- c.downField("loggedOutUrl").as[Option[URL]]
+        } yield InternalAuthProtoManager(loginConfirm, authorizePath, loggedOutUrl)
       case "OAuth2Code" =>
         for {
           loginConfirm <- c.downField("loginConfirm").as[Path]
           authorizeUrl <- c.downField("authorizeUrl").as[URL]
           tokenUrl <- c.downField("tokenUrl").as[URL]
           certificateUrl <- c.downField("certificateUrl").as[URL]
+          loggedOutUrl <- c.downField("loggedOutUrl").as[Option[URL]]
           clientId <- c.downField("clientId").as[String]
           clientSecret <- c.downField("clientSecret").as[String]
-        } yield OAuth2CodeProtoManager(loginConfirm, authorizeUrl, tokenUrl, certificateUrl, clientId, clientSecret)
+        } yield OAuth2CodeProtoManager(bpExternalEndpoint, loginConfirm, authorizeUrl, tokenUrl, certificateUrl,
+            loggedOutUrl, clientId, clientSecret)
     }
   }
 
@@ -149,7 +156,8 @@ object Config {
       ("accessManager", lm.accessManager.name.asJson),
       ("proto", lm.protoManager.asJson)))
   }
-  def decodeLoginManager(ims: Map[String, Manager], ams: Map[String, Manager]): Decoder[LoginManager] =
+  def decodeLoginManager(bpExternalEndpoint: URL, ims: Map[String, Manager], ams: Map[String, Manager]):
+      Decoder[LoginManager] =
     Decoder.instance { c =>
       for {
         name <- c.downField("name").as[String]
@@ -160,7 +168,7 @@ object Config {
         am <- Xor.fromOption(ams.get(apName),
           DecodingFailure(s"No AccessManager $apName found: ", c.history)
         )
-        pm <- c.downField("proto").as[ProtoManager]
+        pm <- c.downField("proto").as(decodeProtoManager(bpExternalEndpoint))
       } yield LoginManager(name, im, am, pm)
     }
 
@@ -212,6 +220,8 @@ object Config {
    */
   implicit val serverConfigEncoder: Encoder[ServerConfig] = Encoder.instance { serverConfig =>
     Json.fromFields(Seq(
+      ("port", serverConfig.port.asJson),
+      ("externalEndpoint", serverConfig.externalEndpoint.asJson),
       ("secretStore", serverConfig.secretStore.asJson),
       ("sessionStore", serverConfig.sessionStore.asJson),
       ("statsdReporter", serverConfig.statsdExporterConfig.asJson),
@@ -223,17 +233,20 @@ object Config {
   }
   implicit val serverConfigDecoder: Decoder[ServerConfig] = Decoder.instance { c =>
     for {
+      port <- c.downField("port").as[Int]
+      externalEndpoint <- c.downField("externalEndpoint").as[URL]
       secretStore <- c.downField("secretStore").as[SecretStoreApi]
       sessionStore <- c.downField("sessionStore").as[SessionStore]
       statsdExporterConfig <- c.downField("statsdReporter").as[StatsdExporterConfig]
       ims <- c.downField("identityManagers").as[Set[Manager]]
       ams <- c.downField("accessManagers").as[Set[Manager]]
       lms <- c.downField("loginManagers").as(Decoder.decodeSet(
-        decodeLoginManager(ims.map(im => im.name -> im).toMap, ams.map(am => am.name -> am).toMap)))
+        decodeLoginManager(externalEndpoint, ims.map(im => im.name -> im).toMap, ams.map(am => am.name -> am).toMap)))
       sids <- c.downField("serviceIdentifiers").as[Set[ServiceIdentifier]]
       cids <- c.downField("customerIdentifiers").as(Decoder.decodeSet(
         decodeCustomerIdentifier(sids.map(sid => sid.name -> sid).toMap, lms.map(lm => lm.name -> lm).toMap)))
-    } yield ServerConfig(secretStore, sessionStore, statsdExporterConfig, cids, sids, lms, ims, ams)
+    } yield ServerConfig(port, externalEndpoint, secretStore, sessionStore, statsdExporterConfig, cids, sids,
+        lms, ims, ams)
   }
 
   /**

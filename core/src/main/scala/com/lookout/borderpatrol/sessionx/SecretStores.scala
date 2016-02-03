@@ -116,7 +116,8 @@ object SecretStores {
     private[this] def processPolledSecrets(secrets: Option[Secrets], result: Boolean): Unit =
       (secrets, result) match {
         case (Some(s), true) =>
-          log.info(s"ConsulSecretStore: Received a new Secret from Consul with an id: ${s.current.id}")
+          log.info("ConsulSecretStore: Received a new Secret from Consul " +
+            s"with an id: ${s.current.id}, expiry: ${s.current.expiry}")
           _secrets = s
           timer.schedule(_secrets.current.expiry)(pollSecrets)
 
@@ -198,8 +199,8 @@ object SecretStores {
           req.contentType = "application/json"
         })).flatMap(res => res.status match {
             case Status.Ok =>
-              log.info("ConsulSecretStore: LEADER: Updated the new Secrets on Consul with an id: " +
-                newSecrets.current.id)
+              log.info("ConsulSecretStore: LEADER: Updated the new Secrets on Consul " +
+                s"with an id: ${newSecrets.current.id}, expiry: ${newSecrets.current.expiry}")
               Future.value((Some(newSecrets), res.contentString == "true"))
             case _ => Future.exception(ConsulError(s"Step-${step}: Failed to set Secrets with an error response " +
               s"from Consul: ${res.status}"))
