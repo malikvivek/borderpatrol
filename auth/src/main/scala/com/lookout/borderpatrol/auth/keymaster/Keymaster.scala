@@ -51,6 +51,7 @@ object Keymaster {
      */
     def apply(req: IdentifyRequest[Credential]): Future[IdentifyResponse[Tokens]] = {
       requestSends.incr
+      log.debug(s"Authenticating user: ${req.credential.uniqueId} with Keymaster IdentityProvider")
 
       //  Authenticate user by the Keymaster
       binder(BindRequest(req.credential.customerId.loginManager.identityManager, req.credential.toRequest))
@@ -70,7 +71,7 @@ object Keymaster {
           )
         //  Preserve Response Status code by throwing AccessDenied exceptions
         case _ => {
-          log.debug(s"IdentityProvider denied user: ${req.credential.uniqueId} " +
+          log.debug(s"Keymaster IdentityProvider denied user: ${req.credential.uniqueId} " +
             s"with status: ${res.status}")
           responseFailed.incr
           Future.exception(IdentityProviderError(res.status,

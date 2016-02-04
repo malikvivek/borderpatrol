@@ -7,8 +7,6 @@ import com.lookout.borderpatrol.sessionx.SecretStores._
 import com.lookout.borderpatrol.sessionx.SessionStores._
 import com.lookout.borderpatrol.sessionx._
 import com.twitter.finagle.Memcached
-import com.twitter.finagle.Name
-import com.twitter.finagle.Resolver
 import com.twitter.finagle.http.path.Path
 import com.twitter.app.App
 import cats.data.Xor
@@ -52,8 +50,7 @@ object Config {
   val defaultConfigFile = "bpConfig.json"
   val defaultSecretStore = SecretStores.InMemorySecretStore(Secrets(Secret(), Secret()))
   val defaultSessionStore = SessionStores.InMemoryStore
-  val serverConfigFields = Set("secretStore", "sessionStore", "customerIdentifiers", "serviceIdentifiers",
-    "loginManagers", "identityManagers", "accessManager", "statsdReporter", "listeningPort")
+  def cond[T](p: => Boolean, v: T) : Set[T] = if (p) Set(v) else Set.empty[T]
 
   // Encoder/Decoder for Path
   implicit val encodePath: Encoder[Path] = Encoder[String].contramap(_.toString)
@@ -162,10 +159,10 @@ object Config {
         name <- c.downField("name").as[String]
         ipName <- c.downField("identityManager").as[String]
         im <- Xor.fromOption(ims.get(ipName),
-          DecodingFailure(s"No IdentityManager $ipName found: ", c.history))
+          DecodingFailure(s"IdentityManager - $ipName - not found: ", c.history))
         apName <- c.downField("accessManager").as[String]
         am <- Xor.fromOption(ams.get(apName),
-          DecodingFailure(s"No AccessManager $apName found: ", c.history)
+          DecodingFailure(s"AccessManager - $apName - not found: ", c.  history)
         )
         pm <- c.downField("proto").as[ProtoManager]
       } yield LoginManager(name, im, am, pm)
@@ -205,11 +202,11 @@ object Config {
         subdomain <- c.downField("subdomain").as[String]
         sidName <- c.downField("defaultServiceIdentifier").as[String]
         sid <- Xor.fromOption(sids.get(sidName),
-          DecodingFailure(s"No ServiceIdentifier $sidName found: ", c.history)
+          DecodingFailure(s"ServiceIdentifier - $sidName - not found: ", c.history)
         )
         lmName <- c.downField("loginManager").as[String]
         lm <- Xor.fromOption(lms.get(lmName),
-          DecodingFailure(s"No LoginManager $lmName found: ", c.history)
+          DecodingFailure(s"LoginManager - $lmName - not found: ", c.history)
         )
       } yield CustomerIdentifier(subdomain, sid, lm)
     }
@@ -237,11 +234,12 @@ object Config {
       statsdExporterConfig <- c.downField("statsdReporter").as[StatsdExporterConfig]
       ims <- c.downField("identityManagers").as[Set[Manager]]
       ams <- c.downField("accessManagers").as[Set[Manager]]
-      lms <- c.downField("loginManagers").as(Decoder.decodeSet(
-        decodeLoginManager(ims.map(im => im.name -> im).toMap, ams.map(am => am.name -> am).toMap)))
+      lms <- c.downField("loginManagers").as(Decoder.decodeCanBuildFrom[LoginManager, Set](
+        decodeLoginManager(ims.map(im => im.name -> im).toMap, ams.map(am => am.name -> am).toMap), implicitly))
       sids <- c.downField("serviceIdentifiers").as[Set[ServiceIdentifier]]
-      cids <- c.downField("customerIdentifiers").as(Decoder.decodeSet(
-        decodeCustomerIdentifier(sids.map(sid => sid.name -> sid).toMap, lms.map(lm => lm.name -> lm).toMap)))
+      cids <- c.downField("customerIdentifiers").as(Decoder.decodeCanBuildFrom[CustomerIdentifier, Set](
+        decodeCustomerIdentifier(sids.map(sid => sid.name -> sid).toMap, lms.map(lm => lm.name -> lm).toMap),
+        implicitly))
     } yield ServerConfig(listeningPort, secretStore, sessionStore, statsdExporterConfig, cids, sids,
         lms, ims, ams)
   }
@@ -252,18 +250,18 @@ object Config {
    * @param name
    * @param hosts
    */
-  def validateHostsConfig(field: String, name: String, hosts: Set[URL]): Unit = {
+  def validateHostsConfig(field: String, name: String, hosts: Set[URL]): Set[String] = {
     // Make sure urls in Manager have matching protocol
-    if (hosts.map(_.getProtocol()).size != 1)
-      throw new InvalidConfigError(s"hosts configuration for ${name} in ${field}: has differing protocols")
+    (cond[String](hosts.map(_.getProtocol()).size != 1,
+      s"hosts configuration for ${name} in ${field}: has differing protocols") ++
+
     // Make sure hosts in Manager have either http or https protocol
-    if (!hosts.map(_.getProtocol()).mkString.matches("http[s]*"))
-      throw new InvalidConfigError(s"hosts configuration for ${name} in ${field}: has unsupported protocol")
+    cond(!hosts.map(_.getProtocol()).mkString.matches("http[s]*"),
+      s"hosts configuration for ${name} in ${field}: has unsupported protocol") ++
+
     // Make sure https hosts have a matching hostname
-    if (!hosts.filter(u => u.getProtocol == "https").isEmpty &&
-      hosts.map(u => u.getHost()).size != 1)
-      throw new InvalidConfigError(
-        s"hosts configuration for ${name} in ${field}: https urls have mismatching hostnames")
+    cond(!hosts.filter(u => u.getProtocol == "https").isEmpty && hosts.map(u => u.getHost()).size != 1,
+      s"hosts configuration for ${name} in ${field}: https urls have mismatching hostnames"))
   }
 
   /**
@@ -271,10 +269,10 @@ object Config {
    * @param field
    * @param secretStores
    */
-  def validateSecretStoreConfig(field: String, secretStores: SecretStoreApi): Unit = {
+  def validateSecretStoreConfig(field: String, secretStores: SecretStoreApi): Set[String] = {
     secretStores match {
       case x: ConsulSecretStore => validateHostsConfig(field, "consulSecretStore", x.consulUrls)
-      case _ =>
+      case _ => Set.empty[String]
     }
   }
 
@@ -283,13 +281,13 @@ object Config {
    * @param field
    * @param managers
    */
-  def validateManagerConfig(field: String, managers: Set[Manager]): Unit = {
+  def validateManagerConfig(field: String, managers: Set[Manager]): Set[String] = {
     // Find if managers have duplicate entries
-    if (managers.size > managers.map(m => m.name).size)
-      throw new DuplicateConfigError("name", field)
+    (cond(managers.size > managers.map(m => m.name).size,
+      s"Duplicate entries for key (name) are found in the field: ${field}") ++
 
     // Make sure hosts in Manager have http or https protocol
-    managers.map(m => validateHostsConfig(field, m.name, m.hosts))
+    managers.map(m => validateHostsConfig(field, m.name, m.hosts)).flatten)
   }
 
   /**
@@ -297,10 +295,10 @@ object Config {
    * @param field
    * @param loginManagers
    */
-  def validateLoginManagerConfig(field: String, loginManagers: Set[LoginManager]): Unit = {
+  def validateLoginManagerConfig(field: String, loginManagers: Set[LoginManager]): Set[String] = {
     // Find if loginManagers have duplicate entries
-    if (loginManagers.size > loginManagers.map(lm => lm.name).size)
-      throw new DuplicateConfigError("name", field)
+    cond(loginManagers.size > loginManagers.map(lm => lm.name).size,
+      s"Duplicate entries for key (name) are found in the field: ${field}")
   }
 
   /**
@@ -308,17 +306,13 @@ object Config {
    * @param field
    * @param sids
    */
-  def validateServiceIdentifierConfig(field: String, sids: Set[ServiceIdentifier]): Unit = {
-    // Find if ServiceIdentifiers have duplicate entries (same name)
-    if (sids.size > sids.map(sid => sid.name).size)
-    throw new DuplicateConfigError("name", "serviceIdentifiers")
-
+  def validateServiceIdentifierConfig(field: String, sids: Set[ServiceIdentifier]): Set[String] = {
     // Find if ServiceIdentifiers have duplicate entries (same path)
-    if (sids.size > sids.map(sid => sid.path).size)
-      throw new DuplicateConfigError("path", "serviceIdentifiers")
+    (cond(sids.size > sids.map(sid => sid.path).size,
+      s"Duplicate entries for key (path) are found in the field: ${field}") ++
 
     // Make sure hosts in Serviceidentifier have http or https protocol
-    sids.map(sid => validateHostsConfig(field, sid.name, sid.hosts))
+    sids.map(sid => validateHostsConfig(field, sid.name, sid.hosts)).flatten)
   }
 
   /**
@@ -326,10 +320,10 @@ object Config {
    * @param field
    * @param cids
    */
-  def validateCustomerIdentifierConfig(field: String, cids: Set[CustomerIdentifier]): Unit = {
+  def validateCustomerIdentifierConfig(field: String, cids: Set[CustomerIdentifier]): Set[String] = {
     // Find if CustomerIdentifiers have duplicate entries
-    if (cids.size > cids.map(cid => cid.subdomain).size)
-      throw new DuplicateConfigError("subdomain", "customerIdentifiers")
+    cond(cids.size > cids.map(cid => cid.subdomain).size,
+      s"Duplicate entries for key (subdomain) are found in the field: ${field}")
   }
 
   /**
@@ -338,24 +332,24 @@ object Config {
    *
    * @param serverConfig
    */
-  def validate(serverConfig: ServerConfig): Unit = {
+  def validate(serverConfig: ServerConfig): Set[String] = {
     //  Validate Secret Store config
-    validateSecretStoreConfig("secretStore", serverConfig.secretStore)
+    validateSecretStoreConfig("secretStore", serverConfig.secretStore) ++ (
 
-    //  Validate identityManagers config
-    validateManagerConfig("identityManagers", serverConfig.identityManagers)
+      //  Validate identityManagers config
+      validateManagerConfig("identityManagers", serverConfig.identityManagers) ++
 
-    //  Validate accessManagers config
-    validateManagerConfig("accessManagers", serverConfig.accessManagers)
+      //  Validate accessManagers config
+      validateManagerConfig("accessManagers", serverConfig.accessManagers) ++
 
-    //  Validate loginManagers config
-    validateLoginManagerConfig("loginManagers", serverConfig.loginManagers)
+      //  Validate loginManagers config
+      validateLoginManagerConfig("loginManagers", serverConfig.loginManagers) ++
 
-    //  Validate serviceIdentifiers config
-    validateServiceIdentifierConfig("serviceIdentifiers", serverConfig.serviceIdentifiers)
+      //  Validate serviceIdentifiers config
+      validateServiceIdentifierConfig("serviceIdentifiers", serverConfig.serviceIdentifiers) ++
 
-    //  Validate customerIdentifiers config
-    validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers)
+      //  Validate customerIdentifiers config
+      validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers))
   }
 
   /**
@@ -366,9 +360,16 @@ object Config {
    */
   def readServerConfig(filename: String) : ServerConfig = {
     decode[ServerConfig](Source.fromFile(filename).mkString) match {
-      case Xor.Right(a) => validate(a); a
-      case Xor.Left(b) => throw ConfigError("Failed to decode following fields: " +
-        (serverConfigFields.filter(b.getMessage contains _).reduceOption((a, b) => s"$a, $b") getOrElse "unknown"))
+      case Xor.Right(cfg) => validate(cfg) match {
+        case s if s.isEmpty => cfg
+        case s => throw ConfigError(s.mkString("\n\t", "\n\t", "\n"))
+      }
+      case Xor.Left(err) => {
+        val fields = "CursorOpDownField\\(([A-Za-z]+)\\)".r.findAllIn(err.getMessage).matchData.map(
+          m => m.group(1)).mkString(",")
+        val reason = err.getMessage.reverse.dropWhile(_ != ':').reverse
+        throw ConfigError(s"${reason}failed to decode following field(s): $fields")
+      }
     }
   }
 }
