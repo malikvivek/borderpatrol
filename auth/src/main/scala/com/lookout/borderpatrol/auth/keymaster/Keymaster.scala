@@ -70,7 +70,7 @@ object Keymaster {
           )
         //  Preserve Response Status code by throwing AccessDenied exceptions
         case _ => {
-          log.debug(s"IdentityProvider denied user: ${req.credential.uniqueId} " +
+          log.debug(s"Keymaster IdentityProvider denied user: ${req.credential.uniqueId} " +
             s"with status: ${res.status}")
           responseFailed.incr
           Future.exception(IdentityProviderError(res.status,
@@ -85,7 +85,6 @@ object Keymaster {
    */
   case class KeymasterTransformFilter(oAuth2CodeVerify: OAuth2CodeVerify)(implicit statsReceiver: StatsReceiver)
       extends Filter[BorderRequest, Response, KeymasterIdentifyReq, Response] {
-    private[this] val log = Logger.get(getClass.getPackage.getName)
 
     def transformInternal(req: BorderRequest): Future[InternalAuthCredential] =
       (for {
