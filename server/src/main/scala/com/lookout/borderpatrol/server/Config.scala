@@ -152,6 +152,7 @@ object Config {
       ("accessManager", lm.accessManager.name.asJson),
       ("proto", lm.protoManager.asJson)))
   }
+
   def decodeLoginManager(ims: Map[String, Manager], ams: Map[String, Manager]):
       Decoder[LoginManager] =
     Decoder.instance { c =>
@@ -159,10 +160,10 @@ object Config {
         name <- c.downField("name").as[String]
         ipName <- c.downField("identityManager").as[String]
         im <- Xor.fromOption(ims.get(ipName),
-          DecodingFailure(s"IdentityManager - $ipName - not found: ", c.history))
+          DecodingFailure(s"""IdentityManager "$ipName" not found: """, c.history))
         apName <- c.downField("accessManager").as[String]
         am <- Xor.fromOption(ams.get(apName),
-          DecodingFailure(s"AccessManager - $apName - not found: ", c.  history)
+          DecodingFailure(s"""AccessManager "$apName" not found: """, c.  history)
         )
         pm <- c.downField("proto").as[ProtoManager]
       } yield LoginManager(name, im, am, pm)
@@ -202,11 +203,11 @@ object Config {
         subdomain <- c.downField("subdomain").as[String]
         sidName <- c.downField("defaultServiceIdentifier").as[String]
         sid <- Xor.fromOption(sids.get(sidName),
-          DecodingFailure(s"ServiceIdentifier - $sidName - not found: ", c.history)
+          DecodingFailure(s"""ServiceIdentifier "$sidName" not found: """, c.history)
         )
         lmName <- c.downField("loginManager").as[String]
         lm <- Xor.fromOption(lms.get(lmName),
-          DecodingFailure(s"LoginManager - $lmName - not found: ", c.history)
+          DecodingFailure(s"""LoginManager "$lmName" not found: """, c.history)
         )
       } yield CustomerIdentifier(subdomain, sid, lm)
     }
@@ -249,6 +250,7 @@ object Config {
    * @param field
    * @param name
    * @param hosts
+   * @return set of all the errors encountered during validation
    */
   def validateHostsConfig(field: String, name: String, hosts: Set[URL]): Set[String] = {
     // Make sure urls in Manager have matching protocol
@@ -268,6 +270,7 @@ object Config {
    * Validate SecretStore configuration
    * @param field
    * @param secretStores
+   * @return set of all the errors encountered during validation
    */
   def validateSecretStoreConfig(field: String, secretStores: SecretStoreApi): Set[String] = {
     secretStores match {
@@ -280,6 +283,7 @@ object Config {
    * Validate Manager configuration
    * @param field
    * @param managers
+   * @return set of all the errors encountered during validation
    */
   def validateManagerConfig(field: String, managers: Set[Manager]): Set[String] = {
     // Find if managers have duplicate entries
@@ -294,6 +298,7 @@ object Config {
    * Validate Login Manager configurartion
    * @param field
    * @param loginManagers
+   * @return set of all the errors encountered during validation
    */
   def validateLoginManagerConfig(field: String, loginManagers: Set[LoginManager]): Set[String] = {
     // Find if loginManagers have duplicate entries
@@ -305,6 +310,7 @@ object Config {
    * Validate serviceIdentifier configuration
    * @param field
    * @param sids
+   * @return set of all the errors encountered during validation
    */
   def validateServiceIdentifierConfig(field: String, sids: Set[ServiceIdentifier]): Set[String] = {
     // Find if ServiceIdentifiers have duplicate entries (same path)
@@ -319,6 +325,7 @@ object Config {
    * Validate customerIdentifier configuration
    * @param field
    * @param cids
+   * @return set of all the errors encountered during validation
    */
   def validateCustomerIdentifierConfig(field: String, cids: Set[CustomerIdentifier]): Set[String] = {
     // Find if CustomerIdentifiers have duplicate entries
@@ -329,8 +336,10 @@ object Config {
   /**
    * Validates the BorderPatrol Configuration
    * - for duplicates
+   * - invalid host configurations
    *
    * @param serverConfig
+   * @return set of all the errors encountered during validation
    */
   def validate(serverConfig: ServerConfig): Set[String] = {
     //  Validate Secret Store config
@@ -359,7 +368,11 @@ object Config {
    * @return ServerConfig
    */
   def readServerConfig(filename: String) : ServerConfig = {
+    /**
+     * Parse the config using `circe`.
+     */
     decode[ServerConfig](Source.fromFile(filename).mkString) match {
+      /** Validate the parsed config */
       case Xor.Right(cfg) => validate(cfg) match {
         case s if s.isEmpty => cfg
         case s => throw ConfigError(s.mkString("\n\t", "\n\t", "\n"))

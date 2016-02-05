@@ -311,7 +311,7 @@ class ConfigSpec extends BorderPatrolSuite {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include (
-      "LoginManager - bad - not found:failed to decode following field(s): customerIdentifiers")
+      "LoginManager \"bad\" not found:failed to decode following field(s): customerIdentifiers")
   }
 
   it should "raise a ConfigError exception due to missing ServiceIdentifier in CustomerIdentifier config" in {
@@ -336,7 +336,7 @@ class ConfigSpec extends BorderPatrolSuite {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include (
-      "ServiceIdentifier - bad - not found:failed to decode following field(s): customerIdentifiers")
+      "ServiceIdentifier \"bad\" not found:failed to decode following field(s): customerIdentifiers")
   }
 
   it should "raise a ConfigError exception due to lack of ServiceIdentifier config" in {
@@ -378,7 +378,7 @@ class ConfigSpec extends BorderPatrolSuite {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include (
-      "IdentityManager - keymaster - not found:failed to decode following field(s): loginManagers")
+      "IdentityManager \"keymaster\" not found:failed to decode following field(s): loginManagers")
   }
 
   it should "raise a ConfigError exception if duplicate are configured in idManagers config" in {
@@ -422,7 +422,7 @@ class ConfigSpec extends BorderPatrolSuite {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include (
-      "AccessManager - keymaster - not found:failed to decode following field(s): loginManagers")
+      "AccessManager \"keymaster\" not found:failed to decode following field(s): loginManagers")
   }
 
   it should "raise a ConfigError exception if duplicates are configured in accessManagers config" in {
