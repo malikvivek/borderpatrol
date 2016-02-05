@@ -1,9 +1,13 @@
 package com.lookout.borderpatrol.auth.keymaster
 
+import cats.data.Xor
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test.BorderPatrolSuite
 import com.twitter.io.Buf
+import io.circe.Json
 import scala.util.{Try, Success}
+import io.circe.syntax._
+
 
 class TokensSpec extends BorderPatrolSuite  {
   import Tokens._
@@ -12,7 +16,8 @@ class TokensSpec extends BorderPatrolSuite  {
   val serviceToken1 = new ServiceToken("SomeServiceTokenData1")
   val serviceToken2 = new ServiceToken("SomeServiceTokenData2")
   val serviceTokens = new ServiceTokens().add("service1", serviceToken1).add("service2", serviceToken2)
-  val tokens = Tokens(MasterToken("masterT"), serviceTokens)
+  val masterToken = MasterToken("masterT")
+  val tokens = Tokens(masterToken, serviceTokens)
   val emptyTokens = Tokens(MasterToken(""), ServiceTokens())
 
   behavior of "ServiceTokens"
@@ -20,6 +25,17 @@ class TokensSpec extends BorderPatrolSuite  {
   it should "be able to find ServiceToken by service name" in {
     serviceTokens.find("service1") should be equals (serviceToken1)
     serviceTokens.find("service2") should be equals (serviceToken2)
+  }
+
+  it should "uphold encoding/decoding ServiceTokens" in {
+    def encodeDecode(sToks: ServiceTokens) : ServiceTokens = {
+      val encoded = sToks.asJson
+      derive[ServiceTokens](encoded.toString) match {
+        case Xor.Right(a) => a
+        case Xor.Left(b) => ServiceTokens()
+      }
+    }
+    encodeDecode(serviceTokens) should be (serviceTokens)
   }
 
   behavior of "Tokens"
@@ -33,7 +49,35 @@ class TokensSpec extends BorderPatrolSuite  {
   it should "uphold encoding/decoding Tokens" in {
     def encodeDecode(toks: Tokens) : Tokens =
       TokensDecoder.decodeJson(TokensEncoder(toks)).fold[Tokens](e => emptyTokens, t => t)
+
+    val partialContents1 = Json.fromFields(Seq(
+      ("auth_service", masterToken.asJson)
+    ))
+    val partialContents2 = Json.fromFields(Seq(
+      ("service_tokens", serviceTokens.asJson)
+    ))
+
     encodeDecode(tokens) should be (tokens)
+  }
+
+  it should "uphold encoding/decoding partial Tokens" in {
+    def encodeDecode(json: Json) : Tokens = {
+      derive[Tokens](json.toString) match {
+        case Xor.Right(a) => a
+        case Xor.Left(b) => emptyTokens
+      }
+    }
+
+    val partialContents1 = Json.fromFields(Seq(
+      ("auth_service", masterToken.asJson)
+    ))
+    val partialContents2 = Json.fromFields(Seq(
+      ("service_tokens", serviceTokens.asJson)
+    ))
+
+    //  Validate
+    encodeDecode(partialContents1) should be (Tokens(masterToken, ServiceTokens()))
+    encodeDecode(partialContents2) should be (Tokens(MasterToken(""), serviceTokens))
   }
 
   behavior of "SessionDataTokenEncoder"
@@ -50,6 +94,11 @@ class TokensSpec extends BorderPatrolSuite  {
     def invalid(input: Buf)(implicit ev: SessionDataEncoder[Tokens]): Try[Tokens] =
       ev.decode(input)
 
-    invalid(SessionDataEncoder.encodeString.encode( """{ "a" : "b" }""")).failure.exception should be(a[SessionDataError])
+    //  Execute
+    val e = invalid(SessionDataEncoder.encodeString.encode( """{ "a" : "b" }""")).failure.exception
+
+    // Validate
+    e should be(a[SessionDataError])
+    e.getMessage should include ("Failed to decode into Tokens:")
   }
 }

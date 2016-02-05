@@ -71,8 +71,7 @@ object Tokens {
 
   /**
    * MasterToken Encoder/Decoder
-   * {"auth_service": "a"} -> MasterToken("a")
-   * {} -> result error
+   * {"a"} -> MasterToken("a")
    */
   implicit val MasterTokenDecoder: Decoder[MasterToken] = Decoder[String].map(MasterToken(_))
   implicit val MasterTokenEncoder: Encoder[MasterToken] = Encoder[String].contramap(_.value)
@@ -85,28 +84,50 @@ object Tokens {
   implicit val ServiceTokenEncoder: Encoder[ServiceToken] = Encoder[String].contramap(_.value)
 
   /**
-   * {"service_tokens": {"a": "a", "b": "b"}} -> ServiceTokens(Map((a->ServiceToken(a)), (b->ServiceToken(b)))
-   * {} -> ServiceTokens(Map())
+   * {"a": "a", "b": "b"} -> ServiceTokens(Map((a->ServiceToken(a)), (b->ServiceToken(b)))
    */
+  implicit val ServiceTokensDecoder: Decoder[ServiceTokens] = Decoder[Map[String, String]] map (m =>
+      ServiceTokens(m.mapValues(ServiceToken(_))))
   implicit val ServiceTokensEncoder: Encoder[ServiceTokens] = Encoder.instance[ServiceTokens](st =>
     Json.fromFields(st.services.map(t => (t._1, Json.string(t._2.value))).toSeq))
 
   /**
+   * Compose Tokens from Options
+   * @return Tokens Options
+   */
+  private[this] def composeTokens(masterOpt: Option[MasterToken], servicesOpt: Option[ServiceTokens]):
+      Option[Tokens] =
+    (masterOpt, servicesOpt) match {
+      case (None, None) => None
+      case (Some(m), Some(s)) => Some(Tokens(m, s))
+      case (Some(m), None) => Some(Tokens(m, ServiceTokens()))
+      case (None, Some(s)) => Some(Tokens(MasterToken(""), s))
+    }
+
+  /**
    * Tokens Encoder/Decoder
+   * {"auth_service": "a"} -> Tokens(MasterToken("a"), ServiceTokens())
+   * {"service_tokens": {"a": "a", "b": "b"}} -> Tokens(MasterToken("a"),
+   *                                                    ServiceTokens(Map((a->ServiceToken(a)), (b->ServiceToken(b)))
+   * {} -> result error
    */
   implicit val TokensDecoder: Decoder[Tokens] = Decoder.instance {c =>
     for {
-      master <- c.downField("auth_service").as[MasterToken]
-      services <- c.downField("service_tokens").as[Option[Map[String, String]]]
-    } yield Tokens(master, services.fold(ServiceTokens())(m => ServiceTokens(m.mapValues(ServiceToken(_)))))
+      masterOpt <- c.downField("auth_service").as[Option[MasterToken]]
+      servicesOpt <- c.downField("service_tokens").as[Option[ServiceTokens]]
+      tokens <- Xor.fromOption(composeTokens(masterOpt, servicesOpt),
+        DecodingFailure(s"Failed to decode into Tokens: ", c.history))
+    } yield tokens
   }
-
   implicit val TokensEncoder: Encoder[Tokens] = Encoder.instance {t =>
     Json.fromFields(Seq(
       ("auth_service", t.master.asJson),
       ("service_tokens", t.services.asJson)))
   }
 
+  /**
+   * Tokens (as Session Data) Encoder/Decoder
+   */
   implicit val SessionDataTokenEncoder: SessionDataEncoder[Tokens] = new SessionDataEncoder[Tokens] {
     def encode(tokens: Tokens): Buf =
       SessionDataEncoder.encodeString.encode(TokensEncoder(tokens).toString())

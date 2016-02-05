@@ -200,9 +200,9 @@ object Keymaster {
                 Future.exception(AccessIssuerError(Status.NotAcceptable,
                   "Failed to parse the Keymaster Access Response"))
               },
-              t => {
+              tokens => {
                 responseSuccess.incr
-                t.service(req.serviceId.name).fold[Future[ServiceToken]](
+                tokens.service(req.serviceId.name).fold[Future[ServiceToken]](
                   Future.exception(AccessDenied(Status.NotAcceptable,
                     s"No access allowed to service ${req.serviceId.name}"))
                 )(st => for {
