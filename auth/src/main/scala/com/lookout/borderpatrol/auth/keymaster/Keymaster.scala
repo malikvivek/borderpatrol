@@ -51,7 +51,6 @@ object Keymaster {
      */
     def apply(req: IdentifyRequest[Credential]): Future[IdentifyResponse[Tokens]] = {
       requestSends.incr
-      log.debug(s"Authenticating user: ${req.credential.uniqueId} with Keymaster IdentityProvider")
 
       //  Authenticate user by the Keymaster
       binder(BindRequest(req.credential.customerId.loginManager.identityManager, req.credential.toRequest))
@@ -86,7 +85,6 @@ object Keymaster {
    */
   case class KeymasterTransformFilter(oAuth2CodeVerify: OAuth2CodeVerify)(implicit statsReceiver: StatsReceiver)
       extends Filter[BorderRequest, Response, KeymasterIdentifyReq, Response] {
-    private[this] val log = Logger.get(getClass.getPackage.getName)
 
     def transformInternal(req: BorderRequest): Future[InternalAuthCredential] =
       (for {
