@@ -9,6 +9,7 @@ import com.lookout.borderpatrol.sessionx.SecretStores.InMemorySecretStore
 import com.twitter.finagle.http.path.Path
 import com.twitter.finagle.http.{RequestBuilder, Response, Request}
 import com.twitter.finagle.stats.NullStatsReceiver
+import com.twitter.io.Buf
 import com.twitter.util._
 import com.twitter.finagle.Service
 import com.twitter.bijection.Injection
@@ -107,6 +108,9 @@ object helpers {
   // Request helper
   def req(subdomain: String, path: String, params: Tuple2[String, String]*): Request =
     RequestBuilder().url(s"http://${subdomain + "."}example.com${Request.queryString(path, params:_*)}").buildGet()
+  def reqPost(subdomain: String, path: String, content: Buf, params: Tuple2[String, String]*): Request =
+    RequestBuilder().url(s"http://${subdomain + "."}example.com${Request.queryString(path, params:_*)}")
+      .buildPost(content)
 
   // Binders
   case class TestManagerBinder() extends MBinder[Manager]

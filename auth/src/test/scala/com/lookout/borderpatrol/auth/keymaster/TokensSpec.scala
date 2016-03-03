@@ -20,6 +20,19 @@ class TokensSpec extends BorderPatrolSuite  {
   val tokens = Tokens(masterToken, serviceTokens)
   val emptyTokens = Tokens(MasterToken(""), ServiceTokens())
 
+  behavior of "ServiceToken"
+
+  it should "uphold encoding/decoding ServiceToken" in {
+    def encodeDecode(sTok: ServiceToken) : ServiceToken = {
+      val encoded = sTok.asJson
+      derive[ServiceToken](encoded.toString) match {
+        case Xor.Right(a) => a
+        case Xor.Left(b) => new ServiceToken("failed")
+      }
+    }
+    encodeDecode(serviceToken1) should be (serviceToken1)
+  }
+
   behavior of "ServiceTokens"
 
   it should "be able to find ServiceToken by service name" in {
