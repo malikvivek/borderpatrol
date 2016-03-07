@@ -43,7 +43,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
   behavior of "CustomerIdFilter"
 
-  it should "succeed and return output of upstream Service if Request is destined to a known Service" in {
+  it should "send to upstream Service if Request is destined to a known Service" in {
     // Execute
     val output = (CustomerIdFilter(serviceMatcher) andThen serviceFilterTestService)(req("enterprise", "/ent"))
 
@@ -59,15 +59,17 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(output).status should be (Status.NotFound)
   }
 
+  it should "return NotFound Status if Request lacks the hostname " in {
+    // Execute
+    val output = (CustomerIdFilter(serviceMatcher) andThen serviceFilterTestService)(Request("/bar"))
+
+    // Validate
+    Await.result(output).status should be (Status.NotFound)
+  }
+
   behavior of "SessionIdFilter"
 
-  it should "succeed and return output of upstream Service if CustomerIdRequest contains SignedId" in {
-    val testService = mkTestService[SessionIdRequest, Response] {
-      req => {
-        assert(req.req.path == "/ent")
-        Future.value(Response(Status.Ok))
-      }
-    }
+  it should "succeed to find SessionId & ServiceId and forward it to upstream Service" in {
 
     //  Allocate and Session
     val sessionId = sessionid.untagged
@@ -77,99 +79,67 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "/ent")
     request.addCookie(cooki)
 
+    //  test service
+    val testService = mkTestService[SessionIdRequest, Response] {
+      req => {
+        assert(req.serviceIdOpt == Some(one))
+        assert(req.sessionIdOpt == Some(sessionId))
+        Future.value(Response(Status.Ok))
+      }
+    }
+
     //  Execute
-    val output = (SessionIdFilter(sessionStore) andThen testService)(CustomerIdRequest(request, cust1))
+    val output = (SessionIdFilter(serviceMatcher, sessionStore) andThen testService)(CustomerIdRequest(request, cust1))
 
     //  Verify
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "return redirect to login URI, if no SignedId present in the BorderRequest" in {
+  it should "succeed to find SessionId and forward it to upstream Service" in {
 
-    // Create request
-    val request = req("enterprise", "/ent")
-
-    // Execute
-    val output = (SessionIdFilter(sessionStore) andThen sessionIdFilterTestService)(CustomerIdRequest(request, cust1))
-
-    // Validate
-    Await.result(output).status should be (Status.Found)
-    Await.result(output).location.get should be (request.path)
-    val sessionData = sessionDataFromResponse(Await.result(output))
-    Await.result(sessionData).path should be (request.path)
-  }
-
-  it should "return redirect to login URI, if no SignedId present in the BorderRequest for OAuth2Code" in {
-
-    // Create request
-    val request = req("sky", "/umb")
-
-    // Execute
-    val output = (SessionIdFilter(sessionStore) andThen sessionIdFilterTestService)(CustomerIdRequest(request, cust2))
-
-    // Validate
-    Await.result(output).status should be (Status.Found)
-    Await.result(output).location.get should be (request.uri)
-    val sessionData = sessionDataFromResponse(Await.result(output))
-    Await.result(sessionData).path should be (request.path)
-  }
-
-  it should "propagate the error Status code returned by the upstream Service" in {
-    val testService = mkTestService[SessionIdRequest, Response] { request => Future.value(Response(Status.NotFound))}
-
-    // Allocate and Session
+    //  Allocate and Session
     val sessionId = sessionid.untagged
     val cooki = sessionId.asCookie()
 
-    // Create request
-    val request = req("enterprise", "/ent")
+    //  Create request
+    val request = req("enterprise", "/blah")
     request.addCookie(cooki)
 
-    // Execute
-    val output = (SessionIdFilter(sessionStore) andThen testService)(CustomerIdRequest(request, cust1))
-
-    // Verify
-    Await.result(output).status should be (Status.NotFound)
-  }
-
-  it should "propagate the Exception thrown by the upstream Service" in {
+    //  test service
     val testService = mkTestService[SessionIdRequest, Response] {
-      request => Future.exception(new Exception("SessionIdFilter test failure"))
+      req => {
+        assert(req.serviceIdOpt == None)
+        assert(req.sessionIdOpt == Some(sessionId))
+        Future.value(Response(Status.Ok))
+      }
     }
 
-    // Allocate and Session
-    val sessionId = sessionid.untagged
-    val cooki = sessionId.asCookie()
+    //  Execute
+    val output = (SessionIdFilter(serviceMatcher, sessionStore) andThen testService)(CustomerIdRequest(request, cust1))
 
-    // Create request
-    val request = req("enterprise", "/ent")
-    request.addCookie(cooki)
-
-    // Execute
-    val output = (SessionIdFilter(sessionStore) andThen testService)(CustomerIdRequest(request, cust1))
-
-    // Verify
-    val caught = the [Exception] thrownBy {
-      Await.result(output)
-    }
-    caught.getMessage should equal ("SessionIdFilter test failure")
+    //  Verify
+    Await.result(output).status should be (Status.Ok)
   }
 
-  it should "propagate the Exception thrown while storing the Session using SessionStore.update" in {
-    // Mock sessionStore
-    val mockSessionStore = MemcachedStore(FailingMockClient)
+  it should "succeed to find ServiceId and forward it to upstream Service" in {
 
-    // Create request
+    //  Create request
     val request = req("enterprise", "/ent")
 
-    // Execute
-    val output = (SessionIdFilter(mockSessionStore) andThen sessionIdFilterTestService)(CustomerIdRequest(request, cust1))
-
-    // Verify
-    val caught = the [Exception] thrownBy {
-      Await.result(output)
+    //  test service
+    val testService = mkTestService[SessionIdRequest, Response] {
+      req => {
+        assert(req.serviceIdOpt == Some(one))
+        assert(req.sessionIdOpt == None)
+        Future.value(Response(Status.Ok))
+      }
     }
-    caught.getMessage should equal ("oopsie")
+
+    //  Execute
+    val output = (SessionIdFilter(serviceMatcher, sessionStore) andThen testService)(CustomerIdRequest(request, cust1))
+
+    //  Verify
+    Await.result(output).status should be (Status.Ok)
   }
 
   behavior of "IdentityFilter"
@@ -352,164 +322,231 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(output).contentString should be ("some weird exception")
   }
 
-  behavior of "BorderService"
+  behavior of "SendToIdentityProvider"
 
-  it should "successfully reach the upstream service path via access service chain, if authenticated" in {
-    val identityService = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
-    val identityProviderMap = Map("keymaster" -> identityService)
-    val testSidBinder = mkTestSidBinder { _ => fail("TestSidBinder should not be invoked for this test") }
+  it should "send a POST request for unauth SessionId to loginConfirm path to IdentityService chain" in {
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
 
     // Allocate and Session
-    val sessionId = sessionid.authenticated
+    val sessionId = sessionid.untagged
 
     // Login POST request
-    val request = req("enterprise", "/ent")
+    val request = reqPost("enterprise", cust1.loginManager.protoManager.loginConfirm.toString, Buf.Empty)
 
     // Original request
-    val output = BorderService(identityProviderMap, workingMap, serviceMatcher, testSidBinder).apply(
-      SessionIdRequest(request, cust1, sessionId))
+    val output = (SendToIdentityProvider(workingMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "successfully reach the unprotected upstream service path, if unauthenticated" in {
-    val accessService = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
-    val accessServiceMap = Map("keymaster" -> accessService)
-    val testSidBinder = mkTestSidBinder { req => {
-      assert(req.context == checkpointSid)
+  it should "send a POST request w/o SessionId to loginConfirm path to IdentityService chain" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { req =>
+      val storedReq = Await.result(sessionStore.get[Request](req.sessionId)).get.data
+      storedReq.path should be (cust1.defaultServiceId.path.toString)
+      SignedId.fromRequest(storedReq).toOption should be (Some(req.sessionId))
       Response(Status.Ok).toFuture
-    }}
-
-    // Allocate and Session
-    val sessionId = sessionid.untagged
+    }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
 
     // Login POST request
-    val request = req("enterprise", "/check")
+    val request = reqPost("enterprise", cust1.loginManager.protoManager.loginConfirm.toString, Buf.Empty)
 
     // Original request
-    val output = BorderService(workingMap, accessServiceMap, serviceMatcher, testSidBinder).apply(
-      SessionIdRequest(request, cust1, sessionId))
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, Some(one), None))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "successfully reach the unprotected upstream service path, if authenticated" in {
-    val accessService = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
-    val accessServiceMap = Map("keymaster" -> accessService)
-    val testSidBinder = mkTestSidBinder { req => {
-      assert(req.context == checkpointSid)
+  it should "send a POST request w/o SessionId w/ target_url to loginConfirm path to IdentityService chain" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { req =>
+      val storedReq = Await.result(sessionStore.get[Request](req.sessionId)).get.data
+      storedReq.path should be ("blah")
+      SignedId.fromRequest(storedReq).toOption should be (Some(req.sessionId))
       Response(Status.Ok).toFuture
-    }}
-
-    // Allocate and Session
-    val sessionId = sessionid.authenticated
+    }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
 
     // Login POST request
-    val request = req("enterprise", "/check")
+    val request = reqPost("enterprise", cust1.loginManager.protoManager.loginConfirm.toString, Buf.Empty,
+      ("target_url" -> "blah"))
 
     // Original request
-    val output = BorderService(workingMap, accessServiceMap, serviceMatcher, testSidBinder).apply(
-      SessionIdRequest(request, cust1, sessionId))
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, Some(one), None))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "successfully reach the loginManager confirm path via identity provider chain, if unauthenticated" in {
-    val accessService = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
-    val accessServiceMap = Map("keymaster" -> accessService)
-    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+  it should "send the POST request w/ authenticated SessionId to follow-on service" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ =>
+      Response(Status.NotAcceptable).toFuture }
+
+    // Allocate and Session
+    val sessionId = sessionid.authenticated
+    val cooki = sessionId.asCookie()
+
+    // Login POST request
+    val request = reqPost("enterprise", cust1.loginManager.protoManager.loginConfirm.toString, Buf.Empty)
+    request.addCookie(cooki)
+
+    // Original request
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
+
+    //  Validate
+    Await.result(output).status should be (Status.NotAcceptable)
+  }
+
+  it should "redirect the non-POST request w/ unauth SessionId for protected service to login page" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login request
+    val request = req("enterprise", cust1.loginManager.protoManager.loginConfirm.toString)
+
+    // Original request
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
+
+    //  Validate
+    Await.result(output).status should be (Status.Found)
+    Await.result(output).location should be (Some(internalProtoManager.authorizePath.toString))
+  }
+
+  it should "redirect the non-POST request w/ unauth SessionId for protected service to login page for OAuth2" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login request
+    val request = req("sky", cust2.loginManager.protoManager.loginConfirm.toString)
+
+    // Original request
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust2, Some(two), Some(sessionId)))
+
+    //  Validate
+    Await.result(output).status should be (Status.Found)
+    Await.result(output).location.get should startWith (oauth2CodeProtoManager.authorizeUrl.toString)
+  }
+
+  it should "redirect the non-POST request w/ unauth SessionId for content type of json with Status.401" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
 
     // Allocate and Session
     val sessionId = sessionid.untagged
 
     // Login POST request
-    val request = req("enterprise", "/loginConfirm")
+    val request = req("enterprise", cust1.loginManager.protoManager.loginConfirm.toString)
+    request.contentType = "application/json"
 
     // Original request
-    val output = BorderService(workingMap, accessServiceMap, serviceMatcher, testSidBinder).apply(
-      SessionIdRequest(request, cust1, sessionId))
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
 
     //  Validate
-    Await.result(output).status should be (Status.Ok)
+    Await.result(output).status should be (Status.Unauthorized)
+    Await.result(output).contentType should be (Some("application/json"))
+    Await.result(output).contentString should include (internalProtoManager.authorizePath.toString)
   }
 
-  it should "send a redirect to default service if session is unauthenticated and trying to reach Root path" in {
-    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+  it should "redirect the non-POST request w/ unauth SessionId to unknown path to login page" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
 
-    //  Allocate and Session
+    // Allocate and Session
     val sessionId = sessionid.untagged
 
-    //  Create request
-    val request = req("enterprise", "")
+    // Login request
+    val request = req("enterprise", "unknown")
 
-    //  Execute
-    val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
-      SessionIdRequest(request, cust1, sessionId))
+    // Original request
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, None, Some(sessionId)))
 
-    //  Verify
+    //  Validate
     Await.result(output).status should be (Status.Found)
-    Await.result(output).location.value should be ("/ent")
+    Await.result(output).location should be (Some(internalProtoManager.authorizePath.toString))
   }
 
-  it should "send a redirect to default service if session is authenticated and trying to reach Root path" in {
-    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+  it should "redirect the non-POST request w/o SessionId to login page" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
 
-    //  Allocate and Session
-    val sessionId = sessionid.authenticated
+    // Login request
+    val request = req("enterprise", cust1.loginManager.protoManager.loginConfirm.toString)
 
-    //  Create request
-    val request = req("enterprise", "/")
+    // Original request
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, Some(one), None))
 
-    //  Execute
-    val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
-      SessionIdRequest(request, cust1, sessionId))
-
-    //  Verify
+    //  Validate
     Await.result(output).status should be (Status.Found)
-    Await.result(output).location.value should be ("/ent")
+    Await.result(output).location should be (Some(internalProtoManager.authorizePath.toString))
   }
 
-  it should "send a redirect to login if session is unauthenticated and trying to reach upstream service" in {
-    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+  it should "throw an IdentityProviderError if it fails to find IdentityProvider service chain" in {
+    val identityProviderMap = Map("foo" -> workingService)
 
-    //  Allocate and Session
+    // Allocate and Session
     val sessionId = sessionid.untagged
 
-    //  Create request
-    val request = req("enterprise", "/ent/dothis")
+    // Login POST request
+    val request = reqPost("enterprise", cust1.loginManager.protoManager.loginConfirm.toString, Buf.Empty)
 
-    //  Execute
-    val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
-      SessionIdRequest(request, cust1, sessionId))
-
-    //  Verify
-    Await.result(output).status should be (Status.Found)
-    Await.result(output).location.value should be ("/check")
+    // Validate
+    val caught = the [IdentityProviderError] thrownBy {
+      // Execute
+      val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen sessionIdFilterTestService)(
+        SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
+    }
+    caught.getMessage should equal ("Failed to find IdentityProvider Service Chain for keymaster")
   }
 
-  it should "send a redirect to login if session is unauthenticated and trying to reach unknown service" in {
-    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+  it should "propagate the Exception thrown while storing the Session using SessionStore.update" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
 
-    //  Allocate and Session
-    val sessionId = sessionid.untagged
+    // Mock sessionStore
+    val mockSessionStore = MemcachedStore(FailingMockClient)
 
-    //  Create request
-    val request = req("enterprise", "/unknown")
+    // Create request
+    val request = reqPost("enterprise", cust1.loginManager.protoManager.loginConfirm.toString, Buf.Empty)
 
-    //  Execute
-    val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
-      SessionIdRequest(request, cust1, sessionId))
+    // Original request
+    val output = (SendToIdentityProvider(identityProviderMap, mockSessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, Some(one), None))
 
-    //  Verify
-    Await.result(output).status should be (Status.Found)
-    Await.result(output).location.value should be ("/check")
+    // Verify
+    val caught = the [Exception] thrownBy {
+      Await.result(output)
+    }
+    caught.getMessage should equal ("oopsie")
   }
 
   it should "throw an exception while attempting a redirect to login and Host is not missing from HTTP Request" in {
-    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
 
     //  Allocate and Session
     val sessionId = sessionid.untagged
@@ -520,31 +557,52 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     // Validate
     val caught = the[Exception] thrownBy {
       // Execute
-      val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
-        SessionIdRequest(request, cust2, sessionId))
+      val output = (SendToIdentityProvider(workingMap, sessionStore) andThen testService)(
+        SessionIdRequest(request, cust2, Some(two), Some(sessionId)))
     }
     caught.getMessage should equal("Host not found in HTTP Request")
   }
 
-  it should "return a Status.NotFound if session is authenticated and trying to reach LoginManager confirm" in {
-    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+  behavior of "SendToAccessIssuer"
+
+  it should "send the request to AccessIssuer chain if session is authenticated and trying to reach a valid service" in {
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
 
     //  Allocate and Session
     val sessionId = sessionid.authenticated
 
     //  Create request
-    val request = req("enterprise", "/loginConfirm")
+    val request = req("enterprise", "ent")
 
     //  Execute
-    val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
-      SessionIdRequest(request, cust1, sessionId))
+    val output = (SendToAccessIssuer(workingMap) andThen testService)(
+      SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
 
     //  Verify
-    Await.result(output).status should be (Status.NotFound)
+    Await.result(output).status should be (Status.Ok)
   }
 
-  it should "return a Status.NotFound if session is authenticated and trying to reach unknown path" in {
-    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+  it should "redirect to default serviceId if session is authenticated and trying to reach Root path" in {
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
+
+    //  Allocate and Session
+    val sessionId = sessionid.authenticated
+
+    //  Create request
+    val request = req("enterprise", "")
+
+    //  Execute
+    val output = (SendToAccessIssuer(workingMap) andThen testService)(
+      SessionIdRequest(request, cust1, None, Some(sessionId)))
+
+    //  Verify
+    Await.result(output).status should be (Status.Found)
+    Await.result(output).location.value should be ("/ent")
+  }
+
+  it should "forward to next service if session is authenticated but trying to reach unknown path" in {
+    val testService = mkTestService[SessionIdRequest, Response] { _ =>
+      Response(Status.NotFound).toFuture }
 
     //  Allocate and Session
     val sessionId = sessionid.authenticated
@@ -553,8 +611,8 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "/unknown")
 
     //  Execute
-    val output = BorderService(workingMap, workingMap, serviceMatcher, testSidBinder).apply(
-      SessionIdRequest(request, cust1, sessionId))
+    val output = (SendToAccessIssuer(workingMap) andThen testService)(
+      SessionIdRequest(request, cust1, None, Some(sessionId)))
 
     //  Verify
     Await.result(output).status should be (Status.NotFound)
@@ -562,40 +620,100 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
   it should "throw an AccessIssuerError if it fails to find AccessIssuer service chain" in {
     val accessIssuerMap = Map("foo" -> workingService)
-    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+
+    // Allocate and Session
+    val sessionId = sessionid.authenticated
+    val cooki = sessionId.asCookie()
+
+    // Login POST request
+    val request = req("enterprise", "/ent")
+    request.addCookie(cooki)
+
+    // Validate
+    val caught = the [AccessIssuerError] thrownBy {
+      // Execute
+      val output = (SendToAccessIssuer(accessIssuerMap) andThen sessionIdFilterTestService)(
+        SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
+    }
+    caught.getMessage should equal ("Failed to find AccessIssuer Service Chain for keymaster")
+  }
+
+  behavior of "SendToUnprotectedService"
+
+  it should "send request w/ auth SessionId to unprotected upstream service path" in {
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
+    val testSidBinder = mkTestSidBinder { req => {
+      assert(req.context == checkpointSid)
+      Response(Status.Ok).toFuture
+    }}
 
     // Allocate and Session
     val sessionId = sessionid.authenticated
 
     // Login POST request
-    val request = req("enterprise", "/ent")
+    val request = req("enterprise", "/check")
 
-    // Validate
-    val caught = the [AccessIssuerError] thrownBy {
-      // Execute
-      val output = BorderService(workingMap, accessIssuerMap, serviceMatcher, testSidBinder).apply(
-        SessionIdRequest(request, cust1, sessionId))
-    }
-    caught.getMessage should equal ("Failed to find AccessIssuer Service Chain for keymaster")
+    // Original request
+    val output = (SendToUnprotectedService(testSidBinder) andThen testService)(
+      SessionIdRequest(request, cust1, Some(checkpointSid), Some(sessionId)))
+
+    //  Validate
+    Await.result(output).status should be (Status.Ok)
   }
 
-  it should "throw an IdentityProviderError if it fails to find IdentityProvider service chain" in {
-    val identityProviderMap = Map("foo" -> workingService)
-    val testSidBinder = mkTestSidBinder { _ => { fail("TestSidBinder should not be invoked for this test") } }
+  it should "send request w/ unauth SessionId to unprotected upstream service path" in {
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
+    val testSidBinder = mkTestSidBinder { req => {
+      assert(req.context == checkpointSid)
+      Response(Status.Ok).toFuture
+    }}
 
     // Allocate and Session
     val sessionId = sessionid.untagged
 
     // Login POST request
-    val request = req("enterprise", "/loginConfirm")
+    val request = req("enterprise", "/check")
 
-    // Validate
-    val caught = the [IdentityProviderError] thrownBy {
-      // Execute
-      val output = BorderService(identityProviderMap, workingMap, serviceMatcher, testSidBinder).apply(
-        SessionIdRequest(request, cust1, sessionId))
-    }
-    caught.getMessage should equal ("Failed to find IdentityProvider Service Chain for keymaster")
+    // Original request
+    val output = (SendToUnprotectedService(testSidBinder) andThen testService)(
+      SessionIdRequest(request, cust1, Some(checkpointSid), Some(sessionId)))
+
+    //  Validate
+    Await.result(output).status should be (Status.Ok)
+  }
+
+  it should "send request w/ unauth SessionId to unknown path to next service in the chain" in {
+    val testSidBinder = mkTestSidBinder { _ => fail("Must not invoke this service binder")}
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login POST request
+    val request = req("enterprise", "unknown")
+
+    // Original request
+    val output = (SendToUnprotectedService(testSidBinder) andThen sessionIdFilterTestService)(
+      SessionIdRequest(request, cust1, None, Some(sessionId)))
+
+    //  Validate
+    Await.result(output).status should be (Status.Ok)
+  }
+
+  it should "send request w/ unauth SessionId to protected service to next service in the chain" in {
+    val testSidBinder = mkTestSidBinder { _ => fail("Must not invoke this service binder")}
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login POST request
+    val request = req("enterprise", "ent")
+
+    // Original request
+    val output = (SendToUnprotectedService(testSidBinder) andThen sessionIdFilterTestService)(
+      SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
+
+    //  Validate
+    Await.result(output).status should be (Status.Ok)
   }
 
   behavior of "AccessFilter"

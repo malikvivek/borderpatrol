@@ -54,7 +54,7 @@ case class ServiceMatcher(customerIds: Set[CustomerIdentifier], serviceIds: Set[
    * @param host The fully qualified host name
    * @return the service name from the longest matching subdomain
    */
-  def subdomain(host: String): Option[CustomerIdentifier] =
+  def customerId(host: String): Option[CustomerIdentifier] =
     foldWith(
       customerIds.filter(ci => host.startsWith(ci.subdomain + domainTerm)),
       (cid1: CustomerIdentifier, cid2: CustomerIdentifier) =>
@@ -62,33 +62,18 @@ case class ServiceMatcher(customerIds: Set[CustomerIdentifier], serviceIds: Set[
     )
 
   /**
-   * Find the longest matching path in the request
+   * Find the serviceId for longest matching path in the request
    *
    * @example
    *          Given a request of path of "/a" and a set of paths Set("/account", "/a")
    * @param path path from request
    * @return the service name from the longest matching path
    */
-  def path(path: Path): Option[ServiceIdentifier] =
+  def serviceId(path: Path): Option[ServiceIdentifier] =
     foldWith(
       serviceIds.filter(sid => path.startsWith(sid.path)),
       (sid1: ServiceIdentifier, sid2: ServiceIdentifier) =>
         if (sid1.path.toString.size > sid2.path.toString.size) sid1 else sid2
     )
-
-  /**
-   * Derive a CustomerIdentifier and ServiceIdentifier from an `http.Request`
-   * - Find CustomerIdentifier from `subdomain` from `req.host`
-   * - Find ServiceIdentifier from `req.path`.
-   *   If it fails to find, then check if it matches with paths in LoginManager. If it does,
-   *   then use default ServiceIdentifier
-   */
-  def get(req: Request): Option[(CustomerIdentifier, ServiceIdentifier)] =
-    (req.host.flatMap(subdomain), path(Path(req.path))) match {
-      case (Some(cid), Some(sid)) => Some((cid, sid))
-      case (Some(cid), None) if cid.isLoginManagerPath(Path(req.path)) => Some((cid, cid.defaultServiceId))
-      case (Some(cid), None) if Root.startsWith(Path(req.path)) => Some((cid, cid.defaultServiceId))
-      case _ => None
-    }
 }
 

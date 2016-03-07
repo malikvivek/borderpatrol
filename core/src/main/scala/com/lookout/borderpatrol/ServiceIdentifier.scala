@@ -29,7 +29,4 @@ case class ServiceIdentifier(name: String, hosts: Set[URL], path: Path, rewriteP
  * @param defaultServiceId
  * @param loginManager
  */
-case class CustomerIdentifier(subdomain: String, defaultServiceId: ServiceIdentifier, loginManager: LoginManager) {
-  def isLoginManagerPath(p: Path): Boolean =
-    loginManager.protoManager.isMatchingPath(p)
-}
+case class CustomerIdentifier(subdomain: String, defaultServiceId: ServiceIdentifier, loginManager: LoginManager)

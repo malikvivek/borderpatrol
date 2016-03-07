@@ -35,7 +35,7 @@ import com.lookout.borderpatrol.util.Combinators._
 import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.io.Buf
 import com.twitter.finagle.http.{Method, Request, Response, Status}
-import com.twitter.finagle.http.service.RoutingService
+import com.twitter.finagle.http.service.{NotFoundService, RoutingService}
 import com.twitter.finagle.Service
 import com.twitter.util.Future
 import io.finch.response.ResponseBuilder
@@ -166,13 +166,21 @@ object service {
   def MainServiceChain(implicit config: ServerConfig, statsReceiver: StatsReceiver): Service[Request, Response] = {
     implicit val secretStore = config.secretStore
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
+    val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
 
-    ExceptionFilter() andThen /* Convert exceptions to responses */
-      CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
-      SessionIdFilter(config.sessionStore) andThen /* Get or allocate Session/SignedId */
-      BorderService(identityProviderChainMap(config.sessionStore),
-        accessIssuerChainMap(config.sessionStore),
-        serviceMatcher,
-        ServiceIdentifierBinder) /* Glue that connects to identity & access service */
+    /* Convert exceptions to responses */
+    ExceptionFilter() andThen
+      /* Validate that its our service */
+      CustomerIdFilter(serviceMatcher) andThen
+      /* Get or allocate Session/SignedId */
+      SessionIdFilter(serviceMatcher, config.sessionStore) andThen
+      /* If unauthenticated, send it to Identity Provider or login page */
+      SendToIdentityProvider(identityProviderChainMap(config.sessionStore), config.sessionStore) andThen
+      /* If authenticated and protected service, send it via Access Issuer chain */
+      SendToAccessIssuer(accessIssuerChainMap(config.sessionStore)) andThen
+      /* Authenticated or not, send it to unprotected service, if its destined to that */
+      SendToUnprotectedService(ServiceIdentifierBinder) andThen
+      /* Not found */
+      notFoundService
   }
 }

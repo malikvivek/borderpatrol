@@ -33,7 +33,6 @@ trait ProtoManager {
   val loginConfirm: Path
   val loggedOutUrl: Option[URL]
   def redirectLocation(host: Option[String]): String
-  def isMatchingPath(p: Path): Boolean = Set(loginConfirm).filter(p.startsWith(_)).nonEmpty
 }
 
 /**
