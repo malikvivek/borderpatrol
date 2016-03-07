@@ -157,12 +157,12 @@ object SecretStores {
         res.status match {
           case Status.Ok => jawn.decode[List[ConsulResponse]](res.contentString)
             .fold[Future[List[ConsulResponse]]](
-              err => Future.exception(ConsulError(//Status.InternalServerError,
+              err => Future.exception(BpConsulError(
                 s"Step-${step}: Failed to parse the Consul response: ${err.getMessage}")),
               t => Future.value(t)
             )
           case Status.NotFound => List.empty.toFuture
-          case _ => Future.exception(ConsulError(
+          case _ => Future.exception(BpConsulError(
             s"Step-${step}: Failed with an error response from Consul: ${res.status}"))
         })
 
@@ -202,7 +202,7 @@ object SecretStores {
               log.info("ConsulSecretStore: LEADER: Updated the new Secrets on Consul " +
                 s"with an id: ${newSecrets.current.id}, expiry: ${newSecrets.current.expiry}")
               Future.value((Some(newSecrets), res.contentString == "true"))
-            case _ => Future.exception(ConsulError(s"Step-${step}: Failed to set Secrets with an error response " +
+            case _ => Future.exception(BpConsulError(s"Step-${step}: Failed to set Secrets with an error response " +
               s"from Consul: ${res.status}"))
           }
         )
@@ -246,10 +246,10 @@ case class ConsulResponse(createIndex: Int, flags: Int, key: String, lockIndex: 
   def secretsForValue(): Secrets = {
     val jsonString = new String(DatatypeConverter.parseBase64Binary(value)).map(_.toChar)
     Parse.parse(jsonString) match {
-      case -\/(e) => throw ConsulError(
+      case -\/(e) => throw BpConsulError(
         s"Expected JSON string, but received invalid string Value from Consul with: ${e}")
       case \/-(j) => SecretsEncoder.EncodeJson.decode(j) match {
-        case Failure(e) => throw ConsulError(s"Failed to decode ConsulResponse from the JSON string with: $e")
+        case Failure(e) => throw BpConsulError(s"Failed to decode ConsulResponse from the JSON string with: $e")
         case Success(v) => v
       }
     }

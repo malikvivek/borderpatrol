@@ -113,7 +113,7 @@ object SignedId {
   private[this] def fromCookie(cooki: Option[Cookie], cookieName: String)(implicit ev: SecretStoreApi): Try[SignedId] =
     cooki match {
       case Some(cookie) => SignedId.from[Cookie](cookie)
-      case None => Failure(SignedIdError(s"no ${cookieName} cookie found"))
+      case None => Failure(BpSignedIdError(s"no ${cookieName} cookie found"))
     }
 
   def fromRequest(req: Request, cookieName: String = SignedId.sessionIdCookieName)(implicit ev: SecretStoreApi):
@@ -139,8 +139,8 @@ object SignedId {
       sig1 != sig2
 
     def validate(t: Time, sig1: Signature, sig2: Signature): Try[Unit] =
-      if (SignedId.expired(t)) Failure(new SignedIdError(s"Expired $t"))
-      else if (invalid(sig1, sig2)) Failure(new SignedIdError("Signature is invalid"))
+      if (SignedId.expired(t)) Failure(new BpSignedIdError(s"Expired $t"))
+      else if (invalid(sig1, sig2)) Failure(new BpSignedIdError("Signature is invalid"))
       else Success(())
 
     def long2Time(l: Long): Time =
@@ -156,7 +156,7 @@ object SignedId {
     implicit def bytes2Secret(bytes: IndexedSeq[Byte])(implicit store: SecretStoreApi): Try[Secret] =
       store.find(_.id == bytes) match {
         case Some(s) => Success(s)
-        case None => Failure(new SignedIdError(s"No secret with id=$bytes"))
+        case None => Failure(new BpSignedIdError(s"No secret with id=$bytes"))
       }
 
     implicit def bytes2Tuple(bytes: IndexedSeq[Byte]): Try[BytesTuple] = bytes match {
@@ -167,7 +167,7 @@ object SignedId {
         val (secretIdList, tagList) = tail2.splitAt(secretIdSize)
         Success((pl, tb, ent, secretIdList, tagList.head, sig))
       }
-      case _ => Failure(new SignedIdError("Not a session string"))
+      case _ => Failure(new BpSignedIdError("Not a session string"))
     }
 
     implicit def seq2SignedId(bytes: IndexedSeq[Byte])(implicit store: SecretStoreApi): Try[SignedId] = for {

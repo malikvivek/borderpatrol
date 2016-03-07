@@ -2,7 +2,8 @@ package com.lookout.borderpatrol.auth
 
 import com.lookout.borderpatrol.Binder.{BindRequest, MBinder}
 import com.lookout.borderpatrol.util.Combinators._
-import com.lookout.borderpatrol.{CustomerIdentifier, ServiceIdentifier, ServiceMatcher}
+import com.lookout.borderpatrol.errors.{BorderError, NotFoundRequest}
+import com.lookout.borderpatrol.{BpBaseError, CustomerIdentifier, ServiceIdentifier, ServiceMatcher}
 import com.lookout.borderpatrol.sessionx._
 import com.twitter.finagle.http.path.{Root, Path}
 import com.twitter.finagle.http._
@@ -55,12 +56,8 @@ case class CustomerIdFilter(matcher: ServiceMatcher)
           s"with CustomerIdentifier: ${cid.subdomain}")
          service(CustomerIdRequest(req, cid))
 
-      case None => tap(Response(Status.NotFound))(r => {
-        log.debug("Failed to find CustomerIdentifier for " +
-          s"Request(${req.method}, ${req.host.fold("null-hostname")(h => s"${h}${req.path}")})")
-        r.contentString = s"${req.path}: Unknown Path/Service(${Status.NotFound.code})"
-        r.contentType = "text/plain"
-      }).toFuture
+      case None => Future.exception(new NotFoundRequest("Failed to find CustomerIdentifier for " +
+          s"Request(${req.method}, ${req.host.fold("null-hostname")(h => s"$h${req.path}")})"))
     }
   }
 }
@@ -103,34 +100,25 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
       s"to identity provider chain for service: ${req.serviceId.name}")
     identityProviderMap.get(req.customerId.loginManager.identityManager.name) match {
       case Some(ip) => ip(req)
-      case None => throw IdentityProviderError(Status.NotFound, "Failed to find IdentityProvider Service Chain for " +
-        req.customerId.loginManager.identityManager.name)
+      case None => Future.exception(BpIdentityProviderError(Status.NotFound,
+        "Failed to find IdentityProvider Service Chain for " +
+        req.customerId.loginManager.identityManager.name))
     }
   }
 
   /**
-   * If content type is application/json, then return 401 with redirect location in the content body.
-   * Otherwise, return a 302 redirect
+   * Generate a redirect error
    */
-  def redirectToLogin(req: SessionIdRequest, sessionId: SignedId): Response = {
+  def redirectToLogin(req: SessionIdRequest, sessionIdOpt: Option[SignedId]): Future[Response] = {
     val location = req.customerId.loginManager.protoManager.redirectLocation(req.req.host)
-    req.req.contentType match {
-      case Some("application/json") =>
-        log.debug(s"Return 401 for the ${req.req} for Untagged Session: ${sessionId.toLogIdString} " +
-          s"to login service, location: $location")
-        tap(Response(Status.Unauthorized))(res => {
-          res.addCookie(sessionId.asCookie())
-          res.contentString = Json.obj(("login_url", location.asJson)).toString()
-          res.contentType = "application/json"
-        })
-      case _ =>
-        log.debug(s"Redirecting the ${req.req} for Untagged Session: ${sessionId.toLogIdString} " +
-          s"to login service, location: $location")
-        tap(Response(Status.Found))(res => {
-          res.addCookie(sessionId.asCookie())
-          res.location = location
-        })
-    }
+    sessionIdOpt.fold(for {
+      session <- Session(req.req)
+      _ <- store.update(session)
+    } yield session.id)(s => s.toFuture).flatMap(sId =>
+      Future.exception(BpRedirectError(Status.Unauthorized, location, sId,
+        s"Redirecting the ${req.req} for Untagged Session: ${sId.toLogIdString} " +
+          s"to login service, location: $location"))
+    )
   }
 
   def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] =
@@ -161,18 +149,15 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
 
       /* 3. Request w/ untagged SessionId & Service, redirect it to Login */
       case (_, Some(Untagged), Some(serviceId)) if serviceId.protekted =>
-        redirectToLogin(req, req.sessionIdOpt.get).toFuture
+        redirectToLogin(req, req.sessionIdOpt)
 
       /* 4. Request w/ untagged SessionId, no Service, redirect it to Login */
       case (_, Some(Untagged), None) =>
-        redirectToLogin(req, req.sessionIdOpt.get).toFuture
+        redirectToLogin(req, req.sessionIdOpt)
 
       /* 5. Request w/o SessionId, allocate SessionId and redirect it to Login */
       case (_, None, _) =>
-        for {
-          session <- Session(req.req)
-          _ <- store.update(session)
-        } yield redirectToLogin(req, session.id)
+        redirectToLogin(req, None)
 
       /* Everything else */
       case _ => service(req)
@@ -195,15 +180,9 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
       s"to access issuer chain for service: ${req.serviceId.name}")
     accessIssuerMap.get(req.customerId.loginManager.accessManager.name) match {
       case Some(ip) => ip(req)
-      case None => throw AccessIssuerError(Status.NotFound, "Failed to find AccessIssuer Service Chain for " +
-        req.customerId.loginManager.accessManager.name)
+      case None => Future.exception(BpAccessIssuerError(Status.NotFound,
+        s"Failed to find AccessIssuer Service Chain for ${req.customerId.loginManager.accessManager.name}"))
     }
-  }
-
-  def redirectToService(req: BorderRequest): Response = {
-    log.debug(s"Redirecting the ${req.req} for Authenticated Session: ${req.sessionId.toLogIdString} " +
-      s"to upstream service, location: ${req.serviceId.path}")
-    tap(Response(Status.Found))(res => res.location = req.serviceId.path.toString)
   }
 
   def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] =
@@ -215,7 +194,10 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
 
       /* 2. Request for Root w/ authenticated Sessionid, redirect to default service */
       case (Some(AuthenticatedTag), None) if Root.startsWith(Path(req.req.path)) =>
-        redirectToService(BorderRequest(req, req.customerId.defaultServiceId, req.sessionIdOpt.get)).toFuture
+        Future.exception(BpRedirectError(Status.NotFound, req.customerId.defaultServiceId.path.toString,
+          req.sessionIdOpt.get,
+          s"Redirecting the ${req.req} for Authenticated Session: ${req.sessionIdOpt.get.toLogIdString} " +
+            s"to upstream service, location: ${req.customerId.defaultServiceId.path}"))
 
       /* Everything else */
       case _ => service(req)
@@ -273,19 +255,12 @@ case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreA
       log.debug(s"Logging out Session: ${sid.toLogIdString}")
       store.delete(sid)
     })
-    tap(Response(Status.Found)) { res =>
-      // Redirect to service or the logged out path
-      res.location = req.customerId.loginManager.protoManager.loggedOutUrl.fold(
-        req.customerId.defaultServiceId.path.toString)(_.toString)
+    // Redirect to service or the logged out path
+    val location = req.customerId.loginManager.protoManager.loggedOutUrl.fold(
+      req.customerId.defaultServiceId.path.toString)(_.toString)
 
-      // Expire all BP cookies present in the Request
-      req.req.cookies.foreach[Unit] {
-        case (name: String, cookie: Cookie) if name.startsWith("border_") =>
-          res.addCookie(SignedId.toExpiredCookie(name))
-        case _ =>
-      }
-      log.debug(s"After logout, redirecting to: ${res.location}")
-    }.toFuture
+    Future.exception(BpLogoutError(Status.Ok, location,
+      s"After logout, redirecting to: $location"))
   }
 }
 
@@ -311,18 +286,13 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(implicit 
     identity(req.sessionId).flatMap {
       case id: Id[A] => service(AccessIdRequest(req, id))
       case EmptyIdentity => for {
-        s <- Session(req.req)
-        _ <- store.update(s)
-      } yield tap(Response(Status.Found)) { res =>
-          /**
-           * Session allocated, redirect to same location again (it could be unprotected and may not
-           * need authentication)
-           */
-          res.location = req.req.uri
-          res.addCookie(s.id.asCookie()) // add SignedId value as a Cookie
-          log.info(s"Failed to find Session: ${req.sessionId.toLogIdString} for Request: ${req.req}, " +
-            s"allocating a new session: ${s.id.toLogIdString}, redirecting to location: ${res.location}")
-        }
+        session <- Session(req.req)
+        _ <- store.update(session)
+      } yield throw BpRedirectError(Status.Unauthorized,
+          req.customerId.loginManager.protoManager.redirectLocation(req.req.host), session.id,
+          s"Failed to find Session: ${req.sessionId.toLogIdString} for: ${req.req}, " +
+            s"allocating a new session: ${session.id.toLogIdString}, redirecting to " +
+            s"location: ${req.customerId.loginManager.protoManager.redirectLocation(req.req.host)}")
     }
 }
 
@@ -370,28 +340,75 @@ case class RewriteFilter() extends SimpleFilter[BorderRequest, Response] {
 case class ExceptionFilter() extends SimpleFilter[Request, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
-  private[this] def warningAndResponse(msg: String, status: Status): Response = {
+  private[this] def warningAndResponse(req: Request, msg: String, status: Status): Response = {
     log.warning(msg)
-    tap(Response(status))(
-      r => { r.contentString = msg; r.contentType = "text/plain" }
-    )
+    tap(Response(status))(res => {
+      req.accept.contains("application/json") match {
+        case true =>
+          res.contentString = Json.obj(("description", msg.asJson)).toString()
+          res.contentType = "application/json"
+        case _ =>
+          res.contentString = msg
+          res.contentType = "text/plain"
+      }
+    })
   }
 
   /**
    * Tells the service how to handle certain types of servable errors (i.e. PetstoreError)
    */
-  def errorHandler: PartialFunction[Throwable, Response] = {
-    case error: SessionError => warningAndResponse(error.getMessage, Status.InternalServerError)
-    case error: AccessDenied => warningAndResponse("AccessDenied: " + error.getMessage, error.status)
-    case error: AccessIssuerError => warningAndResponse(error.getMessage, error.status)
-    case error: IdentityProviderError => warningAndResponse(error.getMessage, error.status)
-    case error: Exception =>
-      log.error(error, error.getMessage)
-      tap(Response(Status.InternalServerError))(
-        r => { r.contentString = error.getMessage; r.contentType = "text/plain" }
-      )
+  def errorHandler(req: Request): PartialFunction[Throwable, Response] = {
+    case error: BpAccessIssuerError => warningAndResponse(req, error.getMessage, error.status)
+    case error: BpIdentityProviderError => warningAndResponse(req, error.getMessage, error.status)
+    case error: BpRedirectError =>
+      log.warning(error.msg)
+      tap(Response())(res => {
+        res.addCookie(error.sessionId.asCookie())
+          req.accept.contains("application/json") match {
+          case true =>
+            res.status = error.status
+            res.contentString = Json.fromFields(Seq(
+              ("description", error.msg.asJson),
+              ("redirect_url", error.location.asJson)
+            )).toString()
+            res.contentType = "application/json"
+          case _ =>
+            res.status = Status.Found
+            res.location = error.location
+            res.contentString = error.msg
+            res.contentType = "text/plain"
+        }})
+    case error: BpLogoutError =>
+      log.info(error.msg)
+      tap(Response())(res => {
+        // Expire all BP cookies present in the Request
+        req.cookies.foreach[Unit] {
+          case (name: String, cookie: Cookie) if name.startsWith("border_") =>
+            res.addCookie(SignedId.toExpiredCookie(name))
+          case _ =>
+        }
+        req.accept.contains("application/json") match {
+          case true =>
+            res.status = error.status
+            res.contentString = Json.fromFields(Seq(
+              ("description", error.msg.asJson),
+              ("redirect_url", error.location.asJson)
+            )).toString()
+            res.contentType = "application/json"
+          case _ =>
+            res.status = Status.Found
+            res.location = error.location
+            res.contentString = error.msg
+            res.contentType = "text/plain"
+        }})
+    case error: BorderError => warningAndResponse(req, error.getMessage, error.status)
+    case error: BpBaseError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
+    case error: BpSessionError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
+    case error: BpAuthError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
+    case error: Exception => warningAndResponse(req, error.getMessage, Status.InternalServerError)
   }
 
-  def apply(req: Request, service: Service[Request, Response]): Future[Response] =
-    service(req) handle errorHandler
+  def apply(req: Request, service: Service[Request, Response]): Future[Response] = {
+    service(req) handle errorHandler(req)
+  }
 }

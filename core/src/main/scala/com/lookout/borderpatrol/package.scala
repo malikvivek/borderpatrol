@@ -56,8 +56,9 @@ package object borderpatrol {
   }
 
   object errors {
-    abstract class BorderError(val status: http.Status, val description: String) extends Exception
-    class InvalidRequest(description: String = "") extends BorderError(http.Status.BadRequest, description)
+    class BorderError(val status: http.Status, val description: String) extends Exception(description)
+    class NotFoundRequest(description: String = "") extends BorderError(http.Status.NotFound, description)
+    class BadRequest(description: String = "") extends BorderError(http.Status.BadRequest, description)
     class UnauthorizedRequest(description: String = "") extends BorderError(http.Status.Unauthorized, description)
     class ForbiddenRequest(description: String = "") extends BorderError(http.Status.Forbidden, description)
   }

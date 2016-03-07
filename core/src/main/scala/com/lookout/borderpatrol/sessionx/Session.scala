@@ -83,12 +83,12 @@ object Session {
    * @return Session
    */
   def apply[A](data: A, tag: Tag = Untagged)(implicit store: SecretStoreApi): Future[Session[A]] =
-    if (store.current.expired) new SessionCreateUnavailable("only expired secrets available").toFutureException
+    if (store.current.expired) new BpSessionCreateUnavailable("only expired secrets available").toFutureException
     else {
       tag match {
         case AuthenticatedTag => SignedId.authenticated map (Session(_, data))
         case Untagged => SignedId.untagged map (Session(_, data))
-        case _ => new SessionError("Invalid SignedId Tag found").toFutureException
+        case _ => new BpSessionError("Invalid SignedId Tag found").toFutureException
       }
     }
 }

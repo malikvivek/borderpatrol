@@ -6,19 +6,6 @@ import com.twitter.finagle.Service
  * The purpose of this abstraction to return some input from a user or entity that can be transformed into an
  * understandable identity to be used in the `AccessRequest`. There is no requirement that the identity from the
  * identifier service be the same as the one sent to the access issuer, however, you must supply a transformation.
- *
- * Use case:
- *
- * SAML:
- *  Issue an `IdentityRequired` if there is no valid session, redirecting to the user's IdP
- *  Have an endpoint that recieves the POST with `IdentifyResponse[SamlToken]`
- *  Hand off the `Identity[SamlToken]` to the `AccessIssuer`
- *
- * Internal Identity Provider:
- *  Issue an `IdentityRequired` if there is no valid session, redirect to the login service
- *  Intercept the POST with credentials and forward them to the `IdentityProvider`
- *  Receive a `IdentifyResponse[?]` directly from the `IdentityProvider`
- *  Hand off the `Identity` to the `AccessIssuer`
  */
 
 /**

@@ -111,7 +111,7 @@ class TokensSpec extends BorderPatrolSuite  {
     val e = invalid(SessionDataEncoder.encodeString.encode( """{ "a" : "b" }""")).failure.exception
 
     // Validate
-    e should be(a[SessionDataError])
+    e should be(a[BpSessionDataError])
     e.getMessage should include ("Failed to decode into Tokens:")
   }
 }

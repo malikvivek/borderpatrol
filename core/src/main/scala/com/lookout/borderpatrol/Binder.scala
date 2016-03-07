@@ -100,11 +100,9 @@ object BinderBase {
       cl <- getOrCreate(name, urls)
       res <- cl.apply(request)
     } yield res) handle {
-      case e => {
-        log.warning("Failed to connect " +
-          s"for: $name to: ${urls.map(u => u.getAuthority).mkString(",")} with: ${e.getMessage}")
-        throw CommunicationError(s"${name} with ${e.getMessage}")
-      }
+      case e =>
+        throw BpCommunicationError(s"Failed to connect for: $name " +
+          s"to: ${urls.map(u => u.getAuthority).mkString(",")} with: ${e.getMessage}")
     }
   }
 

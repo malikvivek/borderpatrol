@@ -7,7 +7,7 @@ import java.util.Date
 import javax.security.auth.x500.X500Principal
 import javax.xml.bind.DatatypeConverter
 
-import com.lookout.borderpatrol.{BinderBase, CommunicationError}
+import com.lookout.borderpatrol.{BinderBase, BpCommunicationError}
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test.{sessionx, BorderPatrolSuite}
 import com.lookout.borderpatrol.util.Combinators.tap
@@ -298,11 +298,11 @@ class OAuth2Spec extends BorderPatrolSuite {
     val output = new OAuth2CodeVerify().codeToClaimsSet(sessionIdRequest, oauth2CodeBadProtoManager)
 
     // Validate
-    val caught = the[CommunicationError] thrownBy {
+    val caught = the[BpCommunicationError] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should startWith("An error occurred while talking to: " +
-      "http://localhost:9999/tokenUrl with java.net.ConnectException: Connection refused:")
+    caught.getMessage should include ("An error occurred while talking to: " +
+      "Failed to connect for: http://localhost:9999/tokenUrl")
   }
 
   /** this exception is thrown by codeToToken method in OAuth2CodeProtoManager */
@@ -347,11 +347,10 @@ class OAuth2Spec extends BorderPatrolSuite {
       val output = new OAuth2CodeVerify().codeToClaimsSet(sessionIdRequest, oauth2CodeProtoManager)
 
       // Validate
-      val caught = the[IdentityProviderError] thrownBy {
+      val caught = the[BpTokenParsingError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should be("Failed to parse the AadToken received from OAuth2 Server: ulm")
-      caught.status should be(Status.InternalServerError)
+      caught.getMessage should include ("Failed to parse the AadToken received from OAuth2 Server: ulm")
     } finally {
       server.close()
     }
@@ -377,10 +376,10 @@ class OAuth2Spec extends BorderPatrolSuite {
       val output = new OAuth2CodeVerify().codeToClaimsSet(sessionIdRequest, oauth2CodeProtoManager)
 
       // Validate
-      val caught = the[IdentityProviderError] thrownBy {
+      val caught = the[BpIdentityProviderError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should be("Failed to receive the AadToken from OAuth2 Server: ulm")
+      caught.getMessage should include ("Failed to receive the AadToken from OAuth2 Server: ulm")
       caught.status should be(Status.NotAcceptable)
     } finally {
       server.close()
@@ -415,7 +414,7 @@ class OAuth2Spec extends BorderPatrolSuite {
       val caught = the[BpTokenParsingError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should startWith("Failed to parse token with: Invalid serialized")
+      caught.getMessage should include ("Failed to parse token with: Invalid serialized")
     } finally {
       server.close()
     }
@@ -449,7 +448,7 @@ class OAuth2Spec extends BorderPatrolSuite {
       val caught = the[BpTokenParsingError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should startWith("Failed to parse token with: Invalid ")
+      caught.getMessage should include ("Failed to parse token with: Invalid ")
     } finally {
       server.close()
     }
@@ -487,7 +486,7 @@ class OAuth2Spec extends BorderPatrolSuite {
       val caught = the[BpTokenParsingError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should startWith("Failed to parse token with: Wrapping null input")
+      caught.getMessage should include ("Failed to parse token with: Wrapping null input")
     } finally {
       server.close()
     }
@@ -540,7 +539,7 @@ class OAuth2Spec extends BorderPatrolSuite {
       val caught = the[BpCertificateError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should startWith("Failed to process Certificate with: Unable to find certificate for")
+      caught.getMessage should include ("Failed to process Certificate with: Unable to find certificate for")
     } finally {
       server.close()
     }
@@ -592,7 +591,7 @@ class OAuth2Spec extends BorderPatrolSuite {
       val caught = the[BpCertificateError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should startWith("Failed to process Certificate with: The element type")
+      caught.getMessage should include ("Failed to process Certificate with: The element type")
     } finally {
       server.close()
     }
@@ -634,7 +633,7 @@ class OAuth2Spec extends BorderPatrolSuite {
       val caught = the[BpCertificateError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should startWith("Failed to process Certificate with: Wrapping null input argument")
+      caught.getMessage should include ("Failed to process Certificate with: Wrapping null input argument")
     } finally {
       server.close()
     }
@@ -649,6 +648,6 @@ class OAuth2Spec extends BorderPatrolSuite {
     val caught = the[BpCertificateError] thrownBy {
       val output = new MockOAuth2CodeVerify().mockVerifier(pk.getPublic)
     }
-    caught.getMessage should startWith("Failed to process Certificate with: Unsupported PublicKey algorithm")
+    caught.getMessage should include ("Failed to process Certificate with: Unsupported PublicKey algorithm")
   }
 }
