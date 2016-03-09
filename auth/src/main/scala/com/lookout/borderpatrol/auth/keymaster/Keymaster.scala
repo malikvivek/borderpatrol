@@ -1,7 +1,7 @@
 package com.lookout.borderpatrol.auth.keymaster
 
 import com.lookout.borderpatrol.auth.OAuth2.OAuth2CodeVerify
-import com.lookout.borderpatrol.errors.{ForbiddenRequest, BadRequest}
+import com.lookout.borderpatrol.errors.{BpForbiddenRequest, BpBadRequest}
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol._
@@ -39,21 +39,21 @@ object Keymaster {
                                       (implicit statsReceiver: StatsReceiver)
       extends IdentityProvider[Credential, Tokens] {
     private[this] val log = Logger.get(getClass.getPackage.getName)
-    private[this] val requestSends = statsReceiver.counter("keymaster.identity.provider.request.sends")
-    private[this] val responseParsingFailed =
+    private[this] val statRequestSends = statsReceiver.counter("keymaster.identity.provider.request.sends")
+    private[this] val statResponseParsingFailed =
       statsReceiver.counter("keymaster.identity.provider.response.parsing.failed")
-    private[this] val responseSuccess =
+    private[this] val statResponseSuccess =
       statsReceiver.counter("keymaster.identity.provider.response.success")
-    private[this] val responseFailed =
+    private[this] val statResponseFailed =
       statsReceiver.counter("keymaster.identity.provider.response.failed")
-    private[this] val responseDenied =
+    private[this] val statResponseDenied =
       statsReceiver.counter("keymaster.identity.provider.denied")
 
     /**
      * Sends credentials, if authenticated successfully will return a MasterToken otherwise a Future.exception
      */
     def apply(req: IdentifyRequest[Credential]): Future[IdentifyResponse[Tokens]] = {
-      requestSends.incr
+      statRequestSends.incr
 
       //  Authenticate user by the Keymaster
       binder(BindRequest(req.credential.customerId.loginManager.identityManager, req.credential.toRequest))
@@ -62,21 +62,21 @@ object Keymaster {
         case Status.Ok =>
           Tokens.derive[Tokens](res.contentString).fold[Future[IdentifyResponse[Tokens]]](
             err => {
-              responseParsingFailed.incr
+              statResponseParsingFailed.incr
               Future.exception(BpTokenParsingError("Failed to parse the Keymaster Identity Response"))
             },
             t => {
-              responseSuccess.incr
+              statResponseSuccess.incr
               Future.value(KeymasterIdentifyRes(t))
             }
           )
         case Status.Forbidden => {
-          responseDenied.incr
+          statResponseDenied.incr
           Future.exception(BpIdentityProviderError(Status.Forbidden,
             s"IdentityProvider denied user: ${req.credential.uniqueId} with status: ${res.status}"))
         }
         case _ => {
-          responseFailed.incr
+          statResponseFailed.incr
           Future.exception(BpIdentityProviderError(Status.InternalServerError,
             s"IdentityProvider denied user: ${req.credential.uniqueId} with status: ${res.status}"))
         }
@@ -96,7 +96,7 @@ object Keymaster {
         p <- req.req.params.get("password")
       } yield InternalAuthCredential(u, p, req.customerId, req.serviceId)) match {
         case Some(c) => Future.value(c)
-        case None => Future.exception(new BadRequest("Failed to find username and/or password in the Request"))
+        case None => Future.exception(new BpBadRequest("Failed to find username and/or password in the Request"))
       }
 
     def transformOAuth2(req: BorderRequest, protoManager: OAuth2CodeProtoManager): Future[OAuth2CodeCredential] = {
@@ -130,7 +130,7 @@ object Keymaster {
                                      (implicit secretStoreApi: SecretStoreApi, statsReceiver: StatsReceiver)
       extends Filter[KeymasterIdentifyReq, Response, IdentifyRequest[Credential], IdentifyResponse[Tokens]] {
     private[this] val log = Logger.get(getClass.getPackage.getName)
-    private[this] val sessionAuthenticated = statsReceiver.counter("keymaster.session.authenticated")
+    private[this] val statSessionAuthenticated = statsReceiver.counter("keymaster.session.authenticated")
 
     /**
      * Grab the original request from the session store, otherwise just send them to the default location of '/'
@@ -150,7 +150,7 @@ object Keymaster {
           originReq <- requestFromSessionStore(req.sessionId)
           _ <- store.delete(req.sessionId)
         } yield {
-          sessionAuthenticated.incr
+          statSessionAuthenticated.incr
           throw BpRedirectError(Status.Ok, originReq.uri, session.id,
             s"Session: ${req.sessionId.toLogIdString}} is authenticated, " +
               s"allocated new Session: ${session.id.toLogIdString} and redirecting to " +
@@ -168,16 +168,16 @@ object Keymaster {
                                   (implicit statsReceiver: StatsReceiver)
       extends AccessIssuer[Tokens, ServiceToken] {
     private[this] val log = Logger.get(getClass.getPackage.getName)
-    private[this] val requestSends = statsReceiver.counter("keymaster.access.issuer.request.sends")
-    private[this] val responseParsingFailed =
+    private[this] val statRequestSends = statsReceiver.counter("keymaster.access.issuer.request.sends")
+    private[this] val statsResponseParsingFailed =
       statsReceiver.counter("keymaster.access.issuer.response.parsing.failed")
-    private[this] val responseSuccess =
+    private[this] val statsResponseSuccess =
       statsReceiver.counter("keymaster.access.issuer.response.success")
-    private[this] val accessDenied =
+    private[this] val statAccessDenied =
       statsReceiver.counter("keymaster.access.issuer.access.denied")
-    private[this] val responseFailed =
+    private[this] val statsResponseFailed =
       statsReceiver.counter("keymaster.access.issuer.response.failed")
-    private[this] val cacheHits = statsReceiver.counter("keymaster.access.issuer.cache.hits")
+    private[this] val statCacheHits = statsReceiver.counter("keymaster.access.issuer.cache.hits")
 
     def api(accessRequest: AccessRequest[Tokens]): Request =
       tap(Request(Method.Post, accessRequest.customerId.loginManager.accessManager.path.toString))(req => {
@@ -193,7 +193,7 @@ object Keymaster {
     def apply(req: AccessRequest[Tokens]): Future[AccessResponse[ServiceToken]] =
       //  Check if ServiceToken is already available for Service
       req.identity.id.service(req.serviceId.name).fold[Future[ServiceToken]]({
-        requestSends.incr()
+        statRequestSends.incr()
 
         //  Fetch ServiceToken from the Keymaster
         binder(BindRequest(req.customerId.loginManager.accessManager, api(req))).flatMap(res => res.status match {
@@ -201,27 +201,27 @@ object Keymaster {
           case Status.Ok =>
             Tokens.derive[Tokens](res.contentString).fold[Future[ServiceToken]](
               e => {
-                responseParsingFailed.incr()
+                statsResponseParsingFailed.incr()
                 Future.exception(BpTokenParsingError("Failed to parse the Keymaster Access Response"))
               },
               tokens => {
-                responseSuccess.incr()
+                statsResponseSuccess.incr()
                 tokens.service(req.serviceId.name).fold[Future[ServiceToken]]({
-                  accessDenied.incr()
-                  Future.exception(new ForbiddenRequest(s"Access not allowed to service: ${req.serviceId.name}"))
+                  statAccessDenied.incr()
+                  Future.exception(new BpForbiddenRequest(s"Access not allowed to service: ${req.serviceId.name}"))
                 })(st => for {
                   _ <- store.update(Session(req.sessionId, req.identity.id.add(req.serviceId.name, st)))
                 } yield st)
               }
             )
           case _ => {
-            responseFailed.incr()
+            statsResponseFailed.incr()
             Future.exception(BpAccessIssuerError(Status.InternalServerError,
               s"AccessIssuer denied access to service: ${req.serviceId.name} with status: ${res.status}"))
           }
         })
       })(t => {
-        cacheHits.incr()
+        statCacheHits.incr()
         Future.value(t)
       }).map(t => KeymasterAccessRes(Access(t)))
   }

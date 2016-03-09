@@ -101,7 +101,7 @@ object BinderBase {
       res <- cl.apply(request)
     } yield res) handle {
       case e =>
-        throw BpCommunicationError(s"Failed to connect for: $name " +
+        throw BpCommunicationError(s"Failed to connect for: '${name}' " +
           s"to: ${urls.map(u => u.getAuthority).mkString(",")} with: ${e.getMessage}")
     }
   }

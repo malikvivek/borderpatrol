@@ -4,7 +4,7 @@ import com.lookout.borderpatrol.BinderBase
 import com.lookout.borderpatrol.auth.OAuth2.OAuth2CodeVerify
 import com.lookout.borderpatrol.auth.keymaster.Keymaster._
 import com.lookout.borderpatrol.auth._
-import com.lookout.borderpatrol.errors.{BadRequest, ForbiddenRequest}
+import com.lookout.borderpatrol.errors.{BpBadRequest, BpForbiddenRequest}
 import com.lookout.borderpatrol.sessionx.SessionStores.MemcachedStore
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
@@ -77,7 +77,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     Await.result(output).identity should be (Id(tokens))
   }
 
-  it should "propagate the error Status code from Keymaster service in the BpIdentityProviderError exception" in {
+  it should "propagate the Forbidden Status code from Keymaster service in the BpIdentityProviderError exception" in {
     val testIdentityManagerBinder = mkTestManagerBinder { request => Response(Status.Forbidden).toFuture }
 
     // Allocate and Session
@@ -99,6 +99,30 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     }
     caught.getMessage should include ("IdentityProvider denied user: foo")
     caught.status should be (Status.Forbidden)
+  }
+
+  it should "propagate the error status from Keymaster service in the BpIdentityProviderError exception" in {
+    val testIdentityManagerBinder = mkTestManagerBinder { request => Response(Status.NotAcceptable).toFuture }
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login POST request
+    val loginRequest = req("umbrella", "/signin", ("code" -> "XYZ123"))
+
+    //  Request
+    val sessionIdRequest = BorderRequest(loginRequest, cust2, two, sessionId)
+
+    // Execute
+    val output = KeymasterIdentityProvider(testIdentityManagerBinder).apply(
+      KeymasterIdentifyReq(sessionIdRequest, OAuth2CodeCredential("foo", "bar", cust2, two)))
+
+    // Validate
+    val caught = the [BpIdentityProviderError] thrownBy {
+      Await.result(output)
+    }
+    caught.getMessage should include ("IdentityProvider denied user: foo")
+    caught.status should be (Status.InternalServerError)
   }
 
   it should "propagate the failure parsing the resp from Keymaster service as an BpTokenParsingError exception" in {
@@ -193,7 +217,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     Await.result(output).status should be(Status.Ok)
   }
 
-  it should "return BadRequest Status if username or password is not present in the Request" in {
+  it should "return BpBadRequest Status if username or password is not present in the Request" in {
     val testService = mkTestService[KeymasterIdentifyReq, Response] { request => Future(Response(Status.Ok)) }
 
     // Allocate and Session
@@ -207,7 +231,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       BorderRequest(loginRequest, cust1, one, sessionId))
 
     // Validate
-    val caught = the [BadRequest] thrownBy {
+    val caught = the [BpBadRequest] thrownBy {
       Await.result(output)
     }
     caught.getMessage should include ("Failed to find username and/or password in the Request")
@@ -428,7 +452,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       KeymasterAccessReq(Id(tokens), cust1, one, sessionId))
 
     // Validate
-    val caught = the [ForbiddenRequest] thrownBy {
+    val caught = the [BpForbiddenRequest] thrownBy {
       Await.result(output)
     }
     caught.getMessage should include ("Access not allowed to service:")

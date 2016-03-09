@@ -2,8 +2,8 @@ package com.lookout.borderpatrol.auth
 
 import com.lookout.borderpatrol.Binder.{BindRequest, MBinder}
 import com.lookout.borderpatrol.util.Combinators._
-import com.lookout.borderpatrol.errors.{BorderError, NotFoundRequest}
-import com.lookout.borderpatrol.{BpBaseError, CustomerIdentifier, ServiceIdentifier, ServiceMatcher}
+import com.lookout.borderpatrol.errors.{BpBorderError, BpNotFoundRequest}
+import com.lookout.borderpatrol.{BpCoreError, CustomerIdentifier, ServiceIdentifier, ServiceMatcher}
 import com.lookout.borderpatrol.sessionx._
 import com.twitter.finagle.http.path.{Root, Path}
 import com.twitter.finagle.http._
@@ -56,7 +56,7 @@ case class CustomerIdFilter(matcher: ServiceMatcher)
           s"with CustomerIdentifier: ${cid.subdomain}")
          service(CustomerIdRequest(req, cid))
 
-      case None => Future.exception(new NotFoundRequest("Failed to find CustomerIdentifier for " +
+      case None => Future.exception(new BpNotFoundRequest("Failed to find CustomerIdentifier for " +
           s"Request(${req.method}, ${req.host.fold("null-hostname")(h => s"$h${req.path}")})"))
     }
   }
@@ -117,24 +117,23 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
     } yield session.id)(s => s.toFuture).flatMap(sId =>
       Future.exception(BpRedirectError(Status.Unauthorized, location, sId,
         s"Redirecting the ${req.req} for Untagged Session: ${sId.toLogIdString} " +
-          s"to login service, location: $location"))
-    )
+          s"to login service, location: $location")))
   }
 
   def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] =
-    (req.req.method, req.sessionIdOpt.map(_.tag), req.serviceIdOpt) match {
+    (req.sessionIdOpt.map(_.tag), req.serviceIdOpt) match {
 
-      /* 1. POST to loginConfirm path w/ untagged SessionId, dispatch to Identity Provider chain */
-      case (Method.Post, Some(Untagged), _)
+      /* 1. loginConfirm path w/ untagged SessionId, dispatch to Identity Provider chain */
+      case (Some(Untagged), _)
         if Path(req.req.path).startsWith(req.customerId.loginManager.protoManager.loginConfirm) => {
         sendToIdentityProvider(BorderRequest(req, req.customerId.defaultServiceId, req.sessionIdOpt.get))
       }
 
       /**
-       * 2. POST to loginConfirm path w/o SessionId, allocate SessionId, dispatch to Identity Provider chain
+       * 2. POST to loginonfirm path w/o SessionId, allocate SessionId, dispatch to Identity Provider chain
        *    It creates default request on the fly and for location it uses defaultServiceId or target_url param
        */
-      case (Method.Post, None, _)
+      case (None, _)
         if Path(req.req.path).startsWith(req.customerId.loginManager.protoManager.loginConfirm) => {
         for {
           sessionId <- SignedId.untagged
@@ -148,15 +147,15 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
       }
 
       /* 3. Request w/ untagged SessionId & Service, redirect it to Login */
-      case (_, Some(Untagged), Some(serviceId)) if serviceId.protekted =>
+      case (Some(Untagged), Some(serviceId)) if serviceId.protekted =>
         redirectToLogin(req, req.sessionIdOpt)
 
       /* 4. Request w/ untagged SessionId, no Service, redirect it to Login */
-      case (_, Some(Untagged), None) =>
+      case (Some(Untagged), None) =>
         redirectToLogin(req, req.sessionIdOpt)
 
       /* 5. Request w/o SessionId, allocate SessionId and redirect it to Login */
-      case (_, None, _) =>
+      case (None, _) =>
         redirectToLogin(req, None)
 
       /* Everything else */
@@ -216,12 +215,12 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
 case class SendToUnprotectedService(serviceBinder: MBinder[ServiceIdentifier])(implicit statsReceiver: StatsReceiver)
     extends SimpleFilter[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
-  private[this] val requestSends = statsReceiver.counter("unprotected.upstream.service.request.sends")
+  private[this] val statRequestSends = statsReceiver.counter("unprotected.upstream.service.request.sends")
   private[this] val unprotectedServiceChain = RewriteFilter() andThen Service.mk[BorderRequest, Response] {
     br => serviceBinder(BindRequest(br.serviceId, br.req)) }
 
   def sendToUnprotectedService(req: BorderRequest): Future[Response] = {
-    requestSends.incr
+    statRequestSends.incr
     log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
       s"to the unprotected upstream service: ${req.serviceId.name}")
     /* Route through a Rewrite filter */
@@ -304,14 +303,14 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(implicit 
 case class AccessFilter[A, B](binder: MBinder[ServiceIdentifier])(implicit statsReceiver: StatsReceiver)
     extends Filter[AccessIdRequest[A], Response, AccessRequest[A], AccessResponse[B]] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
-  private[this] val requestSends = statsReceiver.counter("upstream.service.request.sends")
+  private[this] val statRequestSends = statsReceiver.counter("upstream.service.request.sends")
 
   def apply(req: AccessIdRequest[A],
             accessService: Service[AccessRequest[A], AccessResponse[B]]): Future[Response] =
     accessService(AccessRequest(req.id, req.customerId, req.serviceId, req.sessionId)).flatMap(
       accessResp => binder(BindRequest(req.serviceId,
         tap(req.req) { r => {
-          requestSends.incr
+          statRequestSends.incr
           log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
             s"to the protected upstream service: ${req.serviceId.name}")
           r.headerMap.add("Auth-Token", accessResp.access.access.toString)
@@ -354,55 +353,62 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
     })
   }
 
+  /* Convert a redirect into a response palatable to the client */
+  private[this] def warningAndRedirectResponse(req: Request, error: BpRedirectError): Response = {
+    log.warning(error.msg)
+    tap(Response())(res => {
+      res.addCookie(error.sessionId.asCookie())
+      // If Accept Header contains "application/json", then encode response in JSON format
+      req.accept.contains("application/json") match {
+        case true =>
+          res.status = error.status
+          res.contentString = Json.fromFields(Seq(("description", error.msg.asJson),
+            ("redirect_url", error.location.asJson))).toString()
+          res.contentType = "application/json"
+        case _ =>
+          // Change the Status to be 302
+          res.status = Status.Found
+          res.location = error.location
+          res.contentString = error.msg
+          res.contentType = "text/plain"
+      }})
+  }
+
+  /* Convert this error into a response appropriate to the client */
+  private[this] def warningAndLogoutResponse(req: Request, error: BpLogoutError): Response = {
+    log.info(error.msg)
+    tap(Response())(res => {
+      // Expire all BP cookies present in the Request
+      req.cookies.foreach[Unit] {
+        case (name: String, cookie: Cookie) if name.startsWith("border_") =>
+          res.addCookie(SignedId.toExpiredCookie(name))
+        case _ =>
+      }
+      // If Accept Header contains "application/json", then encode response in JSON format
+      req.accept.contains("application/json") match {
+        case true =>
+          res.status = error.status
+          res.contentString = Json.fromFields(Seq(("description", error.msg.asJson),
+            ("redirect_url", error.location.asJson))).toString()
+          res.contentType = "application/json"
+        case _ =>
+          res.status = Status.Found
+          res.location = error.location
+          res.contentString = error.msg
+          res.contentType = "text/plain"
+      }})
+  }
+
   /**
    * Tells the service how to handle certain types of servable errors (i.e. PetstoreError)
    */
   def errorHandler(req: Request): PartialFunction[Throwable, Response] = {
     case error: BpAccessIssuerError => warningAndResponse(req, error.getMessage, error.status)
     case error: BpIdentityProviderError => warningAndResponse(req, error.getMessage, error.status)
-    case error: BpRedirectError =>
-      log.warning(error.msg)
-      tap(Response())(res => {
-        res.addCookie(error.sessionId.asCookie())
-          req.accept.contains("application/json") match {
-          case true =>
-            res.status = error.status
-            res.contentString = Json.fromFields(Seq(
-              ("description", error.msg.asJson),
-              ("redirect_url", error.location.asJson)
-            )).toString()
-            res.contentType = "application/json"
-          case _ =>
-            res.status = Status.Found
-            res.location = error.location
-            res.contentString = error.msg
-            res.contentType = "text/plain"
-        }})
-    case error: BpLogoutError =>
-      log.info(error.msg)
-      tap(Response())(res => {
-        // Expire all BP cookies present in the Request
-        req.cookies.foreach[Unit] {
-          case (name: String, cookie: Cookie) if name.startsWith("border_") =>
-            res.addCookie(SignedId.toExpiredCookie(name))
-          case _ =>
-        }
-        req.accept.contains("application/json") match {
-          case true =>
-            res.status = error.status
-            res.contentString = Json.fromFields(Seq(
-              ("description", error.msg.asJson),
-              ("redirect_url", error.location.asJson)
-            )).toString()
-            res.contentType = "application/json"
-          case _ =>
-            res.status = Status.Found
-            res.location = error.location
-            res.contentString = error.msg
-            res.contentType = "text/plain"
-        }})
-    case error: BorderError => warningAndResponse(req, error.getMessage, error.status)
-    case error: BpBaseError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
+    case error: BpRedirectError => warningAndRedirectResponse(req, error)
+    case error: BpLogoutError => warningAndLogoutResponse(req, error)
+    case error: BpBorderError => warningAndResponse(req, error.getMessage, error.status)
+    case error: BpCoreError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
     case error: BpSessionError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
     case error: BpAuthError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
     case error: Exception => warningAndResponse(req, error.getMessage, Status.InternalServerError)

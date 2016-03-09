@@ -302,7 +302,7 @@ class OAuth2Spec extends BorderPatrolSuite {
       Await.result(output)
     }
     caught.getMessage should include ("An error occurred while talking to: " +
-      "Failed to connect for: http://localhost:9999/tokenUrl")
+      "Failed to connect for: 'http://localhost:9999/tokenUrl'")
   }
 
   /** this exception is thrown by codeToToken method in OAuth2CodeProtoManager */
