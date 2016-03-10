@@ -98,7 +98,7 @@ object SessionDataEncoder {
   def apply[A](f: A => Buf, g: Buf => A): SessionDataEncoder[A] = new SessionDataEncoder[A] {
     def encode(data: A): Buf = f(data)
     def decode(buf: Buf): Try[A] = Try { g(buf) } match {
-      case Failure(e) => Failure(SessionDataError(e))
+      case Failure(e) => Failure(BpSessionDataError(e))
       case s => s
     }
   }
@@ -117,7 +117,7 @@ object SessionDataEncoder {
    */
   implicit val encodeString: SessionDataEncoder[String] = SessionDataEncoder(
     data => Buf.Utf8.apply(data),
-    buf => Buf.Utf8.unapply(buf) getOrElse (throw new SessionError("Buf conversion to String failed"))
+    buf => Buf.Utf8.unapply(buf) getOrElse (throw new BpSessionError("Buf conversion to String failed"))
   )
 
   /**
@@ -133,7 +133,7 @@ object SessionDataEncoder {
    */
   implicit val encodeInt: SessionDataEncoder[Int] = SessionDataEncoder(
     data => Buf.U32BE(data),
-    buf => Buf.U32BE.unapply(buf).map(t => t._1) getOrElse (throw new SessionError("Buf conversion to Int failed"))
+    buf => Buf.U32BE.unapply(buf).map(t => t._1) getOrElse (throw new BpSessionError("Buf conversion to Int failed"))
   )
 
 }
@@ -199,7 +199,7 @@ object SecretEncoder {
 
     def decode(json: Json): Try[Secret] =
       json.jdecode[Secret].toDisjunction.fold[Try[Secret]](
-        e => Failure(SecretDecodeError(e._1)),
+        e => Failure(BpSecretDecodeError(e._1)),
         s => Success(s)
       )
 
@@ -224,7 +224,7 @@ object SecretsEncoder {
 
     def decode(json: Json): Try[Secrets] = {
       json.as[Secrets].toDisjunction.fold[Try[Secrets]](
-        e => Failure( SecretsDecodeError(e._1)),
+        e => Failure(BpSecretsDecodeError(e._1)),
         s => Success(s)
         )
     }

@@ -35,16 +35,16 @@ class SessionIdSpec extends BorderPatrolSuite {
   it should "not be derivable from string value if signed with secret not in the store" in {
     val idWithoutValidSecret = sessionid.untagged.copy(secret = secrets.invalid)
 
-    SignedId.from[String](idWithoutValidSecret.asBase64).failure.exception should be(a [SignedIdError])
+    SignedId.from[String](idWithoutValidSecret.asBase64).failure.exception should be(a [BpSignedIdError])
   }
 
   it should "not be derivable from string value if signatures don't match" in {
     val badId = sessionid.invalid
-    SignedId.from[String](badId.asBase64).failure.exception should be(a [SignedIdError])
+    SignedId.from[String](badId.asBase64).failure.exception should be(a [BpSignedIdError])
   }
 
   it should "not be derivable from an invalid string" in {
-    SignedId.from[String]("hello world!").failure.exception should be(a [SignedIdError])
+    SignedId.from[String]("hello world!").failure.exception should be(a [BpSignedIdError])
   }
 
   it should "create a tagged sessionId" in {

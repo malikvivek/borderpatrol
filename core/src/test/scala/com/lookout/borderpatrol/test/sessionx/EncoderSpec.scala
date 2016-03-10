@@ -34,7 +34,7 @@ class EncoderSpec extends BorderPatrolSuite {
     def invalid[A](input: A)(implicit ev: SecretEncoder[A]): Try[Secret] =
       ev.decode(input)
 
-    invalid[Json](Json.jNumber(1)).failure.exception should be(a[SecretDecodeError])
+    invalid[Json](Json.jNumber(1)).failure.exception should be(a[BpSecretDecodeError])
   }
 
   behavior of "SignedIdEncoder"
@@ -51,7 +51,7 @@ class EncoderSpec extends BorderPatrolSuite {
     def invalid[A](input: A)(implicit ev: SignedIdEncoder[A]): Try[SignedId] =
       ev.decode(input)
 
-    invalid[String]("forged secret session id").failure.exception should be(a[SignedIdError])
+    invalid[String]("forged secret session id").failure.exception should be(a[BpSignedIdError])
   }
 
   behavior of "SessionDataEncoder"
@@ -68,7 +68,7 @@ class EncoderSpec extends BorderPatrolSuite {
     def invalid[A](input: Buf)(implicit ev: SessionDataEncoder[A]): Try[A] =
       ev.decode(input)
 
-    invalid[http.Request](Buf.U32BE(1)).failure.exception should be(a[SessionDataError])
+    invalid[http.Request](Buf.U32BE(1)).failure.exception should be(a[BpSessionDataError])
   }
 
   behavior of "SecretsEncoder"

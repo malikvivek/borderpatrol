@@ -1,9 +1,7 @@
 package com.lookout.borderpatrol
 
-class BaseError(val message: String, cause: Throwable) extends Exception(message, cause) {
-  // scalastyle:off null
-  def this(message: String) = this(message, null)
-}
+// scalastyle:off null
+class BpCoreError(val message: String) extends Exception(s"BPCORE: $message", null)
 
-case class CommunicationError(error: String)
-  extends BaseError(s"An error occurred while talking to: $error")
+case class BpCommunicationError(error: String)
+  extends BpCoreError(s"An error occurred while talking to: $error")

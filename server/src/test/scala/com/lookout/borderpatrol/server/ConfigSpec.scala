@@ -114,16 +114,16 @@ class ConfigSpec extends BorderPatrolSuite {
     serverConfig.findIdentityManager("keymaster") should be(keymasterIdManager)
     serverConfig.findAccessManager("keymaster") should be(keymasterAccessManager)
     serverConfig.findServiceIdentifier("one") should be(one)
-    the[InvalidConfigError] thrownBy {
+    the[BpInvalidConfigError] thrownBy {
       serverConfig.findLoginManager("foo")
     }
-    the[InvalidConfigError] thrownBy {
+    the[BpInvalidConfigError] thrownBy {
       serverConfig.findIdentityManager("foo")
     }
-    the[InvalidConfigError] thrownBy {
+    the[BpInvalidConfigError] thrownBy {
       serverConfig.findAccessManager("foo")
     }
-    the[InvalidConfigError] thrownBy {
+    the[BpInvalidConfigError] thrownBy {
       serverConfig.findServiceIdentifier("foo")
     }
   }
@@ -141,13 +141,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val invalidContents = """[{"name":"one","path": {"str" :"customer1"},"subdomain":"customer1","login":"/login"}]"""
     val tempInvalidFile = File.makeTemp("ServerConfigSpecInvalid", ".tmp")
     tempInvalidFile.writeAll(invalidContents)
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempInvalidFile.toCanonical.toString)
     }
     caught.getMessage should include ("failed to decode following field(s): listeningPort")
   }
 
-  it should "raise a ConfigError exception due to lack of listeningPort config" in {
+  it should "raise a BpConfigError exception due to lack of listeningPort config" in {
     val partialContents = Json.fromFields(Seq(
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
@@ -161,13 +161,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include ("failed to decode following field(s): listeningPort")
   }
 
-  it should "raise a ConfigError exception due to lack of Secret Store config" in {
+  it should "raise a BpConfigError exception due to lack of Secret Store config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
@@ -181,13 +181,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include ("failed to decode following field(s): secretStore")
   }
 
-  it should "raise a ConfigError exception due to invalid of Secret Store config" in {
+  it should "raise a BpConfigError exception due to invalid of Secret Store config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", Json.obj(("type", Json.string("woof")))),
@@ -202,13 +202,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include ("Invalid secretStore:failed to decode following field(s): secretStore")
   }
 
-  it should "raise a ConfigError exception due to lack of Session Store config" in {
+  it should "raise a BpConfigError exception due to lack of Session Store config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", consulSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -222,13 +222,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include ("failed to decode following field(s): sessionStore")
   }
 
-  it should "raise a ConfigError exception due to invalid Session Store config" in {
+  it should "raise a BpConfigError exception due to invalid Session Store config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", consulSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -243,13 +243,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include ("Invalid sessionStore:failed to decode following field(s): sessionStore")
   }
 
-  it should "raise a ConfigError exception due to lack of Statsd Reporter config" in {
+  it should "raise a BpConfigError exception due to lack of Statsd Reporter config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -263,13 +263,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include ("failed to decode following field(s): statsdReporter")
   }
 
-  it should "raise a ConfigError exception due to lack of CustomerIdentifier config" in {
+  it should "raise a BpConfigError exception due to lack of CustomerIdentifier config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -283,13 +283,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include ("failed to decode following field(s): customerIdentifiers")
   }
 
-  it should "raise a ConfigError exception due to missing LoginManager in CustomerIdentifier config" in {
+  it should "raise a BpConfigError exception due to missing LoginManager in CustomerIdentifier config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -307,14 +307,14 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include (
       "LoginManager \"bad\" not found:failed to decode following field(s): customerIdentifiers")
   }
 
-  it should "raise a ConfigError exception due to missing ServiceIdentifier in CustomerIdentifier config" in {
+  it should "raise a BpConfigError exception due to missing ServiceIdentifier in CustomerIdentifier config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -332,14 +332,14 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include (
       "ServiceIdentifier \"bad\" not found:failed to decode following field(s): customerIdentifiers")
   }
 
-  it should "raise a ConfigError exception due to lack of ServiceIdentifier config" in {
+  it should "raise a BpConfigError exception due to lack of ServiceIdentifier config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -353,13 +353,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include ("failed to decode following field(s): serviceIdentifiers")
   }
 
-  it should "raise a ConfigError exception if identityManager that is used in LoginManager is missing" in {
+  it should "raise a BpConfigError exception if identityManager that is used in LoginManager is missing" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -374,14 +374,14 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include (
       "IdentityManager \"keymaster\" not found:failed to decode following field(s): loginManagers")
   }
 
-  it should "raise a ConfigError exception if duplicate are configured in idManagers config" in {
+  it should "raise a BpConfigError exception if duplicate are configured in idManagers config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -397,13 +397,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include ("Duplicate entries for key (name) are found in the field: identityManagers")
   }
 
-  it should "raise a ConfigError exception if accessManager that is used in LoginManager is missing" in {
+  it should "raise a BpConfigError exception if accessManager that is used in LoginManager is missing" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -418,14 +418,14 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include (
       "AccessManager \"keymaster\" not found:failed to decode following field(s): loginManagers")
   }
 
-  it should "raise a ConfigError exception if duplicates are configured in accessManagers config" in {
+  it should "raise a BpConfigError exception if duplicates are configured in accessManagers config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -441,13 +441,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include ("Duplicate entries for key (name) are found in the field: accessManagers")
   }
 
-  it should "raise a ConfigError exception if duplicates are configured in loginManagers config" in {
+  it should "raise a BpConfigError exception if duplicates are configured in loginManagers config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -464,13 +464,13 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include ("Duplicate entries for key (name) are found in the field: loginManagers")
   }
 
-  it should "raise a ConfigError exception if duplicate paths are configured in serviceIdentifiers config" in {
+  it should "raise a BpConfigError exception if duplicate paths are configured in serviceIdentifiers config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -485,14 +485,14 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include (
       "Duplicate entries for key (path) are found in the field: serviceIdentifiers")
   }
 
-  it should "raise a ConfigError exception if duplicate subdomains are configured in customerIdentifiers config" in {
+  it should "raise a BpConfigError exception if duplicate subdomains are configured in customerIdentifiers config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -507,14 +507,14 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include (
       "Duplicate entries for key (subdomain) are found in the field: customerIdentifiers")
   }
 
-  it should "raise a ConfigError exception when it catches multiple errors in the config" in {
+  it should "raise a BpConfigError exception when it catches multiple errors in the config" in {
     val partialContents = Json.fromFields(Seq(
       ("listeningPort", bpPort.asJson),
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
@@ -529,7 +529,7 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
     tempFile.writeAll(partialContents.toString)
 
-    val caught = the [ConfigError] thrownBy {
+    val caught = the [BpConfigError] thrownBy {
       readServerConfig(tempFile.toCanonical.toString)
     }
     caught.getMessage should include (

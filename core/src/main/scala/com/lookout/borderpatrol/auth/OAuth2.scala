@@ -82,7 +82,7 @@ object OAuth2 {
           // Load xml
           val xml = Try(scala.xml.XML.loadString(res.contentString.replaceAll("[^\\x20-\\x7e]", ""))) match {
             case Success(v) => v
-            case Failure(f) => throw new BpCertificateError(f.getMessage)
+            case Failure(f) => throw BpCertificateError(f.getMessage)
           }
 
           // Parse xml for certificate tags and then add all certificates to cache
@@ -96,11 +96,10 @@ object OAuth2 {
           })
 
           // Find again or throw exception
-          find(thumbprint).getOrElse(throw new BpCertificateError(
+          find(thumbprint).getOrElse(throw BpCertificateError(
             s"Unable to find certificate for thumbprint: $thumbprint")).toFuture
         }
 
-        //  Preserve Response Status code by throwing AccessDenied exceptions
         case _ => Future.exception(BpCertificateError("Failed to download certificate from Server with: " +
           res.status))
       })
@@ -110,7 +109,7 @@ object OAuth2 {
       pk match {
         case rsaPk: RSAPublicKey => new RSASSAVerifier(rsaPk)
         case ecPk: ECPublicKey => new ECDSAVerifier(ecPk)
-        case _ => throw new BpCertificateError(s"Unsupported PublicKey algorithm: ${pk.getAlgorithm}")
+        case _ => throw BpCertificateError(s"Unsupported PublicKey algorithm: ${pk.getAlgorithm}")
       }
 
     /**
@@ -129,16 +128,13 @@ object OAuth2 {
         cert <- wrapFuture({ () => X509CertUtils.parse(DatatypeConverter.parseBase64Binary(certStr)) },
           BpCertificateError.apply)
       } yield signedJWT.verify(verifier(cert.getPublicKey)) match {
-        case true => {
+        case true =>
           log.debug("Verified the signature on the AccessToken for: " +
             s"${signedJWT.getJWTClaimsSet.getStringClaim("upn")}, with a certificate of thumbprint: " + thumbprint)
           signedJWT.getJWTClaimsSet
-        }
-        case false => {
-          log.debug("Failed to verified the signature on the AccessToken for: " +
-            s"${signedJWT.getJWTClaimsSet.getStringClaim("upn")}, with a certificate of thumbprint: " + thumbprint)
-          throw new Exception("failed to verify signature")
-        }
+
+        case false => throw BpVerifyTokenError(
+          s"${signedJWT.getJWTClaimsSet.getStringClaim("upn")}, with a certificate of thumbprint: $thumbprint")
       }
     }
 
@@ -156,13 +152,11 @@ object OAuth2 {
           //  Parse for Tokens if Status.Ok
           case Status.Ok =>
             OAuth2.derive[AadToken](res.contentString).fold[Future[AadToken]](
-              err => Future.exception(IdentityProviderError(Status.InternalServerError,
-                "Failed to parse the AadToken received from OAuth2 Server: " +
-                  s"${req.customerId.loginManager.name}")),
+              err => Future.exception(BpTokenParsingError(
+                s"Failed to parse the AadToken received from OAuth2 Server: ${req.customerId.loginManager.name}")),
               t => Future.value(t)
             )
-          //  Preserve Response Status code by throwing AccessDenied exceptions
-          case _ => Future.exception(IdentityProviderError(res.status,
+          case _ => Future.exception(BpIdentityProviderError(res.status,
             s"Failed to receive the AadToken from OAuth2 Server: ${req.customerId.loginManager.name}"))
         })
         idClaimSet <- wrapFuture({() => PlainJWT.parse(aadToken.idToken).getJWTClaimsSet}, BpTokenParsingError.apply)

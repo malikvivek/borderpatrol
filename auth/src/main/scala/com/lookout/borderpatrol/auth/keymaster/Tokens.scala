@@ -1,6 +1,6 @@
 package com.lookout.borderpatrol.auth.keymaster
 
-import com.lookout.borderpatrol.sessionx.{SessionDataError, SessionDataEncoder}
+import com.lookout.borderpatrol.sessionx.{BpSessionDataError, SessionDataEncoder}
 import com.twitter.io.Buf
 import io.circe._
 import io.circe.generic.auto._
@@ -135,7 +135,7 @@ object Tokens {
     def decode(buf: Buf): Try[Tokens] =
       SessionDataEncoder.encodeString.decode(buf).flatMap(s =>
         derive[Tokens](s).fold[Try[Tokens]](
-          e => Failure(SessionDataError(e)),
+          e => Failure(BpSessionDataError(e)),
           t => Success(t)
         )
       )

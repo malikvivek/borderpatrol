@@ -28,16 +28,16 @@ case class ServerConfig(listeningPort: Int,
                         accessManagers: Set[Manager]) {
 
   def findIdentityManager(n: String): Manager = identityManagers.find(_.name == n)
-    .getOrElse(throw new InvalidConfigError("Failed to find IdentityManager for: " + n))
+    .getOrElse(throw new BpInvalidConfigError("Failed to find IdentityManager for: " + n))
 
   def findAccessManager(n: String): Manager = accessManagers.find(_.name == n)
-    .getOrElse(throw new InvalidConfigError("Failed to find Manager for: " + n))
+    .getOrElse(throw new BpInvalidConfigError("Failed to find Manager for: " + n))
 
   def findLoginManager(n: String): LoginManager = loginManagers.find(_.name == n)
-    .getOrElse(throw new InvalidConfigError("Failed to find LoginManager for: " + n))
+    .getOrElse(throw new BpInvalidConfigError("Failed to find LoginManager for: " + n))
 
   def findServiceIdentifier(n: String): ServiceIdentifier = serviceIdentifiers.find(_.name == n)
-    .getOrElse(throw new InvalidConfigError("Failed to find ServiceIdentifier for: " + n))
+    .getOrElse(throw new BpInvalidConfigError("Failed to find ServiceIdentifier for: " + n))
 }
 
 case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String)
@@ -375,13 +375,13 @@ object Config {
       /** Validate the parsed config */
       case Xor.Right(cfg) => validate(cfg) match {
         case s if s.isEmpty => cfg
-        case s => throw ConfigError(s.mkString("\n\t", "\n\t", "\n"))
+        case s => throw BpConfigError(s.mkString("\n\t", "\n\t", "\n"))
       }
       case Xor.Left(err) => {
         val fields = "CursorOpDownField\\(([A-Za-z]+)\\)".r.findAllIn(err.getMessage).matchData.map(
           m => m.group(1)).mkString(",")
         val reason = err.getMessage.reverse.dropWhile(_ != ':').reverse
-        throw ConfigError(s"${reason}failed to decode following field(s): $fields")
+        throw BpConfigError(s"${reason}failed to decode following field(s): $fields")
       }
     }
   }
