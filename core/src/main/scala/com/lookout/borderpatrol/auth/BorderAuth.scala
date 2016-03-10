@@ -354,8 +354,8 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
   }
 
   /* Convert a redirect into a response palatable to the client */
-  private[this] def warningAndRedirectResponse(req: Request, error: BpRedirectError): Response = {
-    log.warning(error.msg)
+  private[this] def infoAndRedirectResponse(req: Request, error: BpRedirectError): Response = {
+    log.info(error.msg)
     tap(Response())(res => {
       res.addCookie(error.sessionId.asCookie())
       // If Accept Header contains "application/json", then encode response in JSON format
@@ -375,7 +375,7 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
   }
 
   /* Convert this error into a response appropriate to the client */
-  private[this] def warningAndLogoutResponse(req: Request, error: BpLogoutError): Response = {
+  private[this] def infoAndLogoutResponse(req: Request, error: BpLogoutError): Response = {
     log.info(error.msg)
     tap(Response())(res => {
       // Expire all BP cookies present in the Request
@@ -405,8 +405,8 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
   def errorHandler(req: Request): PartialFunction[Throwable, Response] = {
     case error: BpAccessIssuerError => warningAndResponse(req, error.getMessage, error.status)
     case error: BpIdentityProviderError => warningAndResponse(req, error.getMessage, error.status)
-    case error: BpRedirectError => warningAndRedirectResponse(req, error)
-    case error: BpLogoutError => warningAndLogoutResponse(req, error)
+    case error: BpRedirectError => infoAndRedirectResponse(req, error)
+    case error: BpLogoutError => infoAndLogoutResponse(req, error)
     case error: BpBorderError => warningAndResponse(req, error.getMessage, error.status)
     case error: BpCoreError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
     case error: BpSessionError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
