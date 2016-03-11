@@ -24,12 +24,12 @@
 package com.lookout.borderpatrol.example
 
 import com.lookout.borderpatrol.Binder.ServiceIdentifierBinder
-import com.lookout.borderpatrol.ServiceMatcher
+import com.lookout.borderpatrol.{HealthCheckRegistry, ServiceMatcher}
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.auth.keymaster.Keymaster._
 import com.lookout.borderpatrol.auth.keymaster._
 import com.lookout.borderpatrol.auth.keymaster.Tokens._
-import com.lookout.borderpatrol.server.ServerConfig
+import com.lookout.borderpatrol.server.{HealthCheckService, ServerConfig}
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.util.Combinators._
 import com.twitter.finagle.stats.StatsReceiver
@@ -47,9 +47,7 @@ object MockService {
   val mockKeymasterIdentityService = new Service[Request, Response] {
 
     val userMap: Map[String, String] = Map(
-      ("test1@example.com" -> "password1"),
-      ("test2@example.com" -> "password2"),
-      ("test3@example.com" -> "password3")
+      ("test1@example.com" -> "password1")
     )
 
     def apply(request: Request): Future[Response] = {
@@ -85,7 +83,7 @@ object MockService {
     val loginForm = Buf.Utf8(
       """<html><body>
         |<h1>Example Account Service Login</h1>
-        |<form action="/signin" method="post">
+        |<form action="/a/login" method="post">
         |<label>username</label><input type="text" name="username" />
         |<label>password</label><input type="password" name="password" />
         |<input type="submit" name="login" value="login" />
@@ -163,24 +161,31 @@ object service {
   /**
    * The sole entry point for all service chains
    */
-  def MainServiceChain(implicit config: ServerConfig, statsReceiver: StatsReceiver): Service[Request, Response] = {
-    implicit val secretStore = config.secretStore
+  def MainServiceChain(implicit config: ServerConfig, statsReceiver: StatsReceiver, registry: HealthCheckRegistry,
+                       secretStore: SecretStoreApi):
+      Service[Request, Response] = {
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
     val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
 
-    /* Convert exceptions to responses */
-    ExceptionFilter() andThen
-      /* Validate that its our service */
-      CustomerIdFilter(serviceMatcher) andThen
-      /* Get or allocate Session/SignedId */
-      SessionIdFilter(serviceMatcher, config.sessionStore) andThen
-      /* If unauthenticated, send it to Identity Provider or login page */
-      SendToIdentityProvider(identityProviderChainMap(config.sessionStore), config.sessionStore) andThen
-      /* If authenticated and protected service, send it via Access Issuer chain */
-      SendToAccessIssuer(accessIssuerChainMap(config.sessionStore)) andThen
-      /* Authenticated or not, send it to unprotected service, if its destined to that */
-      SendToUnprotectedService(ServiceIdentifierBinder) andThen
-      /* Not found */
-      notFoundService
+    RoutingService.byPath {
+      case "/health" =>
+        HealthCheckService(registry)
+
+      case _ =>
+        /* Convert exceptions to responses */
+        ExceptionFilter() andThen
+          /* Validate that its our service */
+          CustomerIdFilter(serviceMatcher) andThen
+          /* Get or allocate Session/SignedId */
+          SessionIdFilter(serviceMatcher, config.sessionStore) andThen
+          /* If unauthenticated, send it to Identity Provider or login page */
+          SendToIdentityProvider(identityProviderChainMap(config.sessionStore), config.sessionStore) andThen
+          /* If authenticated and protected service, send it via Access Issuer chain */
+          SendToAccessIssuer(accessIssuerChainMap(config.sessionStore)) andThen
+          /* Authenticated or not, send it to unprotected service, if its destined to that */
+          SendToUnprotectedService(ServiceIdentifierBinder) andThen
+          /* Not found */
+          notFoundService
+    }
   }
 }

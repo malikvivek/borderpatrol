@@ -1,9 +1,16 @@
 package com.lookout.borderpatrol.sessionx
 
+import com.lookout.borderpatrol.sessionx.SessionStores.{MemcachedStore, MemcachedHealthCheck}
 import com.lookout.borderpatrol.test._
-import com.twitter.util.{Future, Await}
+import com.twitter.finagle.http.Status
+import com.twitter.finagle.memcached.GetResult
+import com.twitter.finagle.memcached.protocol.Value
+import com.twitter.io.Buf
+import com.twitter.util.{Time, Future, Await}
 import com.twitter.finagle.http
 import com.twitter.finagle.memcached
+
+import scala.collection.mutable
 
 class SessionStoreSpec extends BorderPatrolSuite {
   import sessionx.helpers._
@@ -54,6 +61,71 @@ class SessionStoreSpec extends BorderPatrolSuite {
       store.delete(intSession.id)
       store.get[Int](intSession.id).results shouldBe None
     }
+  }
+
+  behavior of "MemcachedHealthCheck"
+
+  it should "Successfully check health of Memcached store" in {
+    val memcachedCheck = MemcachedHealthCheck("memcached", memcachedSessionStore)
+    Await.result(memcachedCheck.execute()).status should be (Status.Ok)
+  }
+
+  it should "return failure when set operation throws an exception" in {
+    //  Mock SessionStore client
+    case object FailingUpdateMockClient extends memcached.MockClient {
+      override def set(key: String, flags: Int, expiry: Time, value: Buf) : Future[Unit] = {
+        Future.exception[Unit](new Exception("whoopsie"))
+      }
+    }
+    // Mock sessionStore
+    val mockSessionStore = MemcachedStore(FailingUpdateMockClient)
+    val memcachedCheck = MemcachedHealthCheck("memcached", mockSessionStore)
+
+    // Execute
+    val output = memcachedCheck.execute()
+
+    //  Verify
+    Await.result(output).status should be (Status.InternalServerError)
+    Await.result(output).messageStr should be (Some("whoopsie"))
+  }
+
+  it should "return failure when get operation throws an exceptions" in {
+    //  Mock SessionStore client
+    case object FailingGetMockClient extends memcached.MockClient {
+      override def getResult(keys: Iterable[String]): Future[GetResult] = {
+        Future.exception(new Exception("oopsie"))
+      }
+    }
+    // Mock sessionStore
+    val mockSessionStore = MemcachedStore(FailingGetMockClient)
+    val memcachedCheck = MemcachedHealthCheck("memcached", mockSessionStore)
+
+    // Execute
+    val output = memcachedCheck.execute()
+
+    //  Verify
+    Await.result(output).status should be (Status.InternalServerError)
+    Await.result(output).messageStr should be (Some("oopsie"))
+  }
+
+  it should "return failure when get operation fails" in {
+    //  Mock SessionStore client
+    case object FailingGetMockClient extends memcached.MockClient {
+      override def getResult(keys: Iterable[String]): Future[GetResult] = {
+        delete(keys.head)
+        super.getResult(keys)
+      }
+    }
+    // Mock sessionStore
+    val mockSessionStore = MemcachedStore(FailingGetMockClient)
+    val memcachedCheck = MemcachedHealthCheck("memcached", mockSessionStore)
+
+    // Execute
+    val output = memcachedCheck.execute()
+
+    //  Verify
+    Await.result(output).status should be (Status.InternalServerError)
+    Await.result(output).messageStr should be (Some("get operation failed"))
   }
 
 }

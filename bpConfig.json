@@ -1,10 +1,16 @@
 {
-  "listeningPort": "8080",
+  "listeningPort": "9090",
   "statsdReporter": {
      "host": "localhost:8125",
      "durationInSec": 60,
      "prefix": "bp"
   },
+  "healthCheckUrls": [
+    {
+      "name": "keymaster",
+      "url": "http://localhost:8081/health"
+    }
+  ],
   "accessManagers": [
     {
       "hosts": ["http://localhost:8081"],
@@ -22,8 +28,8 @@
       "accessManager": "keymaster",
       "proto": {
         "type": "Internal",
-        "loginConfirm": "/signin",
-        "authorizePath": "/a"
+        "loginConfirm": "/z/login",
+        "authorizePath": "/z"
       }
     },
     {
@@ -68,7 +74,7 @@
     },
     {
       "hosts": ["http://localhost:8081"],
-      "path": "/a",
+      "path": "/z",
       "protected": false,
       "name": "checkpoint"
     },
