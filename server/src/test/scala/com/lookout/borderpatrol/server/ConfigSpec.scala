@@ -35,11 +35,14 @@ class ConfigSpec extends BorderPatrolSuite {
   // StatdExporter
   val defaultStatsdExporterConfig = StatsdExporterConfig("host", 300, "prefix")
 
+  // HealthCheckUrlsConfig
+  val healthCheckUrls = Set(HealthCheckUrlConfig("node1", new URL("http://localhost:1234")))
+
   // Configs
   val serverConfig = ServerConfig(bpPort, defaultSecretStore, defaultSessionStore, defaultStatsdExporterConfig,
-    cids, sids, loginManagers, Set(keymasterIdManager), Set(keymasterAccessManager))
+    healthCheckUrls, cids, sids, loginManagers, Set(keymasterIdManager), Set(keymasterAccessManager))
   val serverConfig1 = ServerConfig(bpPort, consulSecretStore, memcachedSessionStore, defaultStatsdExporterConfig,
-    cids, sids, loginManagers, Set(keymasterIdManager), Set(keymasterAccessManager))
+    healthCheckUrls, cids, sids, loginManagers, Set(keymasterIdManager), Set(keymasterAccessManager))
 
   // Verify
   def verifyServerConfig(a: ServerConfig, b: ServerConfig): Unit = {
@@ -102,7 +105,7 @@ class ConfigSpec extends BorderPatrolSuite {
       decode[ServerConfig](encoded.toString()) match {
         case Xor.Right(a) => a
         case Xor.Left(b) => ServerConfig(bpPort, defaultSecretStore, defaultSessionStore,
-          defaultStatsdExporterConfig, Set(), Set(), Set(), Set(), Set())
+          defaultStatsdExporterConfig, Set(), Set(), Set(), Set(), Set(), Set())
       }
     }
     verifyServerConfig(encodeDecode(serverConfig), serverConfig)
@@ -295,6 +298,7 @@ class ConfigSpec extends BorderPatrolSuite {
       ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
+      ("healthCheckUrls", healthCheckUrls.asJson),
       ("customerIdentifiers", Json.array(Json.fromFields(Seq(
         ("subdomain", "some".asJson),
         ("defaultServiceIdentifier", "one".asJson),

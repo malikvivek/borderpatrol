@@ -10,6 +10,7 @@ import com.lookout.borderpatrol.test._
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.twitter.finagle.http.service.RoutingService
 import com.twitter.finagle.http.{Method, Status, Response, Request}
+import com.twitter.util.Await
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.generic.semiauto._
@@ -477,4 +478,79 @@ class SecretStoresSpec extends BorderPatrolSuite {
       server.close()
     }
   }
+
+  behavior of "ConsulHealthCheck"
+
+  it should "succeed it finds a valid secret" in {
+    val server = com.twitter.finagle.Http.serve(
+      "localhost:6789",
+      RoutingService.byMethodAndPath {
+        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+          tap(Response(Status.Ok))(res => {
+            res.contentString = Set(consulResponse).asJson.toString
+            res.contentType = "application/json"
+          }).toFuture
+        }
+        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+          // Step-2 PUT
+          fail("Step-2 PUT should be skipped")
+        }
+      }
+    )
+    try {
+      /* Create secret store */
+      val consulSecretStore = ConsulSecretStore(consulKey, consulUrls, testExpiredSecrets)
+
+      /* Lets have pollSecrets completed before the validation */
+      Thread.sleep(1000)
+
+      /* Validate */
+      consulSecretStore.current should be (testSecrets.current)
+      consulSecretStore.previous should be (testSecrets.previous)
+      consulSecretStore.current should not be (testExpiredSecrets.current)
+
+      val consulCheck = ConsulHealthCheck("consul", consulSecretStore)
+      Await.result(consulCheck.execute()).status should be (Status.Ok)
+
+      /* End */
+      consulSecretStore.timer.stop()
+
+    } finally {
+      server.close()
+    }
+  }
+
+  it should "return failure when it fails to find a valid secret" in {
+    val server = com.twitter.finagle.Http.serve(
+      "localhost:6789",
+      RoutingService.byMethodAndPath {
+        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+          // Step-11 GET
+          Response(Status.NotFound).toFuture
+        }
+        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+          // Step-2 PUT
+          fail("Step-2 PUT should be skipped")
+        }
+      }
+    )
+    try {
+      /* Create secret store */
+      val consulSecretStore = ConsulSecretStore(consulKey, consulUrls, testExpiredSecrets)
+
+      /* Lets have pollSecrets completed before the validation */
+      Thread.sleep(1000)
+
+      /* Validate */
+      val consulCheck = ConsulHealthCheck("consul", consulSecretStore)
+      Await.result(consulCheck.execute()).status should be (Status.InternalServerError)
+
+      /* End */
+      consulSecretStore.timer.stop()
+
+    } finally {
+      server.close()
+    }
+  }
+
 }

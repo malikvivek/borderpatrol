@@ -1,7 +1,10 @@
 package com.lookout.borderpatrol.sessionx
 
+import com.lookout.borderpatrol.auth.{Id, EmptyIdentity, Identity}
+import com.lookout.borderpatrol.{HealthCheckStatus, HealthCheck}
+import com.twitter.finagle.http.Status
 import com.twitter.io.Buf
-import com.twitter.util.Future
+import com.twitter.util.{Time, Future}
 import com.twitter.finagle.memcached
 
 import scala.collection.mutable
@@ -103,6 +106,24 @@ object SessionStores {
       }
   }
 
+  case class MemcachedHealthCheck(name:String, store: MemcachedStore)(implicit secretStore: SecretStoreApi)
+      extends HealthCheck {
+    /** Create a transient Session, verify the Memcached health with a read and write */
+    def check(): Future[HealthCheckStatus] = {
+      for {
+        data <- Time.now.hashCode().toFuture
+        sessionId <- SignedId.transient
+        session <- Session(sessionId, data).toFuture
+        _ <- store.update(session)
+        sessionMaybe <- store.get[Int](sessionId)
+      } yield sessionMaybe match {
+          case None => HealthCheckStatus.unhealthy(Status.InternalServerError, "get operation failed")
+          case Some(s) =>
+            if (s.data == data) HealthCheckStatus.healthy
+            else HealthCheckStatus.unhealthy(Status.InternalServerError, "set operation failed")
+        }
+    }
+  }
   /*
   implicit object SessionEncryptor extends Encryptable[PSession, SignedId, Array[Byte]] {
     def apply(a: PSession)(key: SignedId): Array[Byte] =

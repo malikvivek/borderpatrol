@@ -21,6 +21,7 @@ case class ServerConfig(listeningPort: Int,
                         secretStore: SecretStoreApi,
                         sessionStore: SessionStore,
                         statsdExporterConfig: StatsdExporterConfig,
+                        healthCheckUrls: Set[HealthCheckUrlConfig],
                         customerIdentifiers: Set[CustomerIdentifier],
                         serviceIdentifiers: Set[ServiceIdentifier],
                         loginManagers: Set[LoginManager],
@@ -41,6 +42,7 @@ case class ServerConfig(listeningPort: Int,
 }
 
 case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String)
+case class HealthCheckUrlConfig(name: String, url: URL)
 
 /**
  * Where you will find the Secret Store and Session Store
@@ -50,6 +52,7 @@ object Config {
   val defaultConfigFile = "bpConfig.json"
   val defaultSecretStore = SecretStores.InMemorySecretStore(Secrets(Secret(), Secret()))
   val defaultSessionStore = SessionStores.InMemoryStore
+
   def cond[T](p: => Boolean, v: T) : Set[T] = if (p) Set(v) else Set.empty[T]
 
   // Encoder/Decoder for Path
@@ -233,6 +236,7 @@ object Config {
       secretStore <- c.downField("secretStore").as[SecretStoreApi]
       sessionStore <- c.downField("sessionStore").as[SessionStore]
       statsdExporterConfig <- c.downField("statsdReporter").as[StatsdExporterConfig]
+      healthCheckUrlsConfig <- c.downField("healthCheckUrls").as[Option[Set[HealthCheckUrlConfig]]]
       ims <- c.downField("identityManagers").as[Set[Manager]]
       ams <- c.downField("accessManagers").as[Set[Manager]]
       lms <- c.downField("loginManagers").as(Decoder.decodeCanBuildFrom[LoginManager, Set](
@@ -241,8 +245,8 @@ object Config {
       cids <- c.downField("customerIdentifiers").as(Decoder.decodeCanBuildFrom[CustomerIdentifier, Set](
         decodeCustomerIdentifier(sids.map(sid => sid.name -> sid).toMap, lms.map(lm => lm.name -> lm).toMap),
         implicitly))
-    } yield ServerConfig(listeningPort, secretStore, sessionStore, statsdExporterConfig, cids, sids,
-        lms, ims, ams)
+    } yield ServerConfig(listeningPort, secretStore, sessionStore, statsdExporterConfig,
+      healthCheckUrlsConfig.fold(Set.empty[HealthCheckUrlConfig])(s => s), cids, sids, lms, ims, ams)
   }
 
   /**
@@ -367,7 +371,7 @@ object Config {
    * @param filename
    * @return ServerConfig
    */
-  def readServerConfig(filename: String) : ServerConfig = {
+  def readServerConfig(filename: String): ServerConfig = {
     /**
      * Parse the config using `circe`.
      */

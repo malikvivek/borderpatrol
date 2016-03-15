@@ -1,7 +1,7 @@
 import sbtunidoc.Plugin.UnidocKeys._
 import scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages
 
-lazy val Version = "0.1.14-SNAPSHOT"
+lazy val Version = "0.1.15-SNAPSHOT"
 
 lazy val buildSettings = Seq(
   organization := "com.lookout",
@@ -205,3 +205,8 @@ lazy val server = project
     )
   )
   .dependsOn(core % "test->test;compile->compile")
+  .enablePlugins(BuildInfoPlugin).
+    settings(
+      buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
+      buildInfoPackage := "BpBuild"
+    )

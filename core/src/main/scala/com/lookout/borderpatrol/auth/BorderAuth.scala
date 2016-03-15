@@ -312,7 +312,7 @@ case class AccessFilter[A, B](binder: MBinder[ServiceIdentifier])(implicit stats
         tap(req.req) { r => {
           statRequestSends.incr
           log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
-            s"to the protected upstream service: ${req.serviceId.name}")
+            s"to the protected upstream service: ${req.serviceId.name}, token = ${accessResp.access.access.toString}")
           r.headerMap.add("Auth-Token", accessResp.access.access.toString)
         }})
       )

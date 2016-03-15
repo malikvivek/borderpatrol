@@ -35,6 +35,7 @@ object SignedId {
 
   val entropySize: Size = 16
   val lifetime = Duration(1, TimeUnit.DAYS)
+  val shortTime = Duration(5, TimeUnit.SECONDS)
   val sessionIdCookieName: String = "border_session"
 
   private[this] def currentExpiry: Time =
@@ -74,9 +75,11 @@ object SignedId {
    * @return
    */
   def untagged(implicit store: SecretStoreApi): Future[SignedId] =
-    (SignedId(currentExpiry, genEntropy, store.current, Untagged)).toFuture
+    SignedId(currentExpiry, genEntropy, store.current, Untagged).toFuture
   def authenticated(implicit store: SecretStoreApi): Future[SignedId] =
-    (SignedId(currentExpiry, genEntropy, store.current, AuthenticatedTag)).toFuture
+    SignedId(currentExpiry, genEntropy, store.current, AuthenticatedTag).toFuture
+  def transient(implicit store: SecretStoreApi): Future[SignedId] =
+    SignedId(Time.now + shortTime, genEntropy, store.current, Untagged).toFuture
 
   /**
    * Creates [[com.lookout.borderpatrol.sessionx.SignedId SignedId]] instances based on existing values

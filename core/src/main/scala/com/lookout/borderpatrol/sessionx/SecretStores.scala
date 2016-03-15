@@ -10,7 +10,7 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.generic.semiauto._
 
-import com.lookout.borderpatrol.BinderBase
+import com.lookout.borderpatrol.{HealthCheckStatus, HealthCheck, BinderBase}
 import com.lookout.borderpatrol.util.Combinators._
 import com.twitter.finagle.http.{Method, Status, Request}
 import com.twitter.finagle.util.{HashedWheelTimer, DefaultTimer}
@@ -174,7 +174,7 @@ object SecretStores {
      * @param result
      * @param inputSecrets
      */
-    private[this] def fetchSecretsFromConsul(step: Int, result: Boolean, inputSecrets: Option[Secrets]):
+    def fetchSecretsFromConsul(step: Int, result: Boolean, inputSecrets: Option[Secrets]):
         Future[(Option[ConsulResponse], Option[Secrets], Boolean)] =
       if (result) (None, inputSecrets, true).toFuture
       else for {
@@ -235,6 +235,16 @@ object SecretStores {
     /* Alt constructor: this is the commonly used constructor. The main constructor is merely used for unit testing */
     def apply(key: String, consulUrls: Set[URL]): ConsulSecretStore =
       ConsulSecretStore(key, consulUrls, Secrets(Secret(Time.now), Secret(Time.now)))
+  }
+
+  case class ConsulHealthCheck(name: String, store: ConsulSecretStore) extends HealthCheck {
+    /** Fetch a secret from Consul and make sure that its valid */
+    def check(): Future[HealthCheckStatus] = {
+      for {
+        (consulResponse, secrets, result) <- store.fetchSecretsFromConsul(11, false, None)
+      } yield if (result) HealthCheckStatus.healthy
+        else HealthCheckStatus.unhealthy(Status.InternalServerError, "Failed to fetch secret from Consul")
+    }
   }
 }
 
