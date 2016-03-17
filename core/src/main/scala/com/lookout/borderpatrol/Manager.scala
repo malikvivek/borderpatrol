@@ -39,6 +39,7 @@ trait ProtoManager {
 /**
  * Internal authentication, that merely redirects user to internal service that does the authentication
  *
+ * @param name name of the proto manager
  * @param loginConfirm path intercepted by bordetpatrol and internal authentication service posts
  *                     the authentication response on this path
  * @param authorizePath path of the internal authentication service where client is redirected
@@ -52,6 +53,7 @@ case class InternalAuthProtoManager(name: String, loginConfirm: Path, authorizeP
 /**
  * OAuth code framework, that redirects user to OAuth2 server.
  *
+ * @param name name of the proto manager
  * @param loginConfirm path intercepted by borderpatrol and OAuth2 server posts the oAuth2 code on this path
  * @param authorizeUrl URL of the OAuth2 service where client is redirected for authenticaiton
  * @param tokenUrl URL of the OAuth2 server to convert OAuth2 code to OAuth2 token

@@ -10,7 +10,7 @@ import com.twitter.finagle.stats._
 import com.twitter.finagle.util.{HashedWheelTimer, InetSocketAddressUtil, DefaultTimer}
 import com.twitter.io.Buf
 import com.twitter.logging.Logger
-import com.twitter.util.{Duration, Timer, NonFatal}
+import com.twitter.util.{Time, Duration, Timer, NonFatal}
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.Map
 import scala.util.Try

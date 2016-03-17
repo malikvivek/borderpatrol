@@ -115,14 +115,21 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
    * Generate a redirect error
    */
   def redirectToLogin(req: SessionIdRequest, sessionIdOpt: Option[SignedId]): Future[Response] = {
-    val location = req.customerId.loginManager.protoManager.redirectLocation(req.req.host)
-    sessionIdOpt.fold(for {
-      session <- Session(req.req)
-      _ <- store.update(session)
-    } yield session.id)(sessionId => sessionId.toFuture).flatMap(sId =>
-      Future.exception(BpRedirectError(Status.Unauthorized, location, sId,
-        s"Redirecting the ${req.req} for Untagged Session: ${sId.toLogIdString} " +
-          s"to login service, location: $location")))
+    for {
+      location <- req.customerId.loginManager.protoManager.redirectLocation(req.req.host).toFuture
+      sessionId <- sessionIdOpt match {
+        case Some(sessionId) => sessionId.toFuture
+        case None =>
+          /** Allocate a new sessionId */
+          for {
+            session <- Session(req.req)
+            _ <- store.update(session)
+          } yield session.id
+      }
+      resp <- Future.exception[Response](BpRedirectError(Status.Unauthorized, location, sessionId,
+        s"Redirecting the ${req.req} for Untagged Session: ${sessionId.toLogIdString} " +
+          s"to login service, location: $location"))
+    } yield resp
   }
 
   def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] = {
