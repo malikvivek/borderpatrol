@@ -82,6 +82,8 @@ object SecretStores {
                                timer: Timer = HashedWheelTimer())
       extends SecretStoreApi {
     private[this] val log = Logger.get(getClass.getPackage.getName)
+    private[this] val consulBinderName = s"${getClass.getSimpleName}.consulUrl"
+    private[this] val consulPath = s"/v1/kv/${key}"
 
     /* Kick off a poll timer */
     timer.schedule(Time.now)(pollSecrets)
@@ -153,7 +155,7 @@ object SecretStores {
      * @param step
      */
     private[this] def getConsulResponse(step: Int): Future[List[ConsulResponse]] =
-      BinderBase.connect(consulUrls.toString, consulUrls, Request(s"/v1/kv/${key}")).flatMap(res =>
+      BinderBase.connect(consulBinderName, consulUrls, Request(consulPath)).flatMap(res =>
         res.status match {
           case Status.Ok => jawn.decode[List[ConsulResponse]](res.contentString)
             .fold[Future[List[ConsulResponse]]](
@@ -193,8 +195,8 @@ object SecretStores {
      */
     private[this] def setSecretsOnConsul(step: Int, newSecrets: Secrets, modifyIndex: Int):
         Future[(Option[Secrets], Boolean)] =
-      BinderBase.connect(consulUrls.toString, consulUrls,
-        tap(Request(Method.Put, Request.queryString(s"/v1/kv/${key}", ("cas" -> modifyIndex.toString))))(req => {
+      BinderBase.connect(consulBinderName, consulUrls,
+        tap(Request(Method.Put, Request.queryString(consulPath, ("cas" -> modifyIndex.toString))))(req => {
           req.contentString = SecretsEncoder.EncodeJson.encode(newSecrets).toString
           req.contentType = "application/json"
         })).flatMap(res => res.status match {

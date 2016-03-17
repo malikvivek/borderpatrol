@@ -47,7 +47,7 @@ object MockService {
   val mockKeymasterIdentityService = new Service[Request, Response] {
 
     val userMap: Map[String, String] = Map(
-      ("test1@example.com" -> "password1")
+      ("test@example.com" -> "testthis")
     )
 
     def apply(request: Request): Future[Response] = {
@@ -116,7 +116,8 @@ object MockService {
       }).toFuture
   }
 
-  def getMockRoutingService(implicit config: ServerConfig): Service[Request, Response] = {
+  def getMockRoutingService(implicit config: ServerConfig, statsReceiver: StatsReceiver):
+      Service[Request, Response] = {
     val checkpoint = config.findServiceIdentifier("checkpoint")
     val keymasterIdManager = config.findIdentityManager("keymaster")
     val keymasterAccessManager = config.findAccessManager("keymaster")
@@ -128,7 +129,7 @@ object MockService {
       case keymasterAccessManager.path => mockKeymasterAccessIssuerService
       case keymasterIdManager.path => mockKeymasterIdentityService
       case path if path.startsWith(checkpoint.path) => mockCheckpointService
-      case path if path.startsWith(logout.rewritePath.fold(path)(p => p)) =>
+      case path if path.startsWith(logout.rewritePath.getOrElse(path)) =>
         ExceptionFilter() andThen /* Convert exceptions to responses */
         CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
         LogoutService(config.sessionStore)

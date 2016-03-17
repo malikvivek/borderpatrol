@@ -107,7 +107,7 @@ class HealthCheckSpec extends BorderPatrolSuite {
       Await.result(output).get("goodUrlHealthCheck").get.status should be(Status.Ok)
       Await.result(output).get("badUrlHealthCheck").get.status should be(Status.InternalServerError)
       Await.result(output).asJson.toString() should include(
-        "An error occurred while talking to: Failed to connect for: 'http://localhost:999'")
+        "An error occurred while talking to: Failed to connect for: 'UrlHealthCheck.badUrlHealthCheck'")
 
     } finally {
       server.close()

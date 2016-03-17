@@ -301,8 +301,8 @@ class OAuth2Spec extends BorderPatrolSuite {
     val caught = the[BpCommunicationError] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should include ("An error occurred while talking to: " +
-      "Failed to connect for: 'http://localhost:9999/tokenUrl'")
+    caught.getMessage should include (
+      "An error occurred while talking to: Failed to connect for: 'rlmProtoManager.tokenUrl'")
   }
 
   /** this exception is thrown by codeToToken method in OAuth2CodeProtoManager */

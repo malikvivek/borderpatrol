@@ -73,7 +73,7 @@ object Config {
     c.downField("type").as[String].flatMap {
       case "InMemoryStore" => Xor.right(defaultSessionStore)
       case "MemcachedStore"   => c.downField("hosts").as[String].map(hosts =>
-        SessionStores.MemcachedStore(Memcached.client.newRichClient(hosts)))
+        SessionStores.MemcachedStore(Memcached.client.newRichClient(s"memcached=${hosts}")))
       case other  => Xor.left(DecodingFailure(s"Invalid sessionStore: $other", c.history))
     }
   }
@@ -120,14 +120,14 @@ object Config {
       ("clientId", opm.clientId.asJson),
       ("clientSecret", opm.clientSecret.asJson)))
   }
-  implicit val decodeProtoManager: Decoder[ProtoManager] = Decoder.instance { c =>
+  implicit def decodeProtoManager(name: String): Decoder[ProtoManager] = Decoder.instance { c =>
     c.downField("type").as[String].flatMap {
       case "Internal" =>
         for {
           loginConfirm <- c.downField("loginConfirm").as[Path]
           authorizePath <- c.downField("authorizePath").as[Path]
           loggedOutUrl <- c.downField("loggedOutUrl").as[Option[URL]]
-        } yield InternalAuthProtoManager(loginConfirm, authorizePath, loggedOutUrl)
+        } yield InternalAuthProtoManager(name, loginConfirm, authorizePath, loggedOutUrl)
       case "OAuth2Code" =>
         for {
           loginConfirm <- c.downField("loginConfirm").as[Path]
@@ -137,7 +137,7 @@ object Config {
           loggedOutUrl <- c.downField("loggedOutUrl").as[Option[URL]]
           clientId <- c.downField("clientId").as[String]
           clientSecret <- c.downField("clientSecret").as[String]
-        } yield OAuth2CodeProtoManager(loginConfirm, authorizeUrl, tokenUrl, certificateUrl,
+        } yield OAuth2CodeProtoManager(name, loginConfirm, authorizeUrl, tokenUrl, certificateUrl,
             loggedOutUrl, clientId, clientSecret)
     }
   }
@@ -168,7 +168,7 @@ object Config {
         am <- Xor.fromOption(ams.get(apName),
           DecodingFailure(s"""AccessManager "$apName" not found: """, c.  history)
         )
-        pm <- c.downField("proto").as[ProtoManager]
+        pm <- c.downField("proto").as(decodeProtoManager(name + "ProtoManager"))//[ProtoManager]
       } yield LoginManager(name, im, am, pm)
     }
 
@@ -236,7 +236,8 @@ object Config {
       secretStore <- c.downField("secretStore").as[SecretStoreApi]
       sessionStore <- c.downField("sessionStore").as[SessionStore]
       statsdExporterConfig <- c.downField("statsdReporter").as[StatsdExporterConfig]
-      healthCheckUrlsConfig <- c.downField("healthCheckUrls").as[Option[Set[HealthCheckUrlConfig]]]
+      healthCheckUrlConfigSet <- c.downField("healthCheckUrls").as[Option[Set[HealthCheckUrlConfig]]].map(
+        _.getOrElse(Set.empty))
       ims <- c.downField("identityManagers").as[Set[Manager]]
       ams <- c.downField("accessManagers").as[Set[Manager]]
       lms <- c.downField("loginManagers").as(Decoder.decodeCanBuildFrom[LoginManager, Set](
@@ -246,7 +247,7 @@ object Config {
         decodeCustomerIdentifier(sids.map(sid => sid.name -> sid).toMap, lms.map(lm => lm.name -> lm).toMap),
         implicitly))
     } yield ServerConfig(listeningPort, secretStore, sessionStore, statsdExporterConfig,
-      healthCheckUrlsConfig.fold(Set.empty[HealthCheckUrlConfig])(s => s), cids, sids, lms, ims, ams)
+      healthCheckUrlConfigSet, cids, sids, lms, ims, ams)
   }
 
   /**

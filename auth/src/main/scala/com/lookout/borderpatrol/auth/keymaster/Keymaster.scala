@@ -10,7 +10,7 @@ import com.lookout.borderpatrol.auth._
 import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.finagle.{Filter, Service}
 import com.twitter.finagle.http._
-import com.twitter.logging.{Logger, Level}
+import com.twitter.logging.Logger
 import com.twitter.util.Future
 
 
@@ -190,11 +190,10 @@ object Keymaster {
     /**
      * Fetch a valid ServiceToken, will return a ServiceToken otherwise a Future.exception
      */
-    def apply(req: AccessRequest[Tokens]): Future[AccessResponse[ServiceToken]] =
+    def apply(req: AccessRequest[Tokens]): Future[AccessResponse[ServiceToken]] = {
       //  Check if ServiceToken is already available for Service
       req.identity.id.service(req.serviceId.name).fold[Future[ServiceToken]]({
         statRequestSends.incr()
-
         //  Fetch ServiceToken from the Keymaster
         binder(BindRequest(req.customerId.loginManager.accessManager, api(req))).flatMap(res => res.status match {
           //  Parse for Tokens if Status.Ok
@@ -224,6 +223,7 @@ object Keymaster {
         statCacheHits.incr()
         Future.value(t)
       }).map(t => KeymasterAccessRes(Access(t)))
+    }
   }
 
   /**

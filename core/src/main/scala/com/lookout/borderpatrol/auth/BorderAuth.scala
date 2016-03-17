@@ -45,27 +45,30 @@ object AccessIdRequest {
  *
  * @param matcher
  */
-case class CustomerIdFilter(matcher: ServiceMatcher)
+case class CustomerIdFilter(matcher: ServiceMatcher)(implicit statsReceiver: StatsReceiver)
     extends Filter[Request, Response, CustomerIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
   def apply(req: Request, service: Service[CustomerIdRequest, Response]): Future[Response] = {
-    req.host.flatMap(matcher.customerId) match {
-      case Some(cid) =>
-        log.debug(s"Processing: Request(${req.method}, ${req.host.get}${req.path} " +
-          s"with CustomerIdentifier: ${cid.subdomain}")
-         service(CustomerIdRequest(req, cid))
-
-      case None => Future.exception(new BpNotFoundRequest("Failed to find CustomerIdentifier for " +
+    for {
+      custIdOpt <- Future.value(req.host.flatMap(matcher.customerId))
+      resp <- custIdOpt match {
+        case None => Future.exception(new BpNotFoundRequest("Failed to find CustomerIdentifier for " +
           s"Request(${req.method}, ${req.host.fold("null-hostname")(h => s"$h${req.path}")})"))
-    }
+        case Some(cid) =>
+          log.debug(s"Processing: Request(${req.method}, ${req.host.get}${req.path} " +
+            s"with CustomerIdentifier: ${cid.subdomain}")
+          service(CustomerIdRequest(req, cid))
+      }
+    } yield resp
   }
 }
 
 /**
  * Ensures we have a SignedId present in this request, sending a Redirect to the service login page if it doesn't
  */
-case class SessionIdFilter(matcher: ServiceMatcher, store: SessionStore)(implicit secretStore: SecretStoreApi)
+case class SessionIdFilter(matcher: ServiceMatcher, store: SessionStore)(
+  implicit secretStore: SecretStoreApi, statsReceiver: StatsReceiver)
     extends Filter[CustomerIdRequest, Response, SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
@@ -76,9 +79,11 @@ case class SessionIdFilter(matcher: ServiceMatcher, store: SessionStore)(implici
    * @param service
    */
   def apply(req: CustomerIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] = {
-    service(SessionIdRequest(req,
-      matcher.serviceId(Path(req.req.path)),
-      SignedId.fromRequest(req.req, SignedId.sessionIdCookieName).toOption))
+    for {
+      sessionId <- Future.value(SignedId.fromRequest(req.req, SignedId.sessionIdCookieName))
+      serviceIdOpt <- Future.value(matcher.serviceId(Path(req.req.path)))
+      resp <- service(SessionIdRequest(req, serviceIdOpt, sessionId.toOption))
+    } yield resp
   }
 }
 
@@ -90,10 +95,10 @@ case class SessionIdFilter(matcher: ServiceMatcher, store: SessionStore)(implici
  * @param secretStore
  */
 case class SendToIdentityProvider(identityProviderMap: Map[String, Service[BorderRequest, Response]],
-                                  store: SessionStore)(implicit secretStore: SecretStoreApi)
-  extends SimpleFilter[SessionIdRequest, Response] {
+                                  store: SessionStore)(
+  implicit secretStore: SecretStoreApi, statsReceiver: StatsReceiver)
+    extends SimpleFilter[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
-
 
   def sendToIdentityProvider(req: BorderRequest): Future[Response] = {
     log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
@@ -114,13 +119,13 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
     sessionIdOpt.fold(for {
       session <- Session(req.req)
       _ <- store.update(session)
-    } yield session.id)(s => s.toFuture).flatMap(sId =>
+    } yield session.id)(sessionId => sessionId.toFuture).flatMap(sId =>
       Future.exception(BpRedirectError(Status.Unauthorized, location, sId,
         s"Redirecting the ${req.req} for Untagged Session: ${sId.toLogIdString} " +
           s"to login service, location: $location")))
   }
 
-  def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] =
+  def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] = {
     (req.sessionIdOpt.map(_.tag), req.serviceIdOpt) match {
 
       /* 1. loginConfirm path w/ untagged SessionId, dispatch to Identity Provider chain */
@@ -130,15 +135,14 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
       }
 
       /**
-       * 2. POST to loginonfirm path w/o SessionId, allocate SessionId, dispatch to Identity Provider chain
+       * 2. POST to loginConfirm path w/o SessionId, allocate SessionId, dispatch to Identity Provider chain
        *    It creates default request on the fly and for location it uses defaultServiceId or target_url param
        */
       case (None, _)
         if Path(req.req.path).startsWith(req.customerId.loginManager.protoManager.loginConfirm) => {
         for {
           sessionId <- SignedId.untagged
-          location <-
-            req.req.params.get("target_url").fold(req.customerId.defaultServiceId.path.toString)(l => l).toFuture
+          location <- req.req.params.getOrElse("target_url", req.customerId.defaultServiceId.path.toString).toFuture
           savedReq <- tap(Request(location))(r => r.addCookie(sessionId.asCookie())).toFuture
           session <- Session(sessionId, savedReq).toFuture
           _ <- store.update(session)
@@ -147,20 +151,18 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
       }
 
       /* 3. Request w/ untagged SessionId & Service, redirect it to Login */
-      case (Some(Untagged), Some(serviceId)) if serviceId.protekted =>
-        redirectToLogin(req, req.sessionIdOpt)
+      case (Some(Untagged), Some(serviceId)) if serviceId.protekted => redirectToLogin(req, req.sessionIdOpt)
 
       /* 4. Request w/ untagged SessionId, no Service, redirect it to Login */
-      case (Some(Untagged), None) =>
-        redirectToLogin(req, req.sessionIdOpt)
+      case (Some(Untagged), None) => redirectToLogin(req, req.sessionIdOpt)
 
       /* 5. Request w/o SessionId, allocate SessionId and redirect it to Login */
-      case (None, _) =>
-        redirectToLogin(req, None)
+      case (None, _) => redirectToLogin(req, None)
 
       /* Everything else */
       case _ => service(req)
     }
+  }
 }
 
 /**
@@ -170,7 +172,8 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
  *
  * @param accessIssuerMap
  */
-case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest, Response]])
+case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest, Response]])(
+  implicit statsReceiver: StatsReceiver)
     extends SimpleFilter[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
@@ -184,7 +187,7 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
     }
   }
 
-  def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] =
+  def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] = {
     (req.sessionIdOpt.map(_.tag), req.serviceIdOpt) match {
 
       /* 1. Request for protected service w/ authenticated Sessionid, dispatch via accessIssuer chain */
@@ -201,6 +204,7 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
       /* Everything else */
       case _ => service(req)
     }
+  }
 }
 
 /**
@@ -246,7 +250,7 @@ case class SendToUnprotectedService(serviceBinder: MBinder[ServiceIdentifier])(i
  * - redirects to default service path
  */
 case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreApi)
-  extends Service[CustomerIdRequest, Response] {
+    extends Service[CustomerIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
   def apply(req: CustomerIdRequest): Future[Response] = {
@@ -267,7 +271,8 @@ case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreA
  * Determines the identity of the requester, if no identity it responds with a redirect to the login page for that
  * service
  */
-case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(implicit secretStore: SecretStoreApi)
+case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(
+  implicit secretStore: SecretStoreApi, statsReceiver: StatsReceiver)
     extends Filter[BorderRequest, Response, AccessIdRequest[A], Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
@@ -281,7 +286,7 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(implicit 
         EmptyIdentity
     }
 
-  def apply(req: BorderRequest, service: Service[AccessIdRequest[A], Response]): Future[Response] =
+  def apply(req: BorderRequest, service: Service[AccessIdRequest[A], Response]): Future[Response] = {
     identity(req.sessionId).flatMap {
       case id: Id[A] => service(AccessIdRequest(req, id))
       case EmptyIdentity => for {
@@ -293,6 +298,7 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(implicit 
             s"allocating a new session: ${session.id.toLogIdString}, redirecting to " +
             s"location: ${req.customerId.loginManager.protoManager.redirectLocation(req.req.host)}")
     }
+  }
 }
 
 /**
@@ -306,17 +312,19 @@ case class AccessFilter[A, B](binder: MBinder[ServiceIdentifier])(implicit stats
   private[this] val statRequestSends = statsReceiver.counter("upstream.service.request.sends")
 
   def apply(req: AccessIdRequest[A],
-            accessService: Service[AccessRequest[A], AccessResponse[B]]): Future[Response] =
-    accessService(AccessRequest(req.id, req.customerId, req.serviceId, req.sessionId)).flatMap(
-      accessResp => binder(BindRequest(req.serviceId,
+            accessService: Service[AccessRequest[A], AccessResponse[B]]): Future[Response] = {
+    for {
+      accessResp <- accessService(AccessRequest(req.id, req.customerId, req.serviceId, req.sessionId))
+      resp <- binder(BindRequest(req.serviceId,
         tap(req.req) { r => {
           statRequestSends.incr
           log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
             s"to the protected upstream service: ${req.serviceId.name}, token = ${accessResp.access.access.toString}")
           r.headerMap.add("Auth-Token", accessResp.access.access.toString)
-        }})
-      )
-    )
+        }}
+      ))
+    } yield resp
+  }
 }
 
 /**
