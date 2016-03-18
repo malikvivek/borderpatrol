@@ -2,10 +2,11 @@ package com.lookout.borderpatrol.security
 
 import java.net.InetAddress
 
+import com.lookout.borderpatrol.sessionx._
+import com.lookout.borderpatrol.util.Combinators.tap
 import com.twitter.finagle.{Service, SimpleFilter}
 import com.twitter.finagle.http.{HeaderMap, Request, Response}
 import com.twitter.util.Future
-import com.lookout.borderpatrol.util.Combinators.tap
 
 /**
   * Basic, default values for adding security mechanisms via headers
@@ -52,16 +53,19 @@ case class SecureHeaderFilter(requestHeaders: HeaderMap = SecureHeaders.request,
     extends SimpleFilter[Request, Response] {
   val localIp = InetAddress.getLocalHost.getHostAddress
 
+  def injectRequestHeaders(req: Request): Request =
+    tap(req) { re =>
+      re.headerMap ++= requestHeaders
+      re.xForwardedFor_=(re.xForwardedFor.fold(localIp)(s => s"$s, $localIp"))
+    }
+
   /**
     * Requests get X-Forwarded-For and other request headers added before passing to the service
     * Responses get response headers added before returning to the client
     */
   def apply(req: Request, service: Service[Request, Response]): Future[Response] =
-    service(tap(req) { r =>
-      r.xForwardedFor = (r.xForwardedFor match {
-        case Some(s) => s"$s, $localIp"
-        case None => localIp
-      })
-      r.headerMap ++= requestHeaders
-    }).map(res => tap(res)(_.headerMap ++= responseHeaders))
+    for {
+      resp <- service(injectRequestHeaders(req))
+      _ <- (resp.headerMap ++= responseHeaders).toFuture
+    } yield resp
 }

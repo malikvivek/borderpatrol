@@ -4,9 +4,8 @@ import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
 
-import com.lookout.borderpatrol.BinderBase
 import com.lookout.borderpatrol.test.BorderPatrolSuite
-import com.twitter.finagle.util.{HashedWheelTimer, DefaultTimer}
+import com.twitter.finagle.util.{HashedWheelTimer}
 import com.twitter.io.Buf
 import com.twitter.common.metrics.{AbstractGauge, Metrics}
 import com.twitter.util.Duration
@@ -23,7 +22,7 @@ class StatsdExporterSpec extends BorderPatrolSuite {
   val defaultStatsdExporterConfig = StatsdExporterConfig(host, 300, "prefix")
 
   private[this] def receiveStat: Option[String] = {
-    val buf1 = ByteBuffer.allocateDirect(128)
+    val buf1 = ByteBuffer.allocateDirect(65536)
     server.receive(buf1)
     buf1.flip()
     val buf2 = Buf.ByteBuffer.Owned(buf1)
@@ -46,19 +45,21 @@ class StatsdExporterSpec extends BorderPatrolSuite {
 
   it should "report counter increment" in {
     val metrics1 = Metrics.createDetached()
-    val exporter1 = StatsdExporter(metrics1, HashedWheelTimer(),
-      "ut", Duration.fromSeconds(300), host)
+    val exporter1 = StatsdExporter(metrics1, HashedWheelTimer(), "ut", Duration.fromSeconds(300), host)
     val c = metrics1.createCounter("counter1")
     c.increment()
     exporter1.report()
-    receiveAllStats(Set.empty[String]).contains("ut.counter1:1|c") should be (true)
-    exporter1.timer.stop()
+    val stats = receiveAllStats(Set.empty[String])
+    try {
+      stats.filter(repo => repo.contains("ut.counter1:1|c")).nonEmpty should be (true)
+    } finally {
+      exporter1.timer.stop()
+    }
   }
 
   it should "report gauge increment" in {
     val metrics2 = Metrics.createDetached()
-    val exporter2 = StatsdExporter(metrics2, HashedWheelTimer(),
-      "ut", Duration.fromSeconds(300), host)
+    val exporter2 = StatsdExporter(metrics2, HashedWheelTimer(), "ut", Duration.fromSeconds(300), host)
     var x = 0
     val g = new AbstractGauge[Number]("gauge1") {
       def read: Number = x
@@ -67,29 +68,35 @@ class StatsdExporterSpec extends BorderPatrolSuite {
     x = 10
     exporter2.report()
     Thread.sleep(100)
-    receiveAllStats(Set.empty[String]).contains("ut.gauge1:10|g") should be (true)
-    exporter2.timer.stop()
+    val stats = receiveAllStats(Set.empty[String])
+    try {
+      stats.filter(repo => repo.contains("ut.gauge1:10|g")).nonEmpty should be (true)
+    } finally {
+      exporter2.timer.stop()
+    }
   }
 
   it should "report historgram increment" in {
     val metrics3 = Metrics.createDetached()
-    val exporter3 = StatsdExporter(metrics3, HashedWheelTimer(),
-      "ut", Duration.fromSeconds(300), host)
+    val exporter3 = StatsdExporter(metrics3, HashedWheelTimer(), "ut", Duration.fromSeconds(300), host)
     val r = new scala.util.Random(10000)
     val histo = metrics3.createHistogram("histo")
     exporter3.report()
     val stats = receiveAllStats(Set.empty[String])
-    stats.contains("ut.histo.count:0|g") should be (true)
-    stats.contains("ut.histo.avg:0.00|t") should be (true)
-    stats.contains("ut.histo.min:0|t") should be (true)
-    stats.contains("ut.histo.max:0|t") should be (true)
-    stats.contains("ut.histo.stddev:0.00|t") should be (true)
-    stats.contains("ut.histo.p50:0|t") should be (true)
-    stats.contains("ut.histo.p90:0|t") should be (true)
-    stats.contains("ut.histo.p95:0|t") should be (true)
-    stats.contains("ut.histo.p99:0|t") should be (true)
-    stats.contains("ut.histo.p999:0|t") should be (true)
-    stats.contains("ut.histo.p9999:0|t") should be (true)
-    exporter3.timer.stop()
+    try {
+      stats.filter(repo => repo.contains("ut.histo.count:0|g")).nonEmpty should be (true)
+      stats.filter(repo => repo.contains("ut.histo.avg:0.00|t")).nonEmpty should be (true)
+      stats.filter(repo => repo.contains("ut.histo.min:0|t")).nonEmpty should be (true)
+      stats.filter(repo => repo.contains("ut.histo.max:0|t")).nonEmpty should be (true)
+      stats.filter(repo => repo.contains("ut.histo.stddev:0.00|t")).nonEmpty should be (true)
+      stats.filter(repo => repo.contains("ut.histo.p50:0|t")).nonEmpty should be (true)
+      stats.filter(repo => repo.contains("ut.histo.p90:0|t")).nonEmpty should be (true)
+      stats.filter(repo => repo.contains("ut.histo.p95:0|t")).nonEmpty should be (true)
+      stats.filter(repo => repo.contains("ut.histo.p99:0|t")).nonEmpty should be (true)
+      stats.filter(repo => repo.contains("ut.histo.p999:0|t")).nonEmpty should be (true)
+      stats.filter(repo => repo.contains("ut.histo.p9999:0|t")).nonEmpty should be (true)
+    } finally {
+      exporter3.timer.stop()
+    }
   }
 }

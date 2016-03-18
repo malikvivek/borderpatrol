@@ -97,7 +97,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the [BpIdentityProviderError] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should include ("IdentityProvider denied user: foo")
+    caught.getMessage should include ("IdentityProvider denied user: 'foo'")
     caught.status should be (Status.Forbidden)
   }
 
@@ -121,7 +121,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the [BpIdentityProviderError] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should include ("IdentityProvider denied user: foo")
+    caught.getMessage should include ("IdentityProvider denied user: 'foo'")
     caught.status should be (Status.InternalServerError)
   }
 
@@ -271,8 +271,8 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     // Validate
     caught.status should be(Status.Ok)
     caught.location should be equals ("/dang")
-    caught.sessionId should not be sessionId
-    val tokensz = getTokensFromSessionId(caught.sessionId)
+    caught.sessionIdOpt should not be (Some(sessionId))
+    val tokensz = getTokensFromSessionId(caught.sessionIdOpt.get)
     Await.result(tokensz) should be(tokens)
   }
 
@@ -308,8 +308,8 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     // Validate
     caught.status should be(Status.Ok)
     caught.location should be equals ("/umb")
-    caught.sessionId should not be sessionId
-    val tokensz = getTokensFromSessionId(caught.sessionId)
+    caught.sessionIdOpt should not be (Some(sessionId))
+    val tokensz = getTokensFromSessionId(caught.sessionIdOpt.get)
     Await.result(tokensz) should be(tokens)
   }
 

@@ -10,7 +10,7 @@ import com.lookout.borderpatrol.auth._
 import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.finagle.{Filter, Service}
 import com.twitter.finagle.http._
-import com.twitter.logging.{Logger, Level}
+import com.twitter.logging.Logger
 import com.twitter.util.Future
 
 
@@ -73,12 +73,12 @@ object Keymaster {
         case Status.Forbidden => {
           statResponseDenied.incr
           Future.exception(BpIdentityProviderError(Status.Forbidden,
-            s"IdentityProvider denied user: ${req.credential.uniqueId} with status: ${res.status}"))
+            s"IdentityProvider denied user: '${req.credential.uniqueId}' with status: ${res.status}"))
         }
         case _ => {
           statResponseFailed.incr
           Future.exception(BpIdentityProviderError(Status.InternalServerError,
-            s"IdentityProvider denied user: ${req.credential.uniqueId} with status: ${res.status}"))
+            s"IdentityProvider denied user: '${req.credential.uniqueId}' with status: ${res.status}"))
         }
       })
     }
@@ -151,7 +151,7 @@ object Keymaster {
           _ <- store.delete(req.sessionId)
         } yield {
           statSessionAuthenticated.incr
-          throw BpRedirectError(Status.Ok, originReq.uri, session.id,
+          throw BpRedirectError(Status.Ok, originReq.uri, Some(session.id),
             s"Session: ${req.sessionId.toLogIdString}} is authenticated, " +
               s"allocated new Session: ${session.id.toLogIdString} and redirecting to " +
               s"location: ${originReq.uri}")
@@ -190,11 +190,10 @@ object Keymaster {
     /**
      * Fetch a valid ServiceToken, will return a ServiceToken otherwise a Future.exception
      */
-    def apply(req: AccessRequest[Tokens]): Future[AccessResponse[ServiceToken]] =
+    def apply(req: AccessRequest[Tokens]): Future[AccessResponse[ServiceToken]] = {
       //  Check if ServiceToken is already available for Service
       req.identity.id.service(req.serviceId.name).fold[Future[ServiceToken]]({
         statRequestSends.incr()
-
         //  Fetch ServiceToken from the Keymaster
         binder(BindRequest(req.customerId.loginManager.accessManager, api(req))).flatMap(res => res.status match {
           //  Parse for Tokens if Status.Ok
@@ -217,13 +216,14 @@ object Keymaster {
           case _ => {
             statsResponseFailed.incr()
             Future.exception(BpAccessIssuerError(Status.InternalServerError,
-              s"AccessIssuer denied access to service: ${req.serviceId.name} with status: ${res.status}"))
+              s"AccessIssuer denied access to service: '${req.serviceId.name}' with status: ${res.status}"))
           }
         })
       })(t => {
         statCacheHits.incr()
         Future.value(t)
       }).map(t => KeymasterAccessRes(Access(t)))
+    }
   }
 
   /**

@@ -461,7 +461,7 @@ class ConfigSpec extends BorderPatrolSuite {
       ("serviceIdentifiers", sids.asJson),
       ("loginManagers", (loginManagers +
         LoginManager("checkpoint", keymasterIdManager, keymasterAccessManager,
-          InternalAuthProtoManager(Path("/some"), Path("/some"), None))).asJson),
+          InternalAuthProtoManager("some", Path("/some"), Path("/some"), None))).asJson),
       ("identityManagers", Set(keymasterIdManager).asJson),
       ("accessManagers", Set(keymasterAccessManager).asJson)))
 

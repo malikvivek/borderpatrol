@@ -30,6 +30,7 @@ case class LoginManager(name: String, identityManager: Manager, accessManager: M
  * ProtoManager defines parameters specific to the protocol
  */
 trait ProtoManager {
+  val name: String
   val loginConfirm: Path
   val loggedOutUrl: Option[URL]
   def redirectLocation(host: Option[String]): String
@@ -38,12 +39,13 @@ trait ProtoManager {
 /**
  * Internal authentication, that merely redirects user to internal service that does the authentication
  *
+ * @param name name of the proto manager
  * @param loginConfirm path intercepted by bordetpatrol and internal authentication service posts
  *                     the authentication response on this path
  * @param authorizePath path of the internal authentication service where client is redirected
  * @param loggedOutUrl A Url where user is redirected after the Logout
  */
-case class InternalAuthProtoManager(loginConfirm: Path, authorizePath: Path, loggedOutUrl: Option[URL])
+case class InternalAuthProtoManager(name: String, loginConfirm: Path, authorizePath: Path, loggedOutUrl: Option[URL])
     extends ProtoManager {
   def redirectLocation(host: Option[String]): String = authorizePath.toString
 }
@@ -51,6 +53,7 @@ case class InternalAuthProtoManager(loginConfirm: Path, authorizePath: Path, log
 /**
  * OAuth code framework, that redirects user to OAuth2 server.
  *
+ * @param name name of the proto manager
  * @param loginConfirm path intercepted by borderpatrol and OAuth2 server posts the oAuth2 code on this path
  * @param authorizeUrl URL of the OAuth2 service where client is redirected for authenticaiton
  * @param tokenUrl URL of the OAuth2 server to convert OAuth2 code to OAuth2 token
@@ -59,8 +62,9 @@ case class InternalAuthProtoManager(loginConfirm: Path, authorizePath: Path, log
  * @param clientId Id used for communicating with OAuth2 server
  * @param clientSecret Secret used for communicating with OAuth2 server
  */
-case class OAuth2CodeProtoManager(loginConfirm: Path, authorizeUrl: URL, tokenUrl: URL, certificateUrl: URL,
-                                  loggedOutUrl: Option[URL], clientId: String, clientSecret: String)
+case class OAuth2CodeProtoManager(name: String, loginConfirm: Path, authorizeUrl: URL, tokenUrl: URL,
+                                  certificateUrl: URL, loggedOutUrl: Option[URL], clientId: String,
+                                  clientSecret: String)
     extends ProtoManager{
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
@@ -79,6 +83,6 @@ case class OAuth2CodeProtoManager(loginConfirm: Path, authorizeUrl: URL, tokenUr
         .drop(1) /* Drop '?' */
     })
     log.debug(s"Sending: ${request} to location: ${tokenUrl}")
-    BinderBase.connect(tokenUrl.toString, Set(tokenUrl), request)
+    BinderBase.connect(s"${name}.tokenUrl", Set(tokenUrl), request)
   }
 }

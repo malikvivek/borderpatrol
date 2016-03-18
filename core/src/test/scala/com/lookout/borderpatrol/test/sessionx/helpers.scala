@@ -62,10 +62,10 @@ object helpers {
   //  Managers
   val keymasterIdManager = Manager("keymaster", Path("/identityProvider"), urls)
   val keymasterAccessManager = Manager("keymaster", Path("/accessIssuer"), urls)
-  val internalProtoManager = InternalAuthProtoManager(Path("/loginConfirm"), Path("/check"), None)
+  val internalProtoManager = InternalAuthProtoManager("checkpointProtoManager", Path("/loginConfirm"), Path("/check"), None)
   val checkpointLoginManager = LoginManager("checkpoint", keymasterIdManager, keymasterAccessManager,
     internalProtoManager)
-  val oauth2CodeProtoManager = OAuth2CodeProtoManager(Path("/signin"),
+  val oauth2CodeProtoManager = OAuth2CodeProtoManager("ulmProtoManager", Path("/signin"),
     new URL("http://example.com/authorizeUrl"),
     new URL("http://localhost:4567/tokenUrl"),
     new URL("http://localhost:4567/certificateUrl"),
@@ -73,7 +73,7 @@ object helpers {
     "clientId", "clientSecret")
   val umbrellaLoginManager = LoginManager("ulm", keymasterIdManager, keymasterAccessManager,
     oauth2CodeProtoManager)
-  val oauth2CodeBadProtoManager = OAuth2CodeProtoManager(Path("/signblew"),
+  val oauth2CodeBadProtoManager = OAuth2CodeProtoManager("rlmProtoManager", Path("/signblew"),
     new URL("http://localhost:9999/authorizeUrl"),
     new URL("http://localhost:9999/tokenUrl"),
     new URL("http://localhost:9999/certificateUrl"),

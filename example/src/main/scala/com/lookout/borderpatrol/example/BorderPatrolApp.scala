@@ -13,7 +13,6 @@ import scala.util.{Failure, Success, Try}
 
 object BorderPatrolApp extends TwitterServer with Config {
   import service._
-  import MockService._
   import Config._
 
   premain {

@@ -32,7 +32,7 @@ object HealthCheck {
   /** BorderPatrol health check on a URL */
   case class UrlHealthCheck(name: String, url: URL) extends HealthCheck {
     def check(): Future[HealthCheckStatus] =
-      BinderBase.connect(url.toString, Set(url), Request()).map(rep => rep.status match {
+      BinderBase.connect(s"${getClass.getSimpleName}.$name", Set(url), Request()).map(rep => rep.status match {
         case Status.Ok => HealthCheckStatus.healthy
         case _ => HealthCheckStatus.unhealthy(rep.status, rep.status.reason.asJson)
       })
@@ -88,5 +88,5 @@ class HealthCheckRegistry {
     healthChecks.putIfAbsent(healthCheck.name, healthCheck)
 
   def collectHealthCheckResults(): Future[Map[String, HealthCheckStatus]] =
-    Future.collect((healthChecks map { e => (e._1, e._2.execute())}).toMap)
+    Future.collect((healthChecks.map(hc => (hc._1, hc._2.execute()))).toMap)
 }

@@ -92,9 +92,9 @@ class HealthCheckSpec extends BorderPatrolSuite {
 
   it should "collect output from all HealthChecks" in {
     val server = com.twitter.finagle.Http.serve(
-      "localhost:5678", mkTestService[Request, Response] { _ => Response(Status.Ok).toFuture})
+      "localhost:5679", mkTestService[Request, Response] { _ => Response(Status.Ok).toFuture})
     try {
-      val goodUrlHealthCheck = UrlHealthCheck("goodUrlHealthCheck", new URL("http://localhost:5678"))
+      val goodUrlHealthCheck = UrlHealthCheck("goodUrlHealthCheck", new URL("http://localhost:5679"))
       val badUrlHealthCheck = UrlHealthCheck("badUrlHealthCheck", new URL("http://localhost:999"))
       val registry = new HealthCheckRegistry()
       registry.register(goodUrlHealthCheck)
@@ -107,7 +107,7 @@ class HealthCheckSpec extends BorderPatrolSuite {
       Await.result(output).get("goodUrlHealthCheck").get.status should be(Status.Ok)
       Await.result(output).get("badUrlHealthCheck").get.status should be(Status.InternalServerError)
       Await.result(output).asJson.toString() should include(
-        "An error occurred while talking to: Failed to connect for: 'http://localhost:999'")
+        "An error occurred while talking to: Failed to connect for: 'UrlHealthCheck.badUrlHealthCheck'")
 
     } finally {
       server.close()

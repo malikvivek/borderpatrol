@@ -35,13 +35,63 @@ import com.lookout.borderpatrol.util.Combinators._
 import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.io.Buf
 import com.twitter.finagle.http.{Method, Request, Response, Status}
-import com.twitter.finagle.http.service.{NotFoundService, RoutingService}
+import com.twitter.finagle.http.service.RoutingService
 import com.twitter.finagle.Service
 import com.twitter.util.Future
 import io.finch.response.ResponseBuilder
 
 
-object MockService {
+object service {
+  /**
+   * Get IdentityProvider map of name -> Service chain
+   *
+   * As of now, we only support `keymaster` as an Identity Provider
+   */
+  def identityProviderChainMap(sessionStore: SessionStore)(
+    implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
+  Map[String, Service[BorderRequest, Response]] =
+    Map("keymaster" -> keymasterIdentityProviderChain(sessionStore))
+
+  /**
+   * Get AccessIssuer map of name -> Service chain
+   *
+   * As of now, we only support `keymaster` as an Access Issuer
+   */
+  def accessIssuerChainMap(sessionStore: SessionStore)(
+    implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
+  Map[String, Service[BorderRequest, Response]] =
+    Map("keymaster" -> keymasterAccessIssuerChain(sessionStore))
+
+  /**
+   * The sole entry point for all service chains
+   */
+  def MainServiceChain(implicit config: ServerConfig, statsReceiver: StatsReceiver, registry: HealthCheckRegistry,
+                       secretStore: SecretStoreApi):
+      Service[Request, Response] = {
+    val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
+    val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
+
+    RoutingService.byPath {
+      case "/health" =>
+        HealthCheckService(registry)
+
+      case _ =>
+        /* Convert exceptions to responses */
+        ExceptionFilter() andThen
+          /* Validate that its our service */
+          CustomerIdFilter(serviceMatcher) andThen
+          /* Get or allocate Session/SignedId */
+          SessionIdFilter(serviceMatcher, config.sessionStore) andThen
+          /* If unauthenticated, send it to Identity Provider or login page */
+          SendToIdentityProvider(identityProviderChainMap(config.sessionStore), config.sessionStore) andThen
+          /* If authenticated and protected service, send it via Access Issuer chain */
+          SendToAccessIssuer(accessIssuerChainMap(config.sessionStore)) andThen
+          /* Authenticated or not, send it to unprotected service, if its destined to that */
+          SendToUnprotectedService(ServiceIdentifierBinder) andThen
+          /* Not found */
+          notFoundService
+    }
+  }
 
   //  Mock Keymaster identityManager
   val mockKeymasterIdentityService = new Service[Request, Response] {
@@ -108,15 +158,17 @@ object MockService {
       tap(Response(Status.Ok))(res => {
         res.contentString =
           s"""
-          |<html><body>
-          |<h1>Welcome to Service @(${request.path})</h1>
-          |</body></html>
+             |<html><body>
+             |<h1>Welcome to Service @(${request.path})</h1>
+                                                        |</body></html>
           """.stripMargin
         res.contentType = "text/html"
       }).toFuture
   }
 
-  def getMockRoutingService(implicit config: ServerConfig): Service[Request, Response] = {
+  // Mock Routing service
+  def getMockRoutingService(implicit config: ServerConfig, statsReceiver: StatsReceiver):
+  Service[Request, Response] = {
     val checkpoint = config.findServiceIdentifier("checkpoint")
     val keymasterIdManager = config.findIdentityManager("keymaster")
     val keymasterAccessManager = config.findAccessManager("keymaster")
@@ -128,64 +180,11 @@ object MockService {
       case keymasterAccessManager.path => mockKeymasterAccessIssuerService
       case keymasterIdManager.path => mockKeymasterIdentityService
       case path if path.startsWith(checkpoint.path) => mockCheckpointService
-      case path if path.startsWith(logout.rewritePath.fold(path)(p => p)) =>
+      case path if path.startsWith(logout.rewritePath.getOrElse(path)) =>
         ExceptionFilter() andThen /* Convert exceptions to responses */
-        CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
-        LogoutService(config.sessionStore)
+          CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
+          LogoutService(config.sessionStore)
       case _ => mockUpstreamService
-    }
-  }
-}
-
-object service {
-  /**
-   * Get IdentityProvider map of name -> Service chain
-   *
-   * As of now, we only support `keymaster` as an Identity Provider
-   */
-  def identityProviderChainMap(sessionStore: SessionStore)(
-    implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
-  Map[String, Service[BorderRequest, Response]] =
-    Map("keymaster" -> keymasterIdentityProviderChain(sessionStore))
-
-  /**
-   * Get AccessIssuer map of name -> Service chain
-   *
-   * As of now, we only support `keymaster` as an Access Issuer
-   */
-  def accessIssuerChainMap(sessionStore: SessionStore)(
-    implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
-  Map[String, Service[BorderRequest, Response]] =
-    Map("keymaster" -> keymasterAccessIssuerChain(sessionStore))
-
-  /**
-   * The sole entry point for all service chains
-   */
-  def MainServiceChain(implicit config: ServerConfig, statsReceiver: StatsReceiver, registry: HealthCheckRegistry,
-                       secretStore: SecretStoreApi):
-      Service[Request, Response] = {
-    val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
-    val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
-
-    RoutingService.byPath {
-      case "/health" =>
-        HealthCheckService(registry)
-
-      case _ =>
-        /* Convert exceptions to responses */
-        ExceptionFilter() andThen
-          /* Validate that its our service */
-          CustomerIdFilter(serviceMatcher) andThen
-          /* Get or allocate Session/SignedId */
-          SessionIdFilter(serviceMatcher, config.sessionStore) andThen
-          /* If unauthenticated, send it to Identity Provider or login page */
-          SendToIdentityProvider(identityProviderChainMap(config.sessionStore), config.sessionStore) andThen
-          /* If authenticated and protected service, send it via Access Issuer chain */
-          SendToAccessIssuer(accessIssuerChainMap(config.sessionStore)) andThen
-          /* Authenticated or not, send it to unprotected service, if its destined to that */
-          SendToUnprotectedService(ServiceIdentifierBinder) andThen
-          /* Not found */
-          notFoundService
     }
   }
 }

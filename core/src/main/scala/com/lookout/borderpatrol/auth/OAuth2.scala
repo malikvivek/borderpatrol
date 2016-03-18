@@ -71,10 +71,10 @@ object OAuth2 {
         node.attributes.exists(_.value.text == "fed:SecurityTokenServiceType"))) \\ "X509Certificate"
     }
 
-    private[this] def download_aad_certs(downloadUrl: URL, thumbprint: String): Future[String] = {
+    private[this] def downloadAadCerts(protoManager: OAuth2CodeProtoManager, thumbprint: String): Future[String] = {
       //  Fetch the response
-      BinderBase.connect("AADCert-" + downloadUrl.toString, Set(downloadUrl),
-        Request(downloadUrl.getPath)).flatMap(res => res.status match {
+      BinderBase.connect(s"${protoManager.name}.certificateUrl", Set(protoManager.certificateUrl),
+        Request(protoManager.certificateUrl.getPath)).flatMap(res => res.status match {
 
         //  Parse for Tokens if Status.Ok
         case Status.Ok => {
@@ -115,16 +115,16 @@ object OAuth2 {
     /**
      * Parse the signed token, download the certificate/public key if necessary and verify the signature
      *
-     * @param certificateUrl
+     * @param protoManager
      * @param tokenStr
      * @return
      */
-    private[this] def getClaimsSet(certificateUrl: URL, tokenStr: String): Future[JWTClaimsSet] = {
+    private[this] def getClaimsSet(protoManager: OAuth2CodeProtoManager, tokenStr: String): Future[JWTClaimsSet] = {
       for {
         signedJWT <- wrapFuture({ () => SignedJWT.parse(tokenStr) }, BpTokenParsingError.apply)
         thumbprint <- wrapFuture({() => signedJWT.getHeader.getX509CertThumbprint }, BpTokenParsingError.apply)
-        certStr <- find(thumbprint.toString).fold(download_aad_certs(
-          certificateUrl, thumbprint.toString))(Future.value(_))
+        certStr <- find(thumbprint.toString).fold(downloadAadCerts(
+          protoManager, thumbprint.toString))(Future.value(_))
         cert <- wrapFuture({ () => X509CertUtils.parse(DatatypeConverter.parseBase64Binary(certStr)) },
           BpCertificateError.apply)
       } yield signedJWT.verify(verifier(cert.getPublicKey)) match {
@@ -160,7 +160,7 @@ object OAuth2 {
             s"Failed to receive the AadToken from OAuth2 Server: ${req.customerId.loginManager.name}"))
         })
         idClaimSet <- wrapFuture({() => PlainJWT.parse(aadToken.idToken).getJWTClaimsSet}, BpTokenParsingError.apply)
-        accessClaimSet <- getClaimsSet(protoManager.certificateUrl, aadToken.accessToken)
+        accessClaimSet <- getClaimsSet(protoManager, aadToken.accessToken)
       } yield accessClaimSet
     }
   }

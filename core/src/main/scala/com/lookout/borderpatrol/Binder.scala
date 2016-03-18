@@ -2,7 +2,12 @@ package com.lookout.borderpatrol
 
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
+import com.twitter.finagle.Http.Client
+import com.twitter.finagle.client.StackClient
+import com.twitter.finagle.param.ProtocolLibrary
+import com.twitter.finagle.service.StatsFilter
 import com.twitter.finagle.{Http, Service}
 import com.twitter.finagle.http.{Response, Request}
 import com.twitter.logging.Logger
@@ -67,8 +72,8 @@ object Binder {
 
 
 object BinderBase {
-  val log = Logger.get(getClass.getPackage.getName)
-  val cache: collection.concurrent.Map[String, Service[Request, Response]] =
+  private[this] val log = Logger.get(getClass.getPackage.getName)
+  private[this] val cache: collection.concurrent.Map[String, Service[Request, Response]] =
     new ConcurrentHashMap[String, Service[Request, Response]] asScala
 
   private[this] def client(name: String, urls: Set[URL]): Service[Request, Response] = {
@@ -79,9 +84,15 @@ object BinderBase {
     // Find CSV of host & ports
     val hostAndPorts = urls.map(u => u.getAuthority).mkString(",")
 
-    // Create
-    if (https) Http.client.withTls(hostname).newService(hostAndPorts)
-    else Http.newService(hostAndPorts)
+    // Create a client and configure metrics in microseconds
+    if (https) Http
+      .Client(Client.stack, StackClient.defaultParams + ProtocolLibrary("http") +
+              StatsFilter.Param(TimeUnit.MICROSECONDS))
+      .withTls(hostname).newService(hostAndPorts, name)
+    else Http
+      .Client(Client.stack, StackClient.defaultParams + ProtocolLibrary("http") +
+              StatsFilter.Param(TimeUnit.MICROSECONDS))
+      .newService(hostAndPorts, name)
   }
 
   private[this] def getOrCreate(name: String, urls: Set[URL]): Future[Service[Request, Response]] =

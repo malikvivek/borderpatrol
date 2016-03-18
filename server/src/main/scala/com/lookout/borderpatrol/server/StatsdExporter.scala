@@ -1,13 +1,13 @@
 package com.lookout.borderpatrol.server
 
-import java.net.InetAddress
+import java.io.ByteArrayOutputStream
+import java.net.{StandardProtocolFamily, InetAddress}
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
 
 import com.twitter.common.metrics.Metrics
 import com.twitter.finagle.stats._
-import com.twitter.finagle.util.{HashedWheelTimer, InetSocketAddressUtil, DefaultTimer}
-import com.twitter.io.Buf
+import com.twitter.finagle.util.{HashedWheelTimer, InetSocketAddressUtil}
 import com.twitter.logging.Logger
 import com.twitter.util.{Duration, Timer, NonFatal}
 import scala.collection.JavaConverters.mapAsScalaMapConverter
@@ -19,7 +19,8 @@ case class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", 
                           hostAndPort: String) {
   private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val addr = InetSocketAddressUtil.parseHosts(hostAndPort).head
-  private[this] val channel = DatagramChannel.open()
+  private[this] val channel = DatagramChannel.open(StandardProtocolFamily.INET)
+  private[this] val dataBuffer = new ByteArrayOutputStream()
 
   // Schedule exporter
   timer.schedule(duration)(report)
@@ -27,7 +28,7 @@ case class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", 
   // Format helpers
   private[this] def format(names: Seq[String], value: String, term: String): String = {
     val n = names.filter(_.nonEmpty).mkString(".").replaceAll("/", ".").replaceAll(":", "_")
-    s"${n}:$value|$term"
+    s"${n}:$value|$term\n"
   }
 
   private[this] def format(n: Long): String = n.toString
@@ -41,17 +42,24 @@ case class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", 
       case p => p
     }
 
-  // Send helpers
-  private[this] def buf(utf8: String): Buf =
-    Buf.Utf8(utf8)
-
-  private[this] def byteBuf(buf: Buf): ByteBuffer =
-    Buf.ByteBuffer.Owned.extract(buf)
-
-  private[this] def send(str: String): Unit =
-    Try(channel.send(byteBuf(buf(str)), addr)).recover {
-      case e => log.info(s"Failed to send stats to: $hostAndPort with: ${e.getMessage}")
+  private[this] def flush(): Unit = {
+    if (dataBuffer.size() != 0) {
+      Try(channel.send(ByteBuffer.wrap(dataBuffer.toByteArray), addr)).recover {
+        case e => log.warning(
+          s"Failed to send stats to: $hostAndPort, size: ${dataBuffer.size()} with: ${e.getMessage}")
+      }
+      /* Whether we succeed or not, always reset the output buffer in the end */
+      dataBuffer.reset()
     }
+  }
+
+  private[this] def send(str: String): Unit = {
+    /** Flush if we have more than 4k worth of data */
+    if (dataBuffer.size() > 4000) {
+      flush()
+    }
+    dataBuffer.write(str.getBytes)
+  }
 
   // Report
   def report(): Unit = {
@@ -83,6 +91,9 @@ case class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", 
       snapshot.percentiles.foreach(p =>
         send(format(Seq(prefix, name, labelPercentile(p.getQuantile)), format(p.getValue), "t")))
     }
+
+    /** Flush the data buffer in the end */
+    flush()
   }
 }
 
