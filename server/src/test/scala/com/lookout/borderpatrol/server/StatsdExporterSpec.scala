@@ -4,9 +4,8 @@ import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
 
-import com.lookout.borderpatrol.BinderBase
 import com.lookout.borderpatrol.test.BorderPatrolSuite
-import com.twitter.finagle.util.{HashedWheelTimer, DefaultTimer}
+import com.twitter.finagle.util.{HashedWheelTimer}
 import com.twitter.io.Buf
 import com.twitter.common.metrics.{AbstractGauge, Metrics}
 import com.twitter.util.Duration

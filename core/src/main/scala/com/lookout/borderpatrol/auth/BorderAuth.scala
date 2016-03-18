@@ -126,7 +126,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
             _ <- store.update(session)
           } yield session.id
       }
-      resp <- Future.exception[Response](BpRedirectError(Status.Unauthorized, location, sessionId,
+      resp <- Future.exception[Response](BpRedirectError(Status.Unauthorized, location, Some(sessionId),
         s"Redirecting the ${req.req} for Untagged Session: ${sessionId.toLogIdString} " +
           s"to login service, location: $location"))
     } yield resp
@@ -204,7 +204,7 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
       /* 2. Request for Root w/ authenticated Sessionid, redirect to default service */
       case (Some(AuthenticatedTag), None) if Root.startsWith(Path(req.req.path)) =>
         Future.exception(BpRedirectError(Status.NotFound, req.customerId.defaultServiceId.path.toString,
-          req.sessionIdOpt.get,
+          req.sessionIdOpt,
           s"Redirecting the ${req.req} for Authenticated Session: ${req.sessionIdOpt.get.toLogIdString} " +
             s"to upstream service, location: ${req.customerId.defaultServiceId.path}"))
 
@@ -300,7 +300,7 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(
         session <- Session(req.req)
         _ <- store.update(session)
       } yield throw BpRedirectError(Status.Unauthorized,
-          req.customerId.loginManager.protoManager.redirectLocation(req.req.host), session.id,
+          req.customerId.loginManager.protoManager.redirectLocation(req.req.host), Some(session.id),
           s"Failed to find Session: ${req.sessionId.toLogIdString} for: ${req.req}, " +
             s"allocating a new session: ${session.id.toLogIdString}, redirecting to " +
             s"location: ${req.customerId.loginManager.protoManager.redirectLocation(req.req.host)}")
@@ -372,7 +372,8 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
   private[this] def infoAndRedirectResponse(req: Request, error: BpRedirectError): Response = {
     log.info(error.msg)
     tap(Response())(res => {
-      res.addCookie(error.sessionId.asCookie())
+      error.sessionIdOpt.foreach(sessionId => res.addCookie(sessionId.asCookie()))
+
       // If Accept Header contains "application/json", then encode response in JSON format
       req.accept.contains("application/json") match {
         case true =>

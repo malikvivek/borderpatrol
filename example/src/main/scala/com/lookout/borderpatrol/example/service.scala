@@ -47,7 +47,7 @@ object MockService {
   val mockKeymasterIdentityService = new Service[Request, Response] {
 
     val userMap: Map[String, String] = Map(
-      ("test@example.com" -> "testthis")
+      ("test1@example.com" -> "password1")
     )
 
     def apply(request: Request): Future[Response] = {

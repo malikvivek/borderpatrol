@@ -1,16 +1,15 @@
 package com.lookout.borderpatrol.server
 
-import java.io.{Writer, BufferedWriter, OutputStreamWriter, ByteArrayOutputStream}
-import java.net.{StandardProtocolFamily, SocketOption, StandardSocketOptions, InetAddress}
+import java.io.ByteArrayOutputStream
+import java.net.{StandardProtocolFamily, InetAddress}
 import java.nio.ByteBuffer
 import java.nio.channels.DatagramChannel
 
 import com.twitter.common.metrics.Metrics
 import com.twitter.finagle.stats._
-import com.twitter.finagle.util.{HashedWheelTimer, InetSocketAddressUtil, DefaultTimer}
-import com.twitter.io.Buf
+import com.twitter.finagle.util.{HashedWheelTimer, InetSocketAddressUtil}
 import com.twitter.logging.Logger
-import com.twitter.util.{Time, Duration, Timer, NonFatal}
+import com.twitter.util.{Duration, Timer, NonFatal}
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.Map
 import scala.util.Try
@@ -21,17 +20,15 @@ case class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", 
   private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val addr = InetSocketAddressUtil.parseHosts(hostAndPort).head
   private[this] val channel = DatagramChannel.open(StandardProtocolFamily.INET)
-    .setOption(StandardSocketOptions.SO_SNDBUF.asInstanceOf[SocketOption[Any]], 64000)
-  private[this] val outputData = new ByteArrayOutputStream()
+  private[this] val dataBuffer = new ByteArrayOutputStream()
 
   // Schedule exporter
   timer.schedule(duration)(report)
 
   // Format helpers
-  private[this] def format(writer: Writer, names: Seq[String], value: String, term: String): Unit = {
+  private[this] def format(names: Seq[String], value: String, term: String): String = {
     val n = names.filter(_.nonEmpty).mkString(".").replaceAll("/", ".").replaceAll(":", "_")
-    writer.write(s"${n}:$value|$term\n")
-    writer.flush()
+    s"${n}:$value|$term\n"
   }
 
   private[this] def format(n: Long): String = n.toString
@@ -45,23 +42,27 @@ case class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", 
       case p => p
     }
 
-  // Send helpers
-  private[this] def buf(utf8: String): Buf =
-    Buf.Utf8(utf8)
-
-  private[this] def byteBuf(buf: Buf): ByteBuffer =
-    Buf.ByteBuffer.Owned.extract(buf)
+  private[this] def flush(): Unit = {
+    if (dataBuffer.size() != 0) {
+      Try(channel.send(ByteBuffer.wrap(dataBuffer.toByteArray), addr)).recover {
+        case e => log.warning(
+          s"Failed to send stats to: $hostAndPort, size: ${dataBuffer.size()} with: ${e.getMessage}")
+      }
+      /* Whether we succeed or not, always reset the output buffer in the end */
+      dataBuffer.reset()
+    }
+  }
 
   private[this] def send(str: String): Unit = {
-    Try(channel.send(byteBuf(buf(str)), addr)).recover {
-      case e => log.warning(s"Failed to send stats to: $hostAndPort, size: ${str.size} with: ${e.getMessage}")
+    /** Flush if we have more than 4k worth of data */
+    if (dataBuffer.size() > 4000) {
+      flush()
     }
+    dataBuffer.write(str.getBytes)
   }
 
   // Report
   def report(): Unit = {
-    outputData.reset()
-    val writer = new BufferedWriter(new OutputStreamWriter(outputData))
     val gauges = try registry.sampleGauges().asScala catch {
       case NonFatal(e) =>
         // because gauges run arbitrary user code, we want to protect ourselves here.
@@ -75,24 +76,24 @@ case class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", 
     val counters = registry.sampleCounters().asScala
 
     counters.foreach {
-      case (name, value) => format(writer, Seq(prefix, name), format(value.longValue()), "c")
+      case (name, value) => send(format(Seq(prefix, name), format(value.longValue()), "c"))
     }
     gauges.foreach {
-      case (name, value) => format(writer, Seq(prefix, name), format(value.longValue()), "g")
+      case (name, value) => send(format(Seq(prefix, name), format(value.longValue()), "g"))
     }
 
     histos.foreach { case (name, snapshot) =>
-      format(writer, Seq(prefix, name, "count"), format(snapshot.count), "g")
-      format(writer, Seq(prefix, name, "avg"), format(snapshot.avg), "t")
-      format(writer, Seq(prefix, name, "min"), format(snapshot.min), "t")
-      format(writer, Seq(prefix, name, "max"), format(snapshot.max), "t")
-      format(writer, Seq(prefix, name, "stddev"), format(snapshot.stddev), "t")
+      send(format(Seq(prefix, name, "count"), format(snapshot.count), "g"))
+      send(format(Seq(prefix, name, "avg"), format(snapshot.avg), "t"))
+      send(format(Seq(prefix, name, "min"), format(snapshot.min), "t"))
+      send(format(Seq(prefix, name, "max"), format(snapshot.max), "t"))
+      send(format(Seq(prefix, name, "stddev"), format(snapshot.stddev), "t"))
       snapshot.percentiles.foreach(p =>
-        format(writer, Seq(prefix, name, labelPercentile(p.getQuantile)), format(p.getValue), "t"))
+        send(format(Seq(prefix, name, labelPercentile(p.getQuantile)), format(p.getValue), "t")))
     }
 
-    writer.close()
-    send(outputData.toString)
+    /** Flush the data buffer in the end */
+    flush()
   }
 }
 

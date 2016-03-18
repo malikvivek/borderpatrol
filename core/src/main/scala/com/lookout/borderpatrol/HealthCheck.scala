@@ -88,5 +88,5 @@ class HealthCheckRegistry {
     healthChecks.putIfAbsent(healthCheck.name, healthCheck)
 
   def collectHealthCheckResults(): Future[Map[String, HealthCheckStatus]] =
-    Future.collect((healthChecks map { e => (e._1, e._2.execute())}).toMap)
+    Future.collect((healthChecks.map(hc => (hc._1, hc._2.execute()))).toMap)
 }

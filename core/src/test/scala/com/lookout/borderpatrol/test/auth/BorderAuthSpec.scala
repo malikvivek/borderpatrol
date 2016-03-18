@@ -208,8 +208,8 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     // Validate
     caught.status should be(Status.Unauthorized)
     caught.location should be equals ("/dang")
-    caught.sessionId should not be sessionId
-    val reqZ = getRequestFromSessionId(caught.sessionId)
+    caught.sessionIdOpt should not be (Some(sessionId))
+    val reqZ = getRequestFromSessionId(caught.sessionIdOpt.get)
     Await.result(reqZ).uri should be(request.uri)
   }
 
@@ -364,7 +364,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
   it should "succeed and convert the BpRedirectError exception into error Response" in {
     val testService = mkTestService[Request, Response] { req =>
-      Future.exception(BpRedirectError(Status.Unauthorized, "/location", sessionid.untagged,
+      Future.exception(BpRedirectError(Status.Unauthorized, "/location", Some(sessionid.untagged),
         "Some identity provider error"))
     }
 
@@ -379,7 +379,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
   it should "succeed and convert the BpRedirectError exception into error Response with json body" in {
     val testService = mkTestService[Request, Response] { req =>
-      Future.exception(BpRedirectError(Status.Unauthorized, "/location", sessionid.untagged,
+      Future.exception(BpRedirectError(Status.Unauthorized, "/location", Some(sessionid.untagged),
         "Some identity provider error"))
     }
 
@@ -517,7 +517,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     // Validate
     caught.status should be(Status.Unauthorized)
     caught.location should be (internalProtoManager.authorizePath.toString)
-    caught.sessionId should be (sessionId)
+    caught.sessionIdOpt should be (Some(sessionId))
   }
 
   it should "redirect the request w/ unauth SessionId for protected service to login page for OAuth2" in {
@@ -543,7 +543,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     // Validate
     caught.status should be(Status.Unauthorized)
     caught.location should startWith (oauth2CodeProtoManager.authorizeUrl.toString)
-    caught.sessionId should be (sessionId)
+    caught.sessionIdOpt should be (Some(sessionId))
   }
 
   it should "redirect the request w/ unauth SessionId to unknown path to login page" in {
@@ -569,7 +569,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     // Validate
     caught.status should be(Status.Unauthorized)
     caught.location should be (internalProtoManager.authorizePath.toString)
-    caught.sessionId should be (sessionId)
+    caught.sessionIdOpt should be (Some(sessionId))
   }
 
   it should "throw an BpIdentityProviderError if it fails to find IdentityProvider service chain" in {
