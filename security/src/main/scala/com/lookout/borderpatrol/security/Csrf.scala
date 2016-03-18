@@ -29,8 +29,8 @@ object Csrf {
      * Inject the value of the call to verify in the VerifiedHeader
      * It's unsafe, because it mutates the Request
      */
-    def unsafeInject(req: Request)(f: Boolean => String): Request =
-      tap(req)(_.headerMap.set(verifiedHeader.header, f(verify(req))))
+    def unsafeInject(req: Request)(f: Boolean => String): Future[Request] =
+      tap(req)(_.headerMap.set(verifiedHeader.header, f(verify(req)))).toFuture
 
     /**
      * Check that CSRF header/param is there, validates that the cookie and header/param are valid SessionIds
@@ -55,12 +55,11 @@ case class CsrfInsertFilter[A](cookieName: Csrf.CookieName)(implicit secretStore
     extends Filter[A, Response, A, Response] {
 
   def apply(req: A, service: Service[A, Response]): Future[Response] =
-    service(req).flatMap(res =>
-      for {
-        csrfId <- SignedId.authenticated
-        _ <- res.addCookie(csrfId.asCookie(cookieName.name)).toFuture
-      } yield res
-    )
+    for {
+      res <- service(req)
+      csrfId <- SignedId.authenticated
+      _ <- res.addCookie(csrfId.asCookie(cookieName.name)).toFuture
+    } yield res
 }
 
 /**
@@ -70,5 +69,8 @@ case class CsrfInsertFilter[A](cookieName: Csrf.CookieName)(implicit secretStore
 case class CsrfVerifyFilter(verify: Csrf.Verify) extends SimpleFilter[Request, Response] {
 
   def apply(req: Request, service: Service[Request, Response]): Future[Response] =
-    service(verify.unsafeInject(req)(_.toString))
+    for {
+      alteredReq <- verify.unsafeInject(req)(_.toString)
+      resp <- service(alteredReq)
+    } yield resp
 }
