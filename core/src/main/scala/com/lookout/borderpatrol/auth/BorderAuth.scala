@@ -14,6 +14,8 @@ import com.twitter.util.Future
 import io.circe.Json
 import io.circe.syntax._
 
+import scala.util.{Failure, Success}
+
 
 /**
  * PODs
@@ -71,6 +73,7 @@ case class SessionIdFilter(matcher: ServiceMatcher, store: SessionStore)(
   implicit secretStore: SecretStoreApi, statsReceiver: StatsReceiver)
     extends Filter[CustomerIdRequest, Response, SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
+  private[this] val statSessionNotFound = statsReceiver.counter("req.session.id.notfound")
 
   /**
    * Passes the SignedId to the next in the filter chain. If any failures decoding the SignedId occur
@@ -80,9 +83,15 @@ case class SessionIdFilter(matcher: ServiceMatcher, store: SessionStore)(
    */
   def apply(req: CustomerIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] = {
     for {
-      sessionId <- Future.value(SignedId.fromRequest(req.req, SignedId.sessionIdCookieName))
+      sessionIdOpt <- Future.value(SignedId.fromRequest(req.req, SignedId.sessionIdCookieName) match {
+        case Success(s) => Some(s)
+        case Failure(e) =>
+          statSessionNotFound.incr()
+          log.debug(s"Failed to find sessionId in ${req.req}, reason: ${e.getMessage}")
+          None
+      })
       serviceIdOpt <- Future.value(matcher.serviceId(Path(req.req.path)))
-      resp <- service(SessionIdRequest(req, serviceIdOpt, sessionId.toOption))
+      resp <- service(SessionIdRequest(req, serviceIdOpt, sessionIdOpt))
     } yield resp
   }
 }
@@ -99,12 +108,14 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
   implicit secretStore: SecretStoreApi, statsReceiver: StatsReceiver)
     extends SimpleFilter[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
+  private[this] val statLoginRedirects = statsReceiver.counter("req.login.required.redirects")
+  private[this] val statIdentityProvider = statsReceiver.counter("req.identity.provider.forwards")
 
   def sendToIdentityProvider(req: BorderRequest): Future[Response] = {
     log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
       s"to identity provider chain for service: ${req.serviceId.name}")
     identityProviderMap.get(req.customerId.loginManager.identityManager.name) match {
-      case Some(ip) => ip(req)
+      case Some(ip) => statIdentityProvider.incr(); ip(req)
       case None => Future.exception(BpIdentityProviderError(Status.NotFound,
         "Failed to find IdentityProvider Service Chain for " +
         req.customerId.loginManager.identityManager.name))
@@ -126,9 +137,12 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
             _ <- store.update(session)
           } yield session.id
       }
-      resp <- Future.exception[Response](BpRedirectError(Status.Unauthorized, location, Some(sessionId),
-        s"Redirecting the ${req.req} for Untagged Session: ${sessionId.toLogIdString} " +
-          s"to login service, location: $location"))
+      resp <- Future.exception[Response]{
+        statLoginRedirects.incr()
+        BpRedirectError(Status.Unauthorized, location, Some(sessionId),
+          s"Redirecting the ${req.req} for Untagged Session: ${sessionId.toLogIdString} " +
+            s"to login service, location: $location")
+      }
     } yield resp
   }
 
@@ -183,12 +197,13 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
   implicit statsReceiver: StatsReceiver)
     extends SimpleFilter[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
+  private[this] val statAccessIssuer = statsReceiver.counter("req.access.issuer.forwards")
 
   def sendToAccessIssuer(req: BorderRequest): Future[Response] = {
     log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
       s"to access issuer chain for service: ${req.serviceId.name}")
     accessIssuerMap.get(req.customerId.loginManager.accessManager.name) match {
-      case Some(ip) => ip(req)
+      case Some(ip) => statAccessIssuer.incr(); ip(req)
       case None => Future.exception(BpAccessIssuerError(Status.NotFound,
         s"Failed to find AccessIssuer Service Chain for ${req.customerId.loginManager.accessManager.name}"))
     }
@@ -226,7 +241,7 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
 case class SendToUnprotectedService(serviceBinder: MBinder[ServiceIdentifier])(implicit statsReceiver: StatsReceiver)
     extends SimpleFilter[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
-  private[this] val statRequestSends = statsReceiver.counter("unprotected.upstream.service.request.sends")
+  private[this] val statRequestSends = statsReceiver.counter("req.unprotected.upstream.service.forwards")
   private[this] val unprotectedServiceChain = RewriteFilter() andThen Service.mk[BorderRequest, Response] {
     br => serviceBinder(BindRequest(br.serviceId, br.req)) }
 
@@ -316,7 +331,7 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(
 case class AccessFilter[A, B](binder: MBinder[ServiceIdentifier])(implicit statsReceiver: StatsReceiver)
     extends Filter[AccessIdRequest[A], Response, AccessRequest[A], AccessResponse[B]] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
-  private[this] val statRequestSends = statsReceiver.counter("upstream.service.request.sends")
+  private[this] val statRequestSends = statsReceiver.counter("req.upstream.service.request.forwards")
 
   def apply(req: AccessIdRequest[A],
             accessService: Service[AccessRequest[A], AccessResponse[B]]): Future[Response] = {
@@ -326,7 +341,7 @@ case class AccessFilter[A, B](binder: MBinder[ServiceIdentifier])(implicit stats
         tap(req.req) { r => {
           statRequestSends.incr
           log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
-            s"to the protected upstream service: ${req.serviceId.name}, token = ${accessResp.access.access.toString}")
+            s"to the protected upstream service: ${req.serviceId.name}")
           r.headerMap.add("Auth-Token", accessResp.access.access.toString)
         }}
       ))
@@ -359,7 +374,9 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
     tap(Response(status))(res => {
       req.accept.contains("application/json") match {
         case true =>
-          res.contentString = Json.obj(("description", msg.asJson)).toString()
+          res.contentString = Json.fromFields(Seq(
+            ("description", msg.asJson),
+            ("msg_source", "borderpatrol".asJson))).toString()
           res.contentType = "application/json"
         case _ =>
           res.contentString = msg
@@ -378,7 +395,9 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
       req.accept.contains("application/json") match {
         case true =>
           res.status = error.status
-          res.contentString = Json.fromFields(Seq(("description", error.msg.asJson),
+          res.contentString = Json.fromFields(Seq(
+            ("description", error.msg.asJson),
+            ("msg_source", "borderpatrol".asJson),
             ("redirect_url", error.location.asJson))).toString()
           res.contentType = "application/json"
         case _ =>
@@ -404,7 +423,9 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
       req.accept.contains("application/json") match {
         case true =>
           res.status = error.status
-          res.contentString = Json.fromFields(Seq(("description", error.msg.asJson),
+          res.contentString = Json.fromFields(Seq(
+            ("description", error.msg.asJson),
+            ("msg_source", "borderpatrol".asJson),
             ("redirect_url", error.location.asJson))).toString()
           res.contentType = "application/json"
         case _ =>

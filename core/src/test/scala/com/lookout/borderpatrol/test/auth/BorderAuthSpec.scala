@@ -112,7 +112,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "succeed to find SessionId and forward it to upstream Service" in {
+  it should "fail to find ServiceId and succeed to find SessionId, but forward it to upstream Service" in {
 
     //  Allocate and Session
     val sessionId = sessionid.untagged
@@ -138,7 +138,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "succeed to find ServiceId and forward it to upstream Service" in {
+  it should "fail to find SessionId and succeed to find ServiceId, but forward it to upstream Service" in {
 
     //  Create request
     val request = req("enterprise", "/ent")
