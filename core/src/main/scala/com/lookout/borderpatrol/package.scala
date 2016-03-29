@@ -57,9 +57,12 @@ package object borderpatrol {
 
   object errors {
     class BpBorderError(val status: http.Status, val description: String) extends Exception(description)
-    class BpNotFoundRequest(description: String = "") extends BpBorderError(http.Status.NotFound, description)
-    class BpBadRequest(description: String = "") extends BpBorderError(http.Status.BadRequest, description)
-    class BpForbiddenRequest(description: String = "") extends BpBorderError(http.Status.Forbidden, description)
+    class BpNotFoundRequest(description: String = "") extends BpBorderError(http.Status.NotFound,
+      s"${http.Status.NotFound.reason}: $description")
+    class BpBadRequest(description: String = "") extends BpBorderError(http.Status.BadRequest,
+      s"${http.Status.BadRequest.reason}: $description")
+    class BpForbiddenRequest(description: String = "") extends BpBorderError(http.Status.Forbidden,
+      s"${http.Status.Forbidden.reason}: $description")
   }
 
   object request {

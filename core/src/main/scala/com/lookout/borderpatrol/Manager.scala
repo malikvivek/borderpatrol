@@ -1,6 +1,7 @@
 package com.lookout.borderpatrol
 
 import java.net.URL
+import com.lookout.borderpatrol.util.Helpers
 import com.twitter.finagle.http.{Method, Response, Request}
 import com.twitter.finagle.http.path.Path
 import com.twitter.logging.Logger
@@ -32,7 +33,6 @@ case class LoginManager(name: String, identityManager: Manager, accessManager: M
 trait ProtoManager {
   val name: String
   val loginConfirm: Path
-  val loggedOutUrl: Option[URL]
   def redirectLocation(host: Option[String]): String
 }
 
@@ -43,9 +43,8 @@ trait ProtoManager {
  * @param loginConfirm path intercepted by bordetpatrol and internal authentication service posts
  *                     the authentication response on this path
  * @param authorizePath path of the internal authentication service where client is redirected
- * @param loggedOutUrl A Url where user is redirected after the Logout
  */
-case class InternalAuthProtoManager(name: String, loginConfirm: Path, authorizePath: Path, loggedOutUrl: Option[URL])
+case class InternalAuthProtoManager(name: String, loginConfirm: Path, authorizePath: Path)
     extends ProtoManager {
   def redirectLocation(host: Option[String]): String = authorizePath.toString
 }
@@ -58,31 +57,33 @@ case class InternalAuthProtoManager(name: String, loginConfirm: Path, authorizeP
  * @param authorizeUrl URL of the OAuth2 service where client is redirected for authenticaiton
  * @param tokenUrl URL of the OAuth2 server to convert OAuth2 code to OAuth2 token
  * @param certificateUrl URL of the OAuth2 server to fetch the certificate for verifying token signature
- * @param loggedOutUrl A Url where user is redirected after the Logout
  * @param clientId Id used for communicating with OAuth2 server
  * @param clientSecret Secret used for communicating with OAuth2 server
  */
 case class OAuth2CodeProtoManager(name: String, loginConfirm: Path, authorizeUrl: URL, tokenUrl: URL,
-                                  certificateUrl: URL, loggedOutUrl: Option[URL], clientId: String,
-                                  clientSecret: String)
+                                  certificateUrl: URL, clientId: String, clientSecret: String)
     extends ProtoManager{
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
   def redirectLocation(host: Option[String]): String = {
     val hostStr = host.getOrElse(throw new Exception("Host not found in HTTP Request"))
-    Request.queryString(authorizeUrl.toString, ("response_type", "code"), ("state", "foo"),
+    Request.queryString(authorizeUrl.toString, ("response_type", "code"), ("state", "foo"), ("prompt", "login"),
       ("client_id", clientId), ("redirect_uri", "http://" + hostStr + loginConfirm.toString))
   }
-  def codeToToken(host: Option[String], code: String): Future[Response] = {
-    val hostStr = host.getOrElse(throw new Exception("Host not found in HTTP Request"))
+  def codeToToken(req: Request): Future[Response] = {
+    val hostStr = req.host.getOrElse(throw new Exception("Host not found in HTTP Request"))
     val request = util.Combinators.tap(Request(Method.Post, tokenUrl.toString))(re => {
       re.contentType = "application/x-www-form-urlencoded"
       re.contentString = Request.queryString(("grant_type", "authorization_code"), ("client_id", clientId),
-        ("code", code), ("redirect_uri", "http://" + hostStr + loginConfirm.toString),
+        ("code", Helpers.scrubQueryParams(req.uri, "code")
+          .getOrElse(throw new Exception(s"OAuth2 code not found in HTTP ${req}"))),
+        ("redirect_uri", "http://" + hostStr + loginConfirm.toString),
         ("client_secret", clientSecret), ("resource", "00000002-0000-0000-c000-000000000000"))
         .drop(1) /* Drop '?' */
     })
-    log.debug(s"Sending: ${request} to location: ${tokenUrl}")
+    log.debug(s"Sending: ${request} to location: ${tokenUrl}, " +
+      s"x-forwarded-proto: ${req.headerMap.get("X-Forwarded-Proto")}, " +
+      s"x-forwarded-port: ${req.headerMap.get("X-Forwarded-Port")}")
     BinderBase.connect(s"${name}.tokenUrl", Set(tokenUrl), request)
   }
 }

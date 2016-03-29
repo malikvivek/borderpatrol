@@ -7,6 +7,7 @@ import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol._
 import com.lookout.borderpatrol.Binder._
 import com.lookout.borderpatrol.auth._
+import com.lookout.borderpatrol.util.Helpers
 import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.finagle.{Filter, Service}
 import com.twitter.finagle.http._
@@ -73,12 +74,12 @@ object Keymaster {
         case Status.Forbidden => {
           statResponseDenied.incr
           Future.exception(BpIdentityProviderError(Status.Forbidden,
-            s"IdentityProvider denied user: '${req.credential.uniqueId}' with status: ${res.status}"))
+            s"IdentityProvider failed to authenticate user: '${req.credential.uniqueId}'"))
         }
         case _ => {
           statResponseFailed.incr
           Future.exception(BpIdentityProviderError(Status.InternalServerError,
-            s"IdentityProvider denied user: '${req.credential.uniqueId}' with status: ${res.status}"))
+            s"IdentityProvider failed to authenticate user: '${req.credential.uniqueId}', with status: ${res.status}"))
         }
       })
     }
@@ -92,8 +93,8 @@ object Keymaster {
 
     def transformInternal(req: BorderRequest): Future[InternalAuthCredential] =
       (for {
-        u <- req.req.params.get("username")
-        p <- req.req.params.get("password")
+        u <- Helpers.scrubQueryParams(req.req.uri, "username")
+        p <- Helpers.scrubQueryParams(req.req.uri, "password")
       } yield InternalAuthCredential(u, p, req.customerId, req.serviceId)) match {
         case Some(c) => Future.value(c)
         case None => Future.exception(new BpBadRequest("Failed to find username and/or password in the Request"))
@@ -201,13 +202,14 @@ object Keymaster {
             Tokens.derive[Tokens](res.contentString).fold[Future[ServiceToken]](
               e => {
                 statsResponseParsingFailed.incr()
-                Future.exception(BpTokenParsingError("Failed to parse the Keymaster Access Response"))
+                Future.exception(BpTokenParsingError("in Keymaster Access Response"))
               },
               tokens => {
                 statsResponseSuccess.incr()
                 tokens.service(req.serviceId.name).fold[Future[ServiceToken]]({
                   statAccessDenied.incr()
-                  Future.exception(new BpForbiddenRequest(s"Access not allowed to service: ${req.serviceId.name}"))
+                  Future.exception(new BpForbiddenRequest(
+                    s"AccessIssuer denied access to the service: ${req.serviceId.name}"))
                 })(st => for {
                   _ <- store.update(Session(req.sessionId, req.identity.id.add(req.serviceId.name, st)))
                 } yield st)
@@ -216,7 +218,8 @@ object Keymaster {
           case _ => {
             statsResponseFailed.incr()
             Future.exception(BpAccessIssuerError(Status.InternalServerError,
-              s"AccessIssuer denied access to service: '${req.serviceId.name}' with status: ${res.status}"))
+              s"AccessIssuer failed to permit access to the service: '${req.serviceId.name}', " +
+                s"with status: ${res.status}"))
           }
         })
       })(t => {

@@ -1,7 +1,7 @@
 import sbtunidoc.Plugin.UnidocKeys._
 import scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages
 
-lazy val Version = "0.1.17-SNAPSHOT"
+lazy val Version = "0.1.18-SNAPSHOT"
 
 lazy val buildSettings = Seq(
   organization := "com.lookout",
@@ -185,6 +185,11 @@ lazy val example = project
   .settings(assemblyJarName in assembly := s"borderpatrol-example-all-${version.value}.jar")
   .disablePlugins(JmhPlugin)
   .dependsOn(core, auth, server, security, test % "test")
+  .enablePlugins(BuildInfoPlugin).
+    settings(
+      buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
+      buildInfoPackage := "BpBuild"
+    )
 
 lazy val security = project
   .settings(moduleName := "borderpatrol-security")
@@ -205,8 +210,3 @@ lazy val server = project
     )
   )
   .dependsOn(core % "test->test;compile->compile")
-  .enablePlugins(BuildInfoPlugin).
-    settings(
-      buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
-      buildInfoPackage := "BpBuild"
-    )

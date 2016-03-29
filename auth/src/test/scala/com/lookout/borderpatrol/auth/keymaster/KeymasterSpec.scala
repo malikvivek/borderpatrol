@@ -97,7 +97,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the [BpIdentityProviderError] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should include ("IdentityProvider denied user: 'foo'")
+    caught.getMessage should include ("IdentityProvider failed to authenticate user: 'foo'")
     caught.status should be (Status.Forbidden)
   }
 
@@ -121,7 +121,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the [BpIdentityProviderError] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should include ("IdentityProvider denied user: 'foo'")
+    caught.getMessage should include ("IdentityProvider failed to authenticate user: 'foo', with status: ")
     caught.status should be (Status.InternalServerError)
   }
 
@@ -413,7 +413,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the [BpAccessIssuerError] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should include ("AccessIssuer denied access to service: ")
+    caught.getMessage should include ("AccessIssuer failed to permit access to the service: 'one', with status: ")
     caught.getMessage should include (s"${Status.NotFound.code}")
     caught.status should be (Status.InternalServerError)
   }
@@ -435,10 +435,10 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the [BpTokenParsingError] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should include ("Failed to parse token with: Failed to parse the Keymaster Access Response")
+    caught.getMessage should include ("Failed to parse token with: in Keymaster Access Response")
   }
 
-  it should "return an AccessDenied exception, if it fails to find the ServiceToken in the Keymaster response" in {
+  it should "return an BpForbiddenRequest exception, if it fails to find the ServiceToken in the Keymaster response" in {
     val testAccessManagerBinder = mkTestManagerBinder {
       request => tap(Response(Status.Ok))(res => {
         res.contentString = TokensEncoder(tokens).toString()
@@ -455,7 +455,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the [BpForbiddenRequest] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should include ("Access not allowed to service:")
+    caught.getMessage should be ("Forbidden: AccessIssuer denied access to the service: one")
     caught.status should be (Status.Forbidden)
   }
 

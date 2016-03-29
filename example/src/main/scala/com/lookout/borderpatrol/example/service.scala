@@ -73,7 +73,7 @@ object service {
 
     RoutingService.byPath {
       case "/health" =>
-        HealthCheckService(registry)
+        HealthCheckService(registry, BpBuild.BuildInfo.version)
 
       case _ =>
         /* Convert exceptions to responses */

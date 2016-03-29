@@ -2,6 +2,7 @@ package com.lookout.borderpatrol.security
 
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.lookout.borderpatrol.sessionx._
+import com.lookout.borderpatrol.util.Helpers
 import com.twitter.finagle.{SimpleFilter, Service, Filter}
 import com.twitter.finagle.http.{Status, Cookie, Request, Response}
 import com.twitter.util.{Time, Future}
@@ -39,7 +40,7 @@ object Csrf {
      */
     def verify(req: Request): Boolean =
       (for {
-        str <- req.headerMap.get(header.header) orElse req.params.get(param.param)
+        str <- req.headerMap.get(header.header) orElse Helpers.scrubQueryParams(req.uri, param.param)
         uid <- SignedId.from(str).toOption
         cid <- SignedId.fromRequest(req, cookieName.name).toOption
       } yield uid == cid) getOrElse false

@@ -10,7 +10,7 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 
 
-case class HealthCheckService(registry: HealthCheckRegistry)
+case class HealthCheckService(registry: HealthCheckRegistry, version: String)
   extends Service[Request, Response] {
 
   private[this] def allHealthy(results: Map[String, HealthCheckStatus]) =
@@ -30,7 +30,7 @@ case class HealthCheckService(registry: HealthCheckRegistry)
         resp.contentString = Json.fromFields(Seq(
           ("status", resp.status.code.asJson),
           ("dependencies", results.asJson),
-          ("version", BpBuild.BuildInfo.version.asJson)
+          ("version", version.asJson)
         )).toString()
       }}
     }
