@@ -62,7 +62,7 @@ object helpers {
   //  Managers
   val keymasterIdManager = Manager("keymaster", Path("/identityProvider"), urls)
   val keymasterAccessManager = Manager("keymaster", Path("/accessIssuer"), urls)
-  val internalProtoManager = InternalAuthProtoManager("checkpointProtoManager", Path("/loginConfirm"), Path("/check"), None)
+  val internalProtoManager = InternalAuthProtoManager("checkpointProtoManager", Path("/loginConfirm"), Path("/check"))
   val checkpointLoginManager = LoginManager("checkpoint", keymasterIdManager, keymasterAccessManager,
     internalProtoManager)
   val oauth2CodeProtoManager = OAuth2CodeProtoManager("ulmProtoManager", Path("/signin"),
