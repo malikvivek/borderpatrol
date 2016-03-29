@@ -924,7 +924,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
   it should "succeed to logout the requests w/o sessionId w/ JSON response to logged out page" in {
     // Create request
-    val request = req("sky", "/logout")
+    val request = req("sky", "/logout", ("destination", "/abc%0d%0atest:abc%0d%0a"))
     request.accept = Seq("application/json")
 
     // Execute
@@ -935,7 +935,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(output).status should be (Status.Ok)
     Await.result(output).contentType should be (Some("application/json"))
     Await.result(output).contentString should include
-      (s""""redirect_url" : ${cust2.loginManager.protoManager.loggedOutUrl.get.toString}""")
+      (s""""redirect_url" : "/abc"""")
     Await.result(output).cookies.get(SignedId.sessionIdCookieName) should be (None)
   }
 }

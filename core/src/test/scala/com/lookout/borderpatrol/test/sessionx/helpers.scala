@@ -69,7 +69,6 @@ object helpers {
     new URL("http://example.com/authorizeUrl"),
     new URL("http://localhost:4567/tokenUrl"),
     new URL("http://localhost:4567/certificateUrl"),
-    Some(new URL("http://example.com/loggedOut")),
     "clientId", "clientSecret")
   val umbrellaLoginManager = LoginManager("ulm", keymasterIdManager, keymasterAccessManager,
     oauth2CodeProtoManager)
@@ -77,7 +76,6 @@ object helpers {
     new URL("http://localhost:9999/authorizeUrl"),
     new URL("http://localhost:9999/tokenUrl"),
     new URL("http://localhost:9999/certificateUrl"),
-    Some(new URL("http://example.com/loggedOut")),
     "clientId", "clientSecret")
   val rainyLoginManager = LoginManager("rlm", keymasterIdManager, keymasterAccessManager,
     oauth2CodeBadProtoManager)

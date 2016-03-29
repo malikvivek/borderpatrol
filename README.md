@@ -8,15 +8,14 @@ that provides modular components useful for session management and authenticatio
 
 The original version (as a server) can be found here (nginx+lua): [ngx_borderpatrol](https://www.github.com/lookout/ngx_borderpatrol)
 
-## Badges
+Badges
 ------
 
 [![Join the chat at https://gitter.im/lookout/borderpatrol](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/lookout/borderpatrol?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Build Status](https://travis-ci.org/lookout/borderpatrol.png)](https://travis-ci.org/lookout/borderpatrol)
 [![Coverage Status](https://img.shields.io/codecov/c/github/lookout/borderpatrol/master.svg)](https://codecov.io/github/lookout/borderpatrol)
 
-
-## Modules
+Modules
 -------
 
 Border Patrol uses a multi-project structure and contains the following _modules_:
@@ -64,7 +63,7 @@ installed (prefer v0.13.8+). Run `sbt`, and then use any of the following comman
  * `validate`: run tests, style-checker, and doc generation
 
 
-Border Patrol Concepts
+### Border Patrol Concepts
 ----------------------
 
  * The Border Patrol fronts all services (configured using `ServiceIdentifier`) in a Cloud.
@@ -77,7 +76,7 @@ Border Patrol Concepts
    * Looks up the ServiceIdentifier using path prefix. In the absence of any path, the request is
 redirected to the default service.
 
-Border Patrol Components:
+### Border Patrol Components:
 -------------------------
 
  * Service Identifier:
@@ -105,7 +104,7 @@ in the HTTP response.
  * Secret Store:
    * A store is used to cache secret used to sign the session id(s)
 
-Configuration
+### Configuration
 -------------
 
  * `secretStore`: Secret Store. It can be configured using `type` as `InMemorySecretStore` or `ConsulSecretStore`.
@@ -159,7 +158,6 @@ for the given CustomerIdentifier.
    * `proto`: A protocol module that defines authentication backend used for
      * `loginConfirm`: The path at which `Internal` login form or external authenticator posts the login
 credentials
-     * `loggedOutUrl`: The
      * `type`: The type of proto used. Currently supported types are `Internal` and `OAuth2Code`
      * `Internal` specific config:
        * `authorizePath`:

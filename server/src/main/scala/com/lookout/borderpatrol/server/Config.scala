@@ -108,15 +108,13 @@ object Config {
     case bpm: InternalAuthProtoManager => Json.fromFields(Seq(
       ("type", Json.string("Internal")),
       ("loginConfirm", bpm.loginConfirm.asJson),
-      ("authorizePath", bpm.authorizePath.asJson),
-      ("loggedOutUrl", bpm.loggedOutUrl.asJson)))
+      ("authorizePath", bpm.authorizePath.asJson)))
     case opm: OAuth2CodeProtoManager => Json.fromFields(Seq(
       ("type", Json.string("OAuth2Code")),
       ("loginConfirm", opm.loginConfirm.asJson),
       ("authorizeUrl", opm.authorizeUrl.asJson),
       ("tokenUrl", opm.tokenUrl.asJson),
       ("certificateUrl", opm.certificateUrl.asJson),
-      ("loggedOutUrl", opm.loggedOutUrl.asJson),
       ("clientId", opm.clientId.asJson),
       ("clientSecret", opm.clientSecret.asJson)))
   }
@@ -126,19 +124,17 @@ object Config {
         for {
           loginConfirm <- c.downField("loginConfirm").as[Path]
           authorizePath <- c.downField("authorizePath").as[Path]
-          loggedOutUrl <- c.downField("loggedOutUrl").as[Option[URL]]
-        } yield InternalAuthProtoManager(name, loginConfirm, authorizePath, loggedOutUrl)
+        } yield InternalAuthProtoManager(name, loginConfirm, authorizePath)
       case "OAuth2Code" =>
         for {
           loginConfirm <- c.downField("loginConfirm").as[Path]
           authorizeUrl <- c.downField("authorizeUrl").as[URL]
           tokenUrl <- c.downField("tokenUrl").as[URL]
           certificateUrl <- c.downField("certificateUrl").as[URL]
-          loggedOutUrl <- c.downField("loggedOutUrl").as[Option[URL]]
           clientId <- c.downField("clientId").as[String]
           clientSecret <- c.downField("clientSecret").as[String]
         } yield OAuth2CodeProtoManager(name, loginConfirm, authorizeUrl, tokenUrl, certificateUrl,
-            loggedOutUrl, clientId, clientSecret)
+            clientId, clientSecret)
     }
   }
 

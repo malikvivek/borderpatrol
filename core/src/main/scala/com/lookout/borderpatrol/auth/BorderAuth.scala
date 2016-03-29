@@ -287,8 +287,7 @@ case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreA
     })
     // Redirect to suggested url or the logged out path or default service
     val location = Helpers.scrubQueryParams(req.req.uri, "destination")
-      .getOrElse(req.customerId.loginManager.protoManager.loggedOutUrl
-        .fold(req.customerId.defaultServiceId.path.toString)(_.toString))
+      .fold(req.customerId.defaultServiceId.path.toString)(_.toString)
 
     Future.exception(BpLogoutError(Status.Ok, location,
       s"After logout, redirecting to: $location"))
