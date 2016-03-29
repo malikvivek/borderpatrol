@@ -1,7 +1,7 @@
 import sbtunidoc.Plugin.UnidocKeys._
 import scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages
 
-lazy val Version = "0.1.18-SNAPSHOT"
+lazy val Version = "0.1.19-SNAPSHOT"
 
 lazy val buildSettings = Seq(
   organization := "com.lookout",
@@ -116,27 +116,11 @@ lazy val docSettings = site.settings ++ ghpages.settings ++ unidocSettings ++ Se
   tutSourceDirectory := baseDirectory.value / "docs" / "src" / "main" / "tut"
 )
 
-// Enables the Maven Central Synchronisation
-lazy val makeVersionSh = taskKey[Seq[File]]("Creates .run.central.synchro.sh file.")
-
-lazy val mavenSyncSettings = Seq(
-  publishArtifact := false,
-  makeVersionSh := {
-    val pf = new java.io.File(".run.central.synchro.sh")
-    val content = s"""|#!/bin/bash
-                     |PROJECT_VERSION=${version.value} /bin/bash .central.synchro.sh
-                      """.stripMargin
-    IO.write(pf, content)
-    Seq(pf)
-  }
-)
-
 lazy val root = project.in(file("."))
   .settings(moduleName := "borderpatrol")
   .settings(allSettings)
   .settings(tutSettings)
   .settings(docSettings)
-  .settings(mavenSyncSettings)
   .settings(noPublish)
   .settings(
     initialCommands in console :=

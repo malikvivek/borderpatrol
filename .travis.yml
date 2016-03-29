@@ -8,9 +8,6 @@ jdk:
 - oraclejdk8
 script: sbt ++$TRAVIS_SCALA_VERSION clean coverage test scalastyle && sbt ++$TRAVIS_SCALA_VERSION
   coverageAggregate
-after_success:
-- bash <(curl -s https://codecov.io/bash)
-- '[ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ] && /bin/bash "$TRAVIS_BUILD_DIR/.travis.credentials.sh" && sbt publish && sbt makeVersionSh && /bin/bash .run.central.synchro.sh'
 notifications:
   webhooks:
     urls:
@@ -18,9 +15,3 @@ notifications:
     on_success: change
     on_failure: always
     on_start: false
-env:
-  global:
-  - secure: AkJBBzee8URalicFZSYxs41O2SxlQg76gis/Go1x7VUyi5WJYlXsdDHMRomROxsLuiBFgCWO1k4lVPXEPF3uPoNLL0V9uMkuqmjeSni5xvhfBl2yXHa4ib7ResmcMzFHjnwJUlqfywjy3fHM4vMsvwYwgogqP/0hW7zZbzX7jqc=
-  - secure: wT/Fe8hdl8A/rFe29Cdck1HDpliQQgdofx6V3S5clYiR81GOxt609ekWkWHDD0t+E8vtDxOCC7AQLSCZmJmVN421fnz7Tcdf53VIjOsC8ZCDip06Ap4Z5HI4csCJarvlfR9VFIriZtppt0xH4fB+YLkuKLn4xA2pYHgipeTb6bA=
-  - secure: IkHiotc1Gb+E0FReHsY2bpuAelEkiuoPKV8jUdPa2VRxcooOJerLYXueCgVN/TQZ7SVpUCOOqIgdahWUh6wUQptA4tbll5gd5kE/de0IzX25Nj0HlG7gYmbUhv5OiYBpn82pKjheoHd011BogC1nO8qtlfzvyw6QBx22+xHK1ys=
-  - secure: Vt2zdLliBR81Tc9y7yJfPZ3fMVoK5VUc8x4Fj4W8LxqZ2fp4vXgcA6g8SQA8CSZIdWEpgOVU80lXgc/OHsLYdYHhDgCj6ze6zwRbT7gi3sWIdEr1OzwnQoNSbi+lRoWDfRFfTSWC28MkmzZbE2wCRJc+qm5cJuEOow19r3PMzzk=
