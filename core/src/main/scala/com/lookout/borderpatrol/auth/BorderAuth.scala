@@ -3,6 +3,7 @@ package com.lookout.borderpatrol.auth
 import com.lookout.borderpatrol.Binder.{BindRequest, MBinder}
 import com.lookout.borderpatrol.util.Combinators._
 import com.lookout.borderpatrol.errors.{BpBorderError, BpNotFoundRequest}
+import com.lookout.borderpatrol.util.Helpers
 import com.lookout.borderpatrol.{BpCoreError, CustomerIdentifier, ServiceIdentifier, ServiceMatcher}
 import com.lookout.borderpatrol.sessionx._
 import com.twitter.finagle.http.path.{Root, Path}
@@ -13,8 +14,9 @@ import com.twitter.logging.Logger
 import com.twitter.util.Future
 import io.circe.Json
 import io.circe.syntax._
+import org.jboss.netty.handler.codec.http.QueryStringDecoder
 
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
 
 
 /**
@@ -29,7 +31,7 @@ object SessionIdRequest {
     SessionIdRequest(sr.req, sr.customerId, serviceIdOpt, sidOpt)
 }
 case class BorderRequest(req: Request, customerId: CustomerIdentifier, serviceId: ServiceIdentifier,
-                            sessionId: SignedId)
+                         sessionId: SignedId)
 object BorderRequest {
   def apply(br: SessionIdRequest, serviceId: ServiceIdentifier, sessionId: SignedId): BorderRequest =
     BorderRequest(br.req, br.customerId, serviceId, sessionId)
@@ -87,7 +89,7 @@ case class SessionIdFilter(matcher: ServiceMatcher, store: SessionStore)(
         case Success(s) => Some(s)
         case Failure(e) =>
           statSessionNotFound.incr()
-          log.debug(s"Failed to find sessionId in ${req.req}, reason: ${e.getMessage}")
+          log.debug(s"Did not find the sessionId in ${req.req}, reason: ${e.getMessage}")
           None
       })
       serviceIdOpt <- Future.value(matcher.serviceId(Path(req.req.path)))
@@ -141,7 +143,9 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
         statLoginRedirects.incr()
         BpRedirectError(Status.Unauthorized, location, Some(sessionId),
           s"Redirecting the ${req.req} for Untagged Session: ${sessionId.toLogIdString} " +
-            s"to login service, location: $location")
+            s"to login service, location: ${location}, " +
+            s"x-forwarded-proto: ${req.req.headerMap.get("X-Forwarded-Proto")}, " +
+            s"x-forwarded-port: ${req.req.headerMap.get("X-Forwarded-Port")}")
       }
     } yield resp
   }
@@ -163,7 +167,8 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
         if Path(req.req.path).startsWith(req.customerId.loginManager.protoManager.loginConfirm) => {
         for {
           sessionId <- SignedId.untagged
-          location <- req.req.params.getOrElse("target_url", req.customerId.defaultServiceId.path.toString).toFuture
+          location <- Helpers.scrubQueryParams(req.req.uri, "target_url")
+            .getOrElse(req.customerId.defaultServiceId.path.toString).toFuture
           savedReq <- tap(Request(location))(r => r.addCookie(sessionId.asCookie())).toFuture
           session <- Session(sessionId, savedReq).toFuture
           _ <- store.update(session)
@@ -280,9 +285,10 @@ case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreA
       log.debug(s"Logging out Session: ${sid.toLogIdString}")
       store.delete(sid)
     })
-    // Redirect to service or the logged out path
-    val location = req.customerId.loginManager.protoManager.loggedOutUrl.fold(
-      req.customerId.defaultServiceId.path.toString)(_.toString)
+    // Redirect to suggested url or the logged out path or default service
+    val location = Helpers.scrubQueryParams(req.req.uri, "destination")
+      .getOrElse(req.customerId.loginManager.protoManager.loggedOutUrl
+        .fold(req.customerId.defaultServiceId.path.toString)(_.toString))
 
     Future.exception(BpLogoutError(Status.Ok, location,
       s"After logout, redirecting to: $location"))
@@ -314,11 +320,12 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(
       case EmptyIdentity => for {
         session <- Session(req.req)
         _ <- store.update(session)
-      } yield throw BpRedirectError(Status.Unauthorized,
-          req.customerId.loginManager.protoManager.redirectLocation(req.req.host), Some(session.id),
+      } yield {
+        val location = req.customerId.loginManager.protoManager.redirectLocation(req.req.host)
+        throw BpRedirectError(Status.Unauthorized, location, Some(session.id),
           s"Failed to find Session: ${req.sessionId.toLogIdString} for: ${req.req}, " +
-            s"allocating a new session: ${session.id.toLogIdString}, redirecting to " +
-            s"location: ${req.customerId.loginManager.protoManager.redirectLocation(req.req.host)}")
+            s"allocating a new session: ${session.id.toLogIdString}, redirecting to location: ${location}")
+      }
     }
   }
 }
@@ -369,10 +376,19 @@ case class RewriteFilter() extends SimpleFilter[BorderRequest, Response] {
 case class ExceptionFilter() extends SimpleFilter[Request, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
+  /**
+   * Determines if the client expects to receive `application/json` content type.
+   */
+  private[this] def expectsJson(req: Request): Boolean = {
+    val decoder = Try(new QueryStringDecoder(req.uri)).toOption
+    decoder.exists(_.getPath.endsWith(".json")) ||
+      req.headerMap.get("Accept").exists(_.contains(MediaType.Json))
+  }
+
   private[this] def warningAndResponse(req: Request, msg: String, status: Status): Response = {
     log.warning(msg)
     tap(Response(status))(res => {
-      req.accept.contains("application/json") match {
+      expectsJson(req) match {
         case true =>
           res.contentString = Json.fromFields(Seq(
             ("description", msg.asJson),
@@ -390,9 +406,7 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
     log.info(error.msg)
     tap(Response())(res => {
       error.sessionIdOpt.foreach(sessionId => res.addCookie(sessionId.asCookie()))
-
-      // If Accept Header contains "application/json", then encode response in JSON format
-      req.accept.contains("application/json") match {
+      expectsJson(req) match {
         case true =>
           res.status = error.status
           res.contentString = Json.fromFields(Seq(
@@ -419,8 +433,7 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
           res.addCookie(SignedId.toExpiredCookie(name))
         case _ =>
       }
-      // If Accept Header contains "application/json", then encode response in JSON format
-      req.accept.contains("application/json") match {
+      expectsJson(req) match {
         case true =>
           res.status = error.status
           res.contentString = Json.fromFields(Seq(

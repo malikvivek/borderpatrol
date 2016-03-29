@@ -147,17 +147,16 @@ object OAuth2 {
      */
     def codeToClaimsSet(req: BorderRequest, protoManager: OAuth2CodeProtoManager): Future[JWTClaimsSet] = {
       for {
-        aadToken <- protoManager.codeToToken(req.req.host,
-          req.req.getParam("code")).flatMap(res => res.status match {
+        aadToken <- protoManager.codeToToken(req.req).flatMap(res => res.status match {
           //  Parse for Tokens if Status.Ok
           case Status.Ok =>
             OAuth2.derive[AadToken](res.contentString).fold[Future[AadToken]](
               err => Future.exception(BpTokenParsingError(
-                s"Failed to parse the AadToken received from OAuth2 Server: ${req.customerId.loginManager.name}")),
+                s"in the Access Token response from OAuth2 Server: ${req.customerId.loginManager.name}")),
               t => Future.value(t)
             )
           case _ => Future.exception(BpIdentityProviderError(res.status,
-            s"Failed to receive the AadToken from OAuth2 Server: ${req.customerId.loginManager.name}"))
+            s"Failed to receive the token from OAuth2 Server: ${req.customerId.loginManager.name}"))
         })
         idClaimSet <- wrapFuture({() => PlainJWT.parse(aadToken.idToken).getJWTClaimsSet}, BpTokenParsingError.apply)
         accessClaimSet <- getClaimsSet(protoManager, aadToken.accessToken)

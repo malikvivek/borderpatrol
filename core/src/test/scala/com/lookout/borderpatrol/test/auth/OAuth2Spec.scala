@@ -350,7 +350,7 @@ class OAuth2Spec extends BorderPatrolSuite {
       val caught = the[BpTokenParsingError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should include ("Failed to parse the AadToken received from OAuth2 Server: ulm")
+      caught.getMessage should include ("in the Access Token response from OAuth2 Server: ulm")
     } finally {
       server.close()
     }
@@ -379,7 +379,7 @@ class OAuth2Spec extends BorderPatrolSuite {
       val caught = the[BpIdentityProviderError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should include ("Failed to receive the AadToken from OAuth2 Server: ulm")
+      caught.getMessage should include ("Failed to receive the token from OAuth2 Server: ulm")
       caught.status should be(Status.NotAcceptable)
     } finally {
       server.close()

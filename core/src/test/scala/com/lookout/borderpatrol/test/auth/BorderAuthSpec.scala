@@ -68,7 +68,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
       Await.result(output)
     }
     caught.status should be(Status.NotFound)
-    caught.getMessage should startWith ("Failed to find CustomerIdentifier for")
+    caught.getMessage should startWith ("Not Found: Failed to find CustomerIdentifier for")
   }
 
   it should "return NotFound Status if Request lacks the hostname " in {
@@ -80,7 +80,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
       Await.result(output)
     }
     caught.status should be(Status.NotFound)
-    caught.getMessage should startWith ("Failed to find CustomerIdentifier for")
+    caught.getMessage should startWith ("Not Found: Failed to find CustomerIdentifier for")
     caught.getMessage should include ("null-hostname")
   }
 
@@ -359,7 +359,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Validate
     Await.result(output).status should be (Status.NotFound)
-    Await.result(output).contentString should be ("Some identity provider error")
+    Await.result(output).contentString should be ("Not Found: Some identity provider error")
   }
 
   it should "succeed and convert the BpRedirectError exception into error Response" in {
