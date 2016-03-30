@@ -63,7 +63,7 @@ installed (prefer v0.13.8+). Run `sbt`, and then use any of the following comman
  * `validate`: run tests, style-checker, and doc generation
 
 
-### Border Patrol Concepts
+Border Patrol Concepts
 ----------------------
 
  * The Border Patrol fronts all services (configured using `ServiceIdentifier`) in a Cloud.
@@ -76,7 +76,7 @@ installed (prefer v0.13.8+). Run `sbt`, and then use any of the following comman
    * Looks up the ServiceIdentifier using path prefix. In the absence of any path, the request is
 redirected to the default service.
 
-### Border Patrol Components:
+Border Patrol Components:
 -------------------------
 
  * Service Identifier:
@@ -104,7 +104,7 @@ in the HTTP response.
  * Secret Store:
    * A store is used to cache secret used to sign the session id(s)
 
-### Configuration
+Configuration
 -------------
 
  * `secretStore`: Secret Store. It can be configured using `type` as `InMemorySecretStore` or `ConsulSecretStore`.
