@@ -719,7 +719,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
   it should "send request w/ auth SessionId to unprotected upstream service path" in {
     val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
     val testSidBinder = mkTestSidBinder { req => {
-      assert(req.context == checkpointSid)
+      assert(req.context == unproCheckpointSid)
       Response(Status.Ok).toFuture
     }}
 
@@ -731,7 +731,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Original request
     val output = (SendToUnprotectedService(testSidBinder) andThen testService)(
-      SessionIdRequest(request, cust1, Some(checkpointSid), Some(sessionId)))
+      SessionIdRequest(request, cust1, Some(unproCheckpointSid), Some(sessionId)))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
@@ -740,7 +740,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
   it should "send request w/ unauth SessionId to unprotected upstream service path" in {
     val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
     val testSidBinder = mkTestSidBinder { req => {
-      assert(req.context == checkpointSid)
+      assert(req.context == unproCheckpointSid)
       Response(Status.Ok).toFuture
     }}
 
@@ -752,7 +752,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Original request
     val output = (SendToUnprotectedService(testSidBinder) andThen testService)(
-      SessionIdRequest(request, cust1, Some(checkpointSid), Some(sessionId)))
+      SessionIdRequest(request, cust1, Some(unproCheckpointSid), Some(sessionId)))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)

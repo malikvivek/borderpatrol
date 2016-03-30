@@ -91,14 +91,15 @@ object Keymaster {
   case class KeymasterTransformFilter(oAuth2CodeVerify: OAuth2CodeVerify)(implicit statsReceiver: StatsReceiver)
       extends Filter[BorderRequest, Response, KeymasterIdentifyReq, Response] {
 
-    def transformInternal(req: BorderRequest): Future[InternalAuthCredential] =
+    def transformInternal(req: BorderRequest): Future[InternalAuthCredential] = {
       (for {
-        u <- Helpers.scrubQueryParams(req.req.uri, "username")
-        p <- Helpers.scrubQueryParams(req.req.uri, "password")
+        u <- Helpers.scrubQueryParams(req.req.params, "username")
+        p <- Helpers.scrubQueryParams(req.req.params, "password")
       } yield InternalAuthCredential(u, p, req.customerId, req.serviceId)) match {
         case Some(c) => Future.value(c)
         case None => Future.exception(new BpBadRequest("Failed to find username and/or password in the Request"))
       }
+    }
 
     def transformOAuth2(req: BorderRequest, protoManager: OAuth2CodeProtoManager): Future[OAuth2CodeCredential] = {
       for {

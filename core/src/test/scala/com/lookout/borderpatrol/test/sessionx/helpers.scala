@@ -92,9 +92,11 @@ object helpers {
   val cust2 = CustomerIdentifier("sky", two, umbrellaLoginManager)
   val three = ServiceIdentifier("three", urls, Path("/rain"), None, true)
   val cust3 = CustomerIdentifier("rainy", three, rainyLoginManager)
-  val checkpointSid = ServiceIdentifier("checkpoint", urls, Path("/check"), None, false)
-  val cids = Set(cust1, cust2, cust3)
-  val sids = Set(one, oneTwo, two, three, checkpointSid)
+  val unproCheckpointSid = ServiceIdentifier("login", urls, Path("/check"), None, false)
+  val proCheckpointSid = ServiceIdentifier("checkpoint", urls, Path("/check/that"), None, true)
+  val cust4 = CustomerIdentifier("repeat", proCheckpointSid, checkpointLoginManager)
+  val cids = Set(cust1, cust2, cust3, cust4)
+  val sids = Set(one, oneTwo, two, three, proCheckpointSid, unproCheckpointSid)
   val serviceMatcher = ServiceMatcher(cids, sids)
   val sessionStore = SessionStores.InMemoryStore
 

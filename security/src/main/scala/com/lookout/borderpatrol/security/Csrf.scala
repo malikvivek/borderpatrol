@@ -40,7 +40,7 @@ object Csrf {
      */
     def verify(req: Request): Boolean =
       (for {
-        str <- req.headerMap.get(header.header) orElse Helpers.scrubQueryParams(req.uri, param.param)
+        str <- req.headerMap.get(header.header) orElse Helpers.scrubQueryParams(req.params, param.param)
         uid <- SignedId.from(str).toOption
         cid <- SignedId.fromRequest(req, cookieName.name).toOption
       } yield uid == cid) getOrElse false

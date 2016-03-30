@@ -75,7 +75,7 @@ case class OAuth2CodeProtoManager(name: String, loginConfirm: Path, authorizeUrl
     val request = util.Combinators.tap(Request(Method.Post, tokenUrl.toString))(re => {
       re.contentType = "application/x-www-form-urlencoded"
       re.contentString = Request.queryString(("grant_type", "authorization_code"), ("client_id", clientId),
-        ("code", Helpers.scrubQueryParams(req.uri, "code")
+        ("code", Helpers.scrubQueryParams(req.params, "code")
           .getOrElse(throw new Exception(s"OAuth2 code not found in HTTP ${req}"))),
         ("redirect_uri", "http://" + hostStr + loginConfirm.toString),
         ("client_secret", clientSecret), ("resource", "00000002-0000-0000-c000-000000000000"))
