@@ -13,8 +13,8 @@ class CsrfSpec extends BorderPatrolSuite {
   val csrf1 = sessionid.untagged.asBase64
   val csrf2 = sessionid.untagged.asBase64
 
-  val (header, param, cookiename, verified) = ("header", "param", "cookieName", "verified")
-  val verify = Verify(InHeader(header), Param(param), CookieName(cookiename), VerifiedHeader(verified))
+  val (header, csrfTokenValue, cookiename, verified) = ("header", "x_csrf_token", "cookieName", "verified")
+  val verify = Verify(InHeader(header), CsrfToken(csrfTokenValue), CookieName(cookiename), VerifiedHeader(verified))
 
   val filter = CsrfVerifyFilter(verify)
 
@@ -38,7 +38,7 @@ class CsrfSpec extends BorderPatrolSuite {
   }
 
   def requestWithParam: Request = {
-    val req = Request("/", param -> csrf1)
+    val req = Request("/", csrfTokenValue -> csrf1)
     req.addCookie(new Cookie(cookiename, csrf1))
     req
   }
@@ -68,7 +68,7 @@ class CsrfSpec extends BorderPatrolSuite {
 
   it should "set verified header as false when Csrf header or param is set incorrectly" in {
     val req1 = requestWithHeader
-    val req2 = Request("/", param -> csrf2)
+    val req2 = Request("/", csrfTokenValue -> csrf2)
     req1.headerMap.update(header, csrf2)
     req2.addCookie(new Cookie(cookiename, csrf1))
 

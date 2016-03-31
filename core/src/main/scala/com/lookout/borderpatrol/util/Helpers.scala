@@ -5,8 +5,8 @@ import com.twitter.finagle.http.ParamMap
 
 object Helpers {
 
-  /** Regular Expression for all special characters from ASCII 0 to 20 */
-  private[this] val specialCharRegEx = (for (i <- 0 to 20) yield f"\\x$i%02x").mkString("[", "", "]")
+  /** Regular Expression for all special characters from ASCII 0 to 32 */
+  private[this] val specialCharRegEx = (for (i <- 0 to 32) yield f"\\x$i%02x").mkString("[", "", "]")
 
   def scrubQueryParams(params: ParamMap, paramKey: String): Option[String] = {
     /* Lookup query param value for the given param key */

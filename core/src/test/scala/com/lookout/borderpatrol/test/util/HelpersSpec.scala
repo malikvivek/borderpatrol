@@ -17,7 +17,7 @@ class HelpersSpec extends BorderPatrolSuite {
 
   it should "scrub the special characters from the encoded query params of GET Request URI" in {
     /* Query encoded GET URLs */
-    val req1 = Request("logout?destination=/abc%0d%0atest:abc%0d%0a&blah=/abc%0d%0atest2:abc2%0d%0a")
+    val req1 = Request("logout?destination=%20/abc%0d%0a%20test:abc%0d%0a&blah=/abc%0d%0atest2:abc2%0d%0a")
     scrubQueryParams(req1.params, "destination") should be(Some("/abc"))
     val req2 = Request("logout?destination=/abc%0d%0atest:abc%0d%0a")
     scrubQueryParams(req2.params, "destination") should be(Some("/abc"))
