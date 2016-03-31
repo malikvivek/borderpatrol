@@ -44,7 +44,7 @@ libraryDependencies ++= Seq(
 
 ```scala
 libraryDependencies ++= Seq(
-  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.1.18-SNAPSHOT"
+  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.1.20-SNAPSHOT"
 )
 ```
 
@@ -108,8 +108,7 @@ Configuration
 -------------
 
  * `secretStore`: Secret Store. It can be configured using `type` as `InMemorySecretStore` or `ConsulSecretStore`.
-   * `InMemorySecretStore`: Typically used for single host setup as Secrets are meant to be shared across all the
-BorderPatrol nodes
+   * `InMemorySecretStore`: Typically used for single host setup as Secrets are meant to be shared across all the BorderPatrol nodes
      ```json
      "secretStore" : {
        "type" : "InMemorySecretStore",
@@ -126,8 +125,7 @@ BorderPatrol nodes
      }
      ```
  * `sessionStore`: Session Store. It can be configured using `type` as `InMemoryStore` or `MemcachedStore`.
-   * `InMemoryStore`: Typically used for single host setup as Sessions are meant to be shared across all the
-BorderPatrol nodes.
+   * `InMemoryStore`: Typically used for single host setup as Sessions are meant to be shared across all the BorderPatrol nodes.
      ```json
      "sessionStore" : {
        "type" : "InMemoryStore",
@@ -179,7 +177,7 @@ this service
  * `customerIdentifier`:
    * `loginManager`: Login Manager or policy used by this customer identifier
    * `subdomain`: A subdomain represented by this identifier
-   * `defaultServiceIdentifier`: The default service for this customer identifier
+   * `defaultServiceIdentifier`: The default "protected" service for this customer identifier
  * `statdReporter`: The statsd reporter configuration
    * `host`: Upstream statsd endpoint
    * `durationInSec`: Reporting frequency in Seconds.

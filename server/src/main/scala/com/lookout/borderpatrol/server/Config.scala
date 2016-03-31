@@ -10,6 +10,7 @@ import com.twitter.finagle.Memcached
 import com.twitter.finagle.http.path.Path
 import com.twitter.app.App
 import cats.data.Xor
+import com.twitter.logging.Logger
 import io.circe.{Encoder, _}
 import io.circe.jawn._
 import io.circe.generic.auto._
@@ -52,6 +53,7 @@ object Config {
   val defaultConfigFile = "bpConfig.json"
   val defaultSecretStore = SecretStores.InMemorySecretStore(Secrets(Secret(), Secret()))
   val defaultSessionStore = SessionStores.InMemoryStore
+  private[this] val log = Logger.get(getClass.getPackage.getName)
 
   def cond[T](p: => Boolean, v: T) : Set[T] = if (p) Set(v) else Set.empty[T]
 
@@ -314,12 +316,17 @@ object Config {
    * @return set of all the errors encountered during validation
    */
   def validateServiceIdentifierConfig(field: String, sids: Set[ServiceIdentifier]): Set[String] = {
+    // Log an info message if ServiceIdentifiers have duplicate entries for combination of (name, protected)
+    if (sids.size > sids.map(sid => sid.name).size)
+      log.info("Potential Configuration Error Alert: " +
+        "Duplicate entries for key(name) are found in the field: ServiceIdentifiers")
+
     // Find if ServiceIdentifiers have duplicate entries (same path)
     (cond(sids.size > sids.map(sid => sid.path).size,
       s"Duplicate entries for key (path) are found in the field: ${field}") ++
 
-    // Make sure hosts in Serviceidentifier have http or https protocol
-    sids.map(sid => validateHostsConfig(field, sid.name, sid.hosts)).flatten)
+      // Make sure hosts in Serviceidentifier have http or https protocol
+      sids.map(sid => validateHostsConfig(field, sid.name, sid.hosts)).flatten)
   }
 
   /**

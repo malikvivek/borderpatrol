@@ -481,7 +481,8 @@ class ConfigSpec extends BorderPatrolSuite {
       ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
       ("statsdReporter", defaultStatsdExporterConfig.asJson),
       ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", (sids + ServiceIdentifier("some", urls, Path("/ent"), None, false)).asJson),
+      ("serviceIdentifiers", (sids + ServiceIdentifier("some", urls, Path("/ent"), None, false)
+        + ServiceIdentifier("some", urls, Path("/some"), None, false)).asJson),
       ("loginManagers", loginManagers.asJson),
       ("identityManagers", Set(keymasterIdManager).asJson),
       ("accessManagers", Set(keymasterAccessManager).asJson)))

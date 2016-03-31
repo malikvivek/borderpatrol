@@ -9,7 +9,7 @@ import com.twitter.util.{Time, Future}
 
 object Csrf {
   case class InHeader(val header: String = "X-BORDER-CSRF") extends AnyVal
-  case class Param(val param: String = "_x_border_csrf") extends AnyVal
+  case class CsrfToken(val value: String = "_x_border_csrf") extends AnyVal
   case class CookieName(val name: String = "border_csrf") extends AnyVal
   case class VerifiedHeader(val header: String = "X-BORDER-CSRF-VERIFIED") extends AnyVal
 
@@ -17,12 +17,12 @@ object Csrf {
    * Informs upstream service about Csrf validation via double submit cookie
    *
    * @param header The incoming header that contains the CSRF token
-   * @param param The incoming parameter that contains the CSRF token
+   * @param csrfToken The incoming parameter that contains the CSRF token
    * @param cookieName The cookie that contains the CSRF token
    * @param verifiedHeader The verified header to set
    */
   case class Verify(header: InHeader,
-                    param: Param,
+                    csrfToken: CsrfToken,
                     cookieName: CookieName,
                     verifiedHeader: VerifiedHeader)(implicit secretStoreApi: SecretStoreApi) {
 
@@ -40,7 +40,7 @@ object Csrf {
      */
     def verify(req: Request): Boolean =
       (for {
-        str <- req.headerMap.get(header.header) orElse Helpers.scrubQueryParams(req.uri, param.param)
+        str <- req.headerMap.get(header.header) orElse Helpers.scrubQueryParams(req.params, csrfToken.value)
         uid <- SignedId.from(str).toOption
         cid <- SignedId.fromRequest(req, cookieName.name).toOption
       } yield uid == cid) getOrElse false

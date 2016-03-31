@@ -167,7 +167,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
         if Path(req.req.path).startsWith(req.customerId.loginManager.protoManager.loginConfirm) => {
         for {
           sessionId <- SignedId.untagged
-          location <- Helpers.scrubQueryParams(req.req.uri, "target_url")
+          location <- Helpers.scrubQueryParams(req.req.params, "target_url")
             .getOrElse(req.customerId.defaultServiceId.path.toString).toFuture
           savedReq <- tap(Request(location))(r => r.addCookie(sessionId.asCookie())).toFuture
           session <- Session(sessionId, savedReq).toFuture
@@ -286,7 +286,7 @@ case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreA
       store.delete(sid)
     })
     // Redirect to suggested url or the logged out path or default service
-    val location = Helpers.scrubQueryParams(req.req.uri, "destination")
+    val location = Helpers.scrubQueryParams(req.req.params, "destination")
       .fold(req.customerId.defaultServiceId.path.toString)(_.toString)
 
     Future.exception(BpLogoutError(Status.Ok, location,
