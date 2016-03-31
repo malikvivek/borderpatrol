@@ -44,7 +44,7 @@ libraryDependencies ++= Seq(
 
 ```scala
 libraryDependencies ++= Seq(
-  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.1.20-SNAPSHOT"
+  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.1.21-SNAPSHOT"
 )
 ```
 
