@@ -433,7 +433,6 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val identityProvider = mkTestService[BorderRequest, Response] { req =>
       val storedReq = Await.result(sessionStore.get[Request](req.sessionId)).get.data
       storedReq.path should be (cust1.defaultServiceId.path.toString)
-      SignedId.fromRequest(storedReq).toOption should be (Some(req.sessionId))
       Response(Status.Ok).toFuture
     }
     val identityProviderMap = Map("keymaster" -> identityProvider)
@@ -450,11 +449,10 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "send a request w/o SessionId w/ target_url to loginConfirm path to IdentityService chain" in {
+  it should "send a request w/o SessionId w/ destination to loginConfirm path to IdentityService chain" in {
     val identityProvider = mkTestService[BorderRequest, Response] { req =>
       val storedReq = Await.result(sessionStore.get[Request](req.sessionId)).get.data
       storedReq.path should be ("blah")
-      SignedId.fromRequest(storedReq).toOption should be (Some(req.sessionId))
       Response(Status.Ok).toFuture
     }
     val identityProviderMap = Map("keymaster" -> identityProvider)
@@ -462,7 +460,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Login POST request
     val request = reqPost("enterprise", cust1.loginManager.protoManager.loginConfirm.toString, Buf.Empty,
-      ("target_url" -> "blah"))
+      ("destination" -> "blah"))
 
     // Original request
     val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
@@ -486,11 +484,11 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = reqPost("enterprise", cust1.loginManager.protoManager.loginConfirm.toString, Buf.Empty)
     request.addCookie(cooki)
 
-    // Original request
+    // Execute
     val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
       SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
 
-    //  Validate
+    // Validate
     Await.result(output).status should be (Status.NotAcceptable)
   }
 
@@ -546,6 +544,25 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     caught.sessionIdOpt should be (Some(sessionId))
   }
 
+  it should "redirect the request w/ unauth SessionId to unprotected service to follow-on service" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => Response(Status.NotAcceptable).toFuture }
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login request
+    val request = req("enterprise", "check")
+
+    // Execute
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, Some(unproCheckpointSid), Some(sessionId)))
+
+    // Validate
+    Await.result(output).status should be (Status.NotAcceptable)
+  }
+
   it should "redirect the request w/ unauth SessionId to unknown path to login page" in {
     val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
     val identityProviderMap = Map("keymaster" -> identityProvider)
@@ -570,6 +587,72 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     caught.status should be(Status.Unauthorized)
     caught.location should be (internalProtoManager.authorizePath.toString)
     caught.sessionIdOpt should be (Some(sessionId))
+  }
+
+  it should "redirect the request w/o SessionId for protected service to login page" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
+
+    // Login request
+    val request = req("enterprise", "ent")
+
+    // Original request
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, Some(one), None))
+
+    // Validate
+    val caught = the [BpRedirectError] thrownBy {
+      Await.result(output)
+    }
+
+    // Validate
+    caught.status should be(Status.Unauthorized)
+    caught.location should be (internalProtoManager.authorizePath.toString)
+    caught.sessionIdOpt should not be None
+    val reqZ = getRequestFromSessionId(caught.sessionIdOpt.get)
+    Await.result(reqZ).uri should be(request.uri)
+  }
+
+  it should "redirect the request w/o SessionId for unprotected service to follow-on service" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => Response(Status.NotAcceptable).toFuture }
+
+    // Login request
+    val request = req("enterprise", "check")
+
+    // Original request
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, Some(unproCheckpointSid), None))
+
+    // Validate
+    Await.result(output).status should be (Status.NotAcceptable)
+  }
+
+  it should "redirect the request w/o SessionId for unknown service to login page" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
+
+    // Login request
+    val request = req("enterprise", "unknown")
+
+    // Original request
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, None, None))
+
+    // Validate
+    val caught = the [BpRedirectError] thrownBy {
+      Await.result(output)
+    }
+
+    // Validate
+    caught.status should be(Status.Unauthorized)
+    caught.location should be (internalProtoManager.authorizePath.toString)
+    caught.sessionIdOpt should not be None
+    val reqZ = getRequestFromSessionId(caught.sessionIdOpt.get)
+    Await.result(reqZ).uri should be(request.uri)
   }
 
   it should "throw an BpIdentityProviderError if it fails to find IdentityProvider service chain" in {
@@ -730,14 +813,14 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "/check")
 
     // Original request
-    val output = (SendToUnprotectedService(testSidBinder) andThen testService)(
+    val output = (SendToUnprotectedService(testSidBinder, sessionStore) andThen testService)(
       SessionIdRequest(request, cust1, Some(unproCheckpointSid), Some(sessionId)))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "send request w/ unauth SessionId to unprotected upstream service path" in {
+  it should "send request w/ untagged SessionId to unprotected upstream service path" in {
     val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
     val testSidBinder = mkTestSidBinder { req => {
       assert(req.context == unproCheckpointSid)
@@ -751,14 +834,14 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "/check")
 
     // Original request
-    val output = (SendToUnprotectedService(testSidBinder) andThen testService)(
+    val output = (SendToUnprotectedService(testSidBinder, sessionStore) andThen testService)(
       SessionIdRequest(request, cust1, Some(unproCheckpointSid), Some(sessionId)))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "send request w/ unauth SessionId to unknown path to next service in the chain" in {
+  it should "send request w/ untagged SessionId to unknown path to follow-on service" in {
     val testSidBinder = mkTestSidBinder { _ => fail("Must not invoke this service binder")}
 
     // Allocate and Session
@@ -768,14 +851,14 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "unknown")
 
     // Original request
-    val output = (SendToUnprotectedService(testSidBinder) andThen sessionIdFilterTestService)(
+    val output = (SendToUnprotectedService(testSidBinder, sessionStore) andThen sessionIdFilterTestService)(
       SessionIdRequest(request, cust1, None, Some(sessionId)))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
   }
 
-  it should "send request w/ unauth SessionId to protected service to next service in the chain" in {
+  it should "send request w/ untagged SessionId to protected service to follow-on service" in {
     val testSidBinder = mkTestSidBinder { _ => fail("Must not invoke this service binder")}
 
     // Allocate and Session
@@ -785,11 +868,32 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val request = req("enterprise", "ent")
 
     // Original request
-    val output = (SendToUnprotectedService(testSidBinder) andThen sessionIdFilterTestService)(
+    val output = (SendToUnprotectedService(testSidBinder, sessionStore) andThen sessionIdFilterTestService)(
       SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
 
     //  Validate
     Await.result(output).status should be (Status.Ok)
+  }
+
+  it should "send request w/o SessionId to unprotected upstream service path" in {
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
+    val testSidBinder = mkTestSidBinder { req => {
+      assert(req.context == unproCheckpointSid)
+      Response(Status.Ok).toFuture
+    }}
+
+    // Login POST request
+    val request = req("enterprise", "/check")
+
+    // Original request
+    val output = (SendToUnprotectedService(testSidBinder, sessionStore) andThen testService)(
+      SessionIdRequest(request, cust1, Some(unproCheckpointSid), None))
+
+    //  Validate
+    Await.result(output).status should be (Status.Ok)
+    SignedId.fromResponse(Await.result(output)).isSuccess should be(true)
+    val reqZ = sessionDataFromResponse(Await.result(output))
+    Await.result(reqZ).uri should be(cust1.defaultServiceId.path.toString)
   }
 
   behavior of "AccessFilter"

@@ -161,29 +161,31 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
 
       /**
        * 2. POST to loginConfirm path w/o SessionId, allocate SessionId, dispatch to Identity Provider chain
-       *    It creates default request on the fly and for location it uses defaultServiceId or target_url param
+       *    It creates default request on the fly and for location it uses defaultServiceId or destination param
        */
       case (None, _)
         if Path(req.req.path).startsWith(req.customerId.loginManager.protoManager.loginConfirm) => {
+        val location = Helpers.scrubQueryParams(req.req.params, "destination")
+          .getOrElse(req.customerId.defaultServiceId.path.toString)
         for {
           sessionId <- SignedId.untagged
-          location <- Helpers.scrubQueryParams(req.req.params, "target_url")
-            .getOrElse(req.customerId.defaultServiceId.path.toString).toFuture
-          savedReq <- tap(Request(location))(r => r.addCookie(sessionId.asCookie())).toFuture
-          session <- Session(sessionId, savedReq).toFuture
+          session <- Session(sessionId, Request(location)).toFuture
           _ <- store.update(session)
           resp <- sendToIdentityProvider(BorderRequest(req, req.customerId.defaultServiceId, sessionId))
         } yield resp
       }
 
-      /* 3. Request w/ untagged SessionId & Service, redirect it to Login */
+      /* 3. Request w/ untagged SessionId, protected Service, redirect it to Login */
       case (Some(Untagged), Some(serviceId)) if serviceId.protekted => redirectToLogin(req, req.sessionIdOpt)
 
       /* 4. Request w/ untagged SessionId, no Service, redirect it to Login */
       case (Some(Untagged), None) => redirectToLogin(req, req.sessionIdOpt)
 
-      /* 5. Request w/o SessionId, allocate SessionId and redirect it to Login */
-      case (None, _) => redirectToLogin(req, None)
+      /* 5. Request w/o SessionId, protected Service, redirect it to Login */
+      case (None, Some(serviceId)) if serviceId.protekted => redirectToLogin(req, None)
+
+      /* 5. Request w/o SessionId, no Service, redirect it to Login */
+      case (None, None) => redirectToLogin(req, None)
 
       /* Everything else */
       case _ => service(req)
@@ -241,9 +243,12 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
  * Service. Everything else is forwarded to the next filter in the chain.
  *
  * @param serviceBinder
+ * @param store
+ * @param secretStore
  * @param statsReceiver
  */
-case class SendToUnprotectedService(serviceBinder: MBinder[ServiceIdentifier])(implicit statsReceiver: StatsReceiver)
+case class SendToUnprotectedService(serviceBinder: MBinder[ServiceIdentifier], store: SessionStore)(
+  implicit secretStore: SecretStoreApi, statsReceiver: StatsReceiver)
     extends SimpleFilter[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val statRequestSends = statsReceiver.counter("req.unprotected.upstream.service.forwards")
@@ -261,9 +266,19 @@ case class SendToUnprotectedService(serviceBinder: MBinder[ServiceIdentifier])(i
   def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] =
     (req.sessionIdOpt, req.serviceIdOpt) match {
 
-      /* 1. Request dispatch to unprotected service */
+      /* 1. Request w/ SessionId, dispatch to unprotected service */
       case (Some(sessionId), Some(serviceId)) if !serviceId.protekted =>
         sendToUnprotectedService(BorderRequest(req, serviceId, sessionId))
+
+      /* 1. Request w/o SessionId, dispatch to unprotected service */
+      case (None, Some(serviceId)) if !serviceId.protekted =>
+        for {
+          sessionId <- SignedId.untagged
+          session <- Session(sessionId, Request(req.customerId.defaultServiceId.path.toString)).toFuture
+          _ <- store.update(session)
+          resp <- sendToUnprotectedService(BorderRequest(req, serviceId, sessionId))
+          _ <- (resp.addCookie(sessionId.asCookie())).toFuture
+        } yield resp
 
       /* Everything else */
       case _ => service(req)

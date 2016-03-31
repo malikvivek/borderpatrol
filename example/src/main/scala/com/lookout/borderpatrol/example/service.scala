@@ -87,7 +87,7 @@ object service {
           /* If authenticated and protected service, send it via Access Issuer chain */
           SendToAccessIssuer(accessIssuerChainMap(config.sessionStore)) andThen
           /* Authenticated or not, send it to unprotected service, if its destined to that */
-          SendToUnprotectedService(ServiceIdentifierBinder) andThen
+          SendToUnprotectedService(ServiceIdentifierBinder, config.sessionStore) andThen
           /* Not found */
           notFoundService
     }
