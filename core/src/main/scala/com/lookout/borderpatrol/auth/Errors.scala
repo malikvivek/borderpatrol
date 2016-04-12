@@ -34,14 +34,3 @@ case class BpIdentityProviderError(status: Status, msg: String) extends BpAuthEr
  * This exception stores the response code
  */
 case class BpAccessIssuerError(status: Status, msg: String) extends BpAuthError(msg)
-
-/**
- * This exception stores the response code
- */
-case class BpRedirectError(status: Status, location: String, sessionIdOpt: Option[SignedId], msg: String)
-    extends BpAuthError(msg)
-
-/**
- * This exception stores the response code
- */
-case class BpLogoutError(status: Status, location: String, msg: String) extends BpAuthError(msg)

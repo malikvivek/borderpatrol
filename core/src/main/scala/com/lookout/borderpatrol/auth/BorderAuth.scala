@@ -43,6 +43,64 @@ object AccessIdRequest {
     AccessIdRequest(sr.req, sr.customerId, sr.serviceId, sr.sessionId, id)
 }
 
+object BorderAuth {
+  private[this] val log = Logger.get(getClass.getPackage.getName)
+
+  private[this] def expectsJson(req: Request): Boolean = {
+    val decoder = Try(new QueryStringDecoder(req.uri)).toOption
+    decoder.exists(_.getPath.endsWith(".json")) ||
+      req.headerMap.get("Accept").exists(_.contains(MediaType.Json))
+  }
+
+  /* Convert a redirect into a response palatable to the client */
+  def formatRedirectResponse(req: Request, status: Status, location: String, sessionIdOpt: Option[SignedId],
+                             msg: String): Response = {
+    log.info(msg)
+    tap(Response())(res => {
+      sessionIdOpt.foreach(sessionId => res.addCookie(sessionId.asCookie()))
+      expectsJson(req) match {
+        case true =>
+          res.status = status
+          res.contentString = Json.fromFields(Seq(
+            ("description", msg.asJson),
+            ("msg_source", "borderpatrol".asJson),
+            ("redirect_url", location.asJson))).toString()
+          res.setContentTypeJson()
+        case _ =>
+          // Change the Status to be 302
+          res.status = Status.Found
+          res.location = location
+          res.contentString = msg
+          res.contentType = "text/plain"
+      }})
+  }
+
+  /* Convert this error into a response appropriate to the client */
+  def formatLogoutResponse(req: Request, status: Status, location: String, msg: String): Response = {
+    log.info(msg)
+    tap(Response())(res => {
+      // Expire all BP cookies present in the Request
+      req.cookies.foreach[Unit] {
+        case (name: String, cookie: Cookie) if name.startsWith("border_") =>
+          res.addCookie(SignedId.toExpiredCookie(name))
+        case _ =>
+      }
+      expectsJson(req) match {
+        case true =>
+          res.status = status
+          res.contentString = Json.fromFields(Seq(
+            ("description", msg.asJson),
+            ("msg_source", "borderpatrol".asJson),
+            ("redirect_url", location.asJson))).toString()
+          res.setContentTypeJson()
+        case _ =>
+          res.status = Status.Found
+          res.location = location
+          res.contentString = msg
+          res.contentType = "text/plain"
+      }})
+  }
+}
 /**
  * Determines the service that the request is trying to contact
  * If the service doesn't exist, it returns a 404 Not Found response
@@ -139,15 +197,14 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
             _ <- store.update(session)
           } yield session.id
       }
-      resp <- Future.exception[Response]{
+    } yield {
         statLoginRedirects.incr()
-        BpRedirectError(Status.Unauthorized, location, Some(sessionId),
+        BorderAuth.formatRedirectResponse(req.req, Status.Unauthorized, location, Some(sessionId),
           s"Redirecting the ${req.req} for Untagged Session: ${sessionId.toLogIdString} " +
             s"to login service, location: ${location}, " +
             s"x-forwarded-proto: ${req.req.headerMap.get("X-Forwarded-Proto")}, " +
             s"x-forwarded-port: ${req.req.headerMap.get("X-Forwarded-Port")}")
       }
-    } yield resp
   }
 
   def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] = {
@@ -225,10 +282,10 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
 
       /* 2. Request for Root w/ authenticated Sessionid, redirect to default service */
       case (Some(AuthenticatedTag), None) if Root.startsWith(Path(req.req.path)) =>
-        Future.exception(BpRedirectError(Status.NotFound, req.customerId.defaultServiceId.path.toString,
+        BorderAuth.formatRedirectResponse(req.req, Status.NotFound, req.customerId.defaultServiceId.path.toString,
           req.sessionIdOpt,
           s"Redirecting the ${req.req} for Authenticated Session: ${req.sessionIdOpt.get.toLogIdString} " +
-            s"to upstream service, location: ${req.customerId.defaultServiceId.path}"))
+            s"to upstream service, location: ${req.customerId.defaultServiceId.path}").toFuture
 
       /* Everything else */
       case _ => service(req)
@@ -304,8 +361,8 @@ case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreA
     val location = Helpers.scrubQueryParams(req.req.params, "destination")
       .fold(req.customerId.defaultServiceId.path.toString)(_.toString)
 
-    Future.exception(BpLogoutError(Status.Ok, location,
-      s"After logout, redirecting to: $location"))
+    BorderAuth.formatLogoutResponse(req.req, Status.Ok, location,
+      s"After logout, redirecting to: $location").toFuture
   }
 }
 
@@ -336,7 +393,7 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(
         _ <- store.update(session)
       } yield {
         val location = req.customerId.loginManager.protoManager.redirectLocation(req.req.host)
-        throw BpRedirectError(Status.Unauthorized, location, Some(session.id),
+        BorderAuth.formatRedirectResponse(req.req, Status.Unauthorized, location, Some(session.id),
           s"Failed to find Session: ${req.sessionId.toLogIdString} for: ${req.req}, " +
             s"allocating a new session: ${session.id.toLogIdString}, redirecting to location: ${location}")
       }
@@ -415,62 +472,12 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
     })
   }
 
-  /* Convert a redirect into a response palatable to the client */
-  private[this] def infoAndRedirectResponse(req: Request, error: BpRedirectError): Response = {
-    log.info(error.msg)
-    tap(Response())(res => {
-      error.sessionIdOpt.foreach(sessionId => res.addCookie(sessionId.asCookie()))
-      expectsJson(req) match {
-        case true =>
-          res.status = error.status
-          res.contentString = Json.fromFields(Seq(
-            ("description", error.msg.asJson),
-            ("msg_source", "borderpatrol".asJson),
-            ("redirect_url", error.location.asJson))).toString()
-          res.contentType = "application/json"
-        case _ =>
-          // Change the Status to be 302
-          res.status = Status.Found
-          res.location = error.location
-          res.contentString = error.msg
-          res.contentType = "text/plain"
-      }})
-  }
-
-  /* Convert this error into a response appropriate to the client */
-  private[this] def infoAndLogoutResponse(req: Request, error: BpLogoutError): Response = {
-    log.info(error.msg)
-    tap(Response())(res => {
-      // Expire all BP cookies present in the Request
-      req.cookies.foreach[Unit] {
-        case (name: String, cookie: Cookie) if name.startsWith("border_") =>
-          res.addCookie(SignedId.toExpiredCookie(name))
-        case _ =>
-      }
-      expectsJson(req) match {
-        case true =>
-          res.status = error.status
-          res.contentString = Json.fromFields(Seq(
-            ("description", error.msg.asJson),
-            ("msg_source", "borderpatrol".asJson),
-            ("redirect_url", error.location.asJson))).toString()
-          res.contentType = "application/json"
-        case _ =>
-          res.status = Status.Found
-          res.location = error.location
-          res.contentString = error.msg
-          res.contentType = "text/plain"
-      }})
-  }
-
   /**
    * Tells the service how to handle certain types of servable errors (i.e. PetstoreError)
    */
   def errorHandler(req: Request): PartialFunction[Throwable, Response] = {
     case error: BpAccessIssuerError => warningAndResponse(req, error.getMessage, error.status)
     case error: BpIdentityProviderError => warningAndResponse(req, error.getMessage, error.status)
-    case error: BpRedirectError => infoAndRedirectResponse(req, error)
-    case error: BpLogoutError => infoAndLogoutResponse(req, error)
     case error: BpBorderError => warningAndResponse(req, error.getMessage, error.status)
     case error: BpCoreError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
     case error: BpSessionError => warningAndResponse(req, error.getMessage, Status.InternalServerError)

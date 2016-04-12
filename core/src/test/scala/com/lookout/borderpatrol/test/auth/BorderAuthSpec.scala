@@ -201,15 +201,39 @@ class BorderAuthSpec extends BorderPatrolSuite  {
       BorderRequest(request, cust1, one, sessionId))
 
     // Validate
-    val caught = the [BpRedirectError] thrownBy {
-      Await.result(output)
-    }
+    val resp = Await.result(output)
+    resp.status should be(Status.Found)
+    resp.location.get should be("/check")
+    val sessionIdZ = SignedId.fromResponse(resp).toOption
+    sessionIdZ should not be(None)
+    sessionIdZ should not be(Some(sessionId))
+    val reqZ = getRequestFromSessionId(sessionIdZ.get)
+    Await.result(reqZ).uri should be(request.uri)
+  }
+
+  it should "return a Unauthorized response with login URL, if it fails Session lookup using SignedId" in {
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+    val cooki = sessionId.asCookie()
+
+    // Create request
+    val request = req("enterprise", "/ent")
+    request.addCookie(cooki)
+    request.accept = Seq("application/json")
+
+    // Execute
+    val output = (IdentityFilter[Request](sessionStore) andThen identityFilterTestService)(
+      BorderRequest(request, cust1, one, sessionId))
 
     // Validate
-    caught.status should be(Status.Unauthorized)
-    caught.location should be equals ("/dang")
-    caught.sessionIdOpt should not be (Some(sessionId))
-    val reqZ = getRequestFromSessionId(caught.sessionIdOpt.get)
+    val resp = Await.result(output)
+    resp.status should be(Status.Unauthorized)
+    resp.contentString should include(s""""redirect_url" : "/check"""")
+    val sessionIdZ = SignedId.fromResponse(resp).toOption
+    sessionIdZ should not be(None)
+    sessionIdZ should not be(Some(sessionId))
+    val reqZ = getRequestFromSessionId(sessionIdZ.get)
     Await.result(reqZ).uri should be(request.uri)
   }
 
@@ -362,41 +386,6 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(output).contentString should be ("Not Found: Some identity provider error")
   }
 
-  it should "succeed and convert the BpRedirectError exception into error Response" in {
-    val testService = mkTestService[Request, Response] { req =>
-      Future.exception(BpRedirectError(Status.Unauthorized, "/location", Some(sessionid.untagged),
-        "Some identity provider error"))
-    }
-
-    // Execute
-    val output = (ExceptionFilter() andThen testService)(req("enterprise", "/ent"))
-
-    // Validate
-    Await.result(output).status should be (Status.Found)
-    Await.result(output).location should be (Some("/location"))
-    Await.result(output).contentString should be ("Some identity provider error")
-  }
-
-  it should "succeed and convert the BpRedirectError exception into error Response with json body" in {
-    val testService = mkTestService[Request, Response] { req =>
-      Future.exception(BpRedirectError(Status.Unauthorized, "/location", Some(sessionid.untagged),
-        "Some identity provider error"))
-    }
-
-    // Request
-    val request = req("enterprise", "/ent")
-    request.accept = Seq("application/json")
-
-    // Execute
-    val output = (ExceptionFilter() andThen testService)(request)
-
-    // Validate
-    Await.result(output).status should be (Status.Unauthorized)
-    Await.result(output).contentType should be (Some("application/json"))
-    Await.result(output).contentString should include (""""redirect_url" : "/location"""")
-    Await.result(output).contentString should include (""""description" : "Some identity provider error"""")
-  }
-
   it should "succeed and convert the Runtime exception into error Response" in {
     val testService = mkTestService[Request, Response] { req =>
       Future.exception(new RuntimeException("some weird exception"))
@@ -508,14 +497,36 @@ class BorderAuthSpec extends BorderPatrolSuite  {
       SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
 
     // Validate
-    val caught = the [BpRedirectError] thrownBy {
-      Await.result(output)
-    }
+    val resp = Await.result(output)
+    resp.status should be(Status.Found)
+    resp.location.get should be(internalProtoManager.authorizePath.toString)
+    val sessionIdZ = SignedId.fromResponse(resp).get
+    sessionIdZ should be(sessionId)
+  }
+
+  it should "respond to the request w/ unauth SessionId for protected service with json response" in {
+    val identityProvider = mkTestService[BorderRequest, Response] { _ => fail("Must not invoke identity service") }
+    val identityProviderMap = Map("keymaster" -> identityProvider)
+    val testService = mkTestService[SessionIdRequest, Response] { _ => fail("Must not invoke this service") }
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login request
+    val request = req("enterprise", "ent")
+    request.accept = Seq("application/json")
+
+    // Original request
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
+      SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
 
     // Validate
-    caught.status should be(Status.Unauthorized)
-    caught.location should be (internalProtoManager.authorizePath.toString)
-    caught.sessionIdOpt should be (Some(sessionId))
+    val resp = Await.result(output)
+    resp.status should be(Status.Unauthorized)
+    resp.contentType.get should include("application/json")
+    resp.contentString should include(s""""redirect_url" : "${internalProtoManager.authorizePath.toString}"""")
+    val sessionIdZ = SignedId.fromResponse(resp).get
+    sessionIdZ should be(sessionId)
   }
 
   it should "redirect the request w/ unauth SessionId for protected service to login page for OAuth2" in {
@@ -534,14 +545,11 @@ class BorderAuthSpec extends BorderPatrolSuite  {
       SessionIdRequest(request, cust2, Some(two), Some(sessionId)))
 
     // Validate
-    val caught = the [BpRedirectError] thrownBy {
-      Await.result(output)
-    }
-
-    // Validate
-    caught.status should be(Status.Unauthorized)
-    caught.location should startWith (oauth2CodeProtoManager.authorizeUrl.toString)
-    caught.sessionIdOpt should be (Some(sessionId))
+    val resp = Await.result(output)
+    resp.status should be(Status.Found)
+    resp.location.get should startWith(oauth2CodeProtoManager.authorizeUrl.toString)
+    val sessionIdZ = SignedId.fromResponse(resp).get
+    sessionIdZ should be(sessionId)
   }
 
   it should "redirect the request w/ unauth SessionId to unprotected service to follow-on service" in {
@@ -579,14 +587,11 @@ class BorderAuthSpec extends BorderPatrolSuite  {
       SessionIdRequest(request, cust1, None, Some(sessionId)))
 
     // Validate
-    val caught = the [BpRedirectError] thrownBy {
-      Await.result(output)
-    }
-
-    // Validate
-    caught.status should be(Status.Unauthorized)
-    caught.location should be (internalProtoManager.authorizePath.toString)
-    caught.sessionIdOpt should be (Some(sessionId))
+    val resp = Await.result(output)
+    resp.status should be(Status.Found)
+    resp.location.get should be(internalProtoManager.authorizePath.toString)
+    val sessionIdZ = SignedId.fromResponse(resp).get
+    sessionIdZ should be(sessionId)
   }
 
   it should "redirect the request w/o SessionId for protected service to login page" in {
@@ -602,15 +607,12 @@ class BorderAuthSpec extends BorderPatrolSuite  {
       SessionIdRequest(request, cust1, Some(one), None))
 
     // Validate
-    val caught = the [BpRedirectError] thrownBy {
-      Await.result(output)
-    }
-
-    // Validate
-    caught.status should be(Status.Unauthorized)
-    caught.location should be (internalProtoManager.authorizePath.toString)
-    caught.sessionIdOpt should not be None
-    val reqZ = getRequestFromSessionId(caught.sessionIdOpt.get)
+    val resp = Await.result(output)
+    resp.status should be(Status.Found)
+    resp.location.get should be("/check")
+    val sessionIdZ = SignedId.fromResponse(resp).toOption
+    sessionIdZ should not be(None)
+    val reqZ = getRequestFromSessionId(sessionIdZ.get)
     Await.result(reqZ).uri should be(request.uri)
   }
 
@@ -643,15 +645,12 @@ class BorderAuthSpec extends BorderPatrolSuite  {
       SessionIdRequest(request, cust1, None, None))
 
     // Validate
-    val caught = the [BpRedirectError] thrownBy {
-      Await.result(output)
-    }
-
-    // Validate
-    caught.status should be(Status.Unauthorized)
-    caught.location should be (internalProtoManager.authorizePath.toString)
-    caught.sessionIdOpt should not be None
-    val reqZ = getRequestFromSessionId(caught.sessionIdOpt.get)
+    val resp = Await.result(output)
+    resp.status should be(Status.Found)
+    resp.location.get should be(internalProtoManager.authorizePath.toString)
+    val sessionIdZ = SignedId.fromResponse(resp).toOption
+    sessionIdZ should not be(None)
+    val reqZ = getRequestFromSessionId(sessionIdZ.get)
     Await.result(reqZ).uri should be(request.uri)
   }
 
@@ -748,13 +747,9 @@ class BorderAuthSpec extends BorderPatrolSuite  {
       SessionIdRequest(request, cust1, None, Some(sessionId)))
 
     // Validate
-    val caught = the [BpRedirectError] thrownBy {
-      Await.result(output)
-    }
-
-    // Validate
-    caught.status should be(Status.NotFound)
-    caught.location should be (one.path.toString)
+    val resp = Await.result(output)
+    resp.status should be(Status.Found)
+    resp.location.get should be(one.path.toString)
   }
 
   it should "forward to next service if session is authenticated but trying to reach unknown path" in {
@@ -1037,9 +1032,8 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Validate
     Await.result(output).status should be (Status.Ok)
-    Await.result(output).contentType should be (Some("application/json"))
-    Await.result(output).contentString should include
-      (s""""redirect_url" : "/abc"""")
+    Await.result(output).contentType.get should include("application/json")
+    Await.result(output).contentString should include(s""""redirect_url" : "/abc%0d%0atest:abc%0d%0a"""")
     Await.result(output).cookies.get(SignedId.sessionIdCookieName) should be (None)
   }
 }
