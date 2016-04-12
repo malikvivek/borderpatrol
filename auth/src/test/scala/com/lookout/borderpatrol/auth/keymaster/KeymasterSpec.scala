@@ -264,15 +264,13 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       KeymasterIdentifyReq(BorderRequest(loginRequest, cust1, one, sessionId), credential))
 
     // Validate
-    val caught = the [BpRedirectError] thrownBy {
-      Await.result(output)
-    }
-
-    // Validate
-    caught.status should be(Status.Ok)
-    caught.location should be equals ("/dang")
-    caught.sessionIdOpt should not be (Some(sessionId))
-    val tokensz = getTokensFromSessionId(caught.sessionIdOpt.get)
+    val resp = Await.result(output)
+    resp.status should be(Status.Found)
+    resp.location.get should startWith("/dang")
+    val sessionIdZ = SignedId.fromResponse(resp).get
+    sessionIdZ should not be(None)
+    sessionIdZ should not be(Some(sessionId))
+    val tokensz = getTokensFromSessionId(sessionIdZ)
     Await.result(tokensz) should be(tokens)
   }
 
@@ -301,15 +299,50 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       KeymasterIdentifyReq(BorderRequest(loginRequest, cust2, two, sessionId), credential))
 
     // Validate
-    val caught = the [BpRedirectError] thrownBy {
-      Await.result(output)
+    val resp = Await.result(output)
+    resp.status should be(Status.Found)
+    resp.location.get should startWith("/umb")
+    val sessionIdZ = SignedId.fromResponse(resp).get
+    sessionIdZ should not be(None)
+    sessionIdZ should not be(Some(sessionId))
+    val tokensz = getTokensFromSessionId(sessionIdZ)
+    Await.result(tokensz) should be(tokens)
+  }
+
+  it should "succeed and saves tokens for internal auth, sends json response for redirect" in {
+    val testService = mkTestService[IdentifyRequest[Credential], IdentifyResponse[Tokens]] {
+      request =>
+        assert(request.credential.uniqueId == "test@example.com")
+        Future(KeymasterIdentifyRes(tokens))
     }
 
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login POST request
+    val loginRequest = req("enterprise", "/login")
+    loginRequest.accept = Seq("application/json")
+
+    // Original request
+    val origReq = req("enterprise", "/dang", ("fake" -> "drake"))
+    sessionStore.update[Request](Session(sessionId, origReq))
+
+    // Credential
+    val credential = InternalAuthCredential("test@example.com", "password", cust1, one)
+
+    // Execute
+    val output = (KeymasterPostLoginFilter(sessionStore) andThen testService)(
+      KeymasterIdentifyReq(BorderRequest(loginRequest, cust1, one, sessionId), credential))
+
     // Validate
-    caught.status should be(Status.Ok)
-    caught.location should be equals ("/umb")
-    caught.sessionIdOpt should not be (Some(sessionId))
-    val tokensz = getTokensFromSessionId(caught.sessionIdOpt.get)
+    val resp = Await.result(output)
+    resp.status should be(Status.Ok)
+    resp.contentType.get should include("application/json")
+    resp.contentString should include (""""redirect_url" : "/dang?fake=drake"""")
+    val sessionIdZ = SignedId.fromResponse(resp).get
+    sessionIdZ should not be(None)
+    sessionIdZ should not be(Some(sessionId))
+    val tokensz = getTokensFromSessionId(sessionIdZ)
     Await.result(tokensz) should be(tokens)
   }
 
@@ -571,10 +604,9 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
         BorderRequest(loginRequest, cust1, one, sessionId))
 
       // Validate
-      val caught = the [BpRedirectError] thrownBy {
-        Await.result(output)
-      }
-      caught.status should be (Status.Ok)
+      val resp = Await.result(output)
+      resp.status should be(Status.Found)
+      resp.location.get should startWith("/ent")
 
     } finally {
       server.close()

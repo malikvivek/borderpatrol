@@ -15,54 +15,6 @@ Badges
 [![Build Status](https://travis-ci.org/lookout/borderpatrol.png)](https://travis-ci.org/lookout/borderpatrol)
 [![Coverage Status](https://img.shields.io/codecov/c/github/lookout/borderpatrol/master.svg)](https://codecov.io/github/lookout/borderpatrol)
 
-Modules
--------
-
-Border Patrol uses a multi-project structure and contains the following _modules_:
-
-* [`core`](core) - the core classes/functions
-* [`auth`](auth) - different authentication plugins for core auth
-* [`security`](security) - different security plugins, e.g. CSRF protection
-* [`server`](server) - a server composing these modules that can be configured
-* [`example`](example) - the demo app showing sessions and authentication for multiple
-services. It mocks the authentication (aka identity provider), authorization (aka access issuer) and upstream endpoints.
-
-Installation
-------------
-
-Every stable Border Patrol module is published at Bintray. The SNAPSHOT builds are published to JFrog.
-
-* _stable_ release:
-
-```scala
-libraryDependencies ++= Seq(
-  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.1.0"
-)
-```
-
-* `SNAPSHOT` release:
-
-```scala
-libraryDependencies ++= Seq(
-  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.1.21-SNAPSHOT"
-)
-```
-
-Building Border Patrol
-----------------------
-
-To build Border Patrol you should have [sbt](http://www.scala-sbt.org/0.13/tutorial/Setup.html)
-installed (prefer v0.13.8+). Run `sbt`, and then use any of the following commands:
-
- * `compile`: compile the code
- * `project [project]`: to switch projects, e.g. "project example"
- * `console`: launch a REPL
- * `test`: run the tests
- * `unidoc`: generate the documentation
- * `scalastyle`: run the style-checker on the code
- * `validate`: run tests, style-checker, and doc generation
-
-
 Border Patrol Concepts
 ----------------------
 
@@ -83,6 +35,7 @@ Border Patrol Components:
    * A service can be configured as protected (default) or unprotected.
    * Once authenticated, the user has access to all the protected services in the Cloud
    * The user (authenticated or not) has access to all the unprotected services in the Cloud
+   * A service identifier is comprised of a "unique" `/path` located on an upstream `[hosts]` in the Cloud
  * Identity Manager:
    * If external authentication (e.g. OAuth2) is used, then identity manager provisions the user in Cloud.
    * `keymaster` is a currently supported identity manager. It sends user credentials to an authentication service
@@ -108,15 +61,18 @@ Configuration
 -------------
 
  * `secretStore`: Secret Store. It can be configured using `type` as `InMemorySecretStore` or `ConsulSecretStore`.
-   * `InMemorySecretStore`: Typically used for single host setup as Secrets are meant to be shared across all the BorderPatrol nodes
+   * `InMemorySecretStore`: Typically used for single host setup as Secrets are meant to be shared across all the BorderPatrol nodes.
+
      ```json
      "secretStore" : {
        "type" : "InMemorySecretStore",
      }
      ```
+
    * `ConsulSecretStore`: Setting up Consul is outside of the scope.
      * `hosts`: A list of consul URLs (Format: `[<http[s]>://<host>:[port]]+`)
      * `key`: BorderPatrol uses the key-value store for storing the secret. The `key` is configurable.
+
      ```json
      "secretStore" : {
        "type" : "ConsulSecretStore",
@@ -124,21 +80,26 @@ Configuration
        "key": "BpSecrets"
      }
      ```
+
  * `sessionStore`: Session Store. It can be configured using `type` as `InMemoryStore` or `MemcachedStore`.
    * `InMemoryStore`: Typically used for single host setup as Sessions are meant to be shared across all the BorderPatrol nodes.
+
      ```json
      "sessionStore" : {
        "type" : "InMemoryStore",
      }
      ```
+
    * `MemcachedStore`: Setting up Memcached is outside of the scope. BorderPatrol uses it to store Sessions.
      * `hosts`: A comma separated list of of memcached host and port (Format: `<host>:[port],<host>:[port]`)
+
      ```json
      "sessionStore" : {
        "type" : "MemcachedStore",
        "hosts" : "localhost:123,localhost:234"
      }
      ```
+
  * `accessManagers`: A list of ACCESS `Manager`s. An Access manager authorizes access for authenticated users to
  protected endpoints in the Cloud.
  * `identityManagers`: A list of IDENTITY `Manager`s. An Identity manager authenticates the user or provisions an
@@ -184,6 +145,53 @@ this service
    * `prefix`: Prefix attached to each reported stat
  * `listeningPort`: Border Patrol listens to new requests on this port.
  * `healthCheckUrls`: External dependencies that impact the Border Patrol Health Status
+
+Modules
+-------
+
+Border Patrol uses a multi-project structure and contains the following _modules_:
+
+* [`core`](core) - the core classes/functions
+* [`auth`](auth) - different authentication plugins for core auth
+* [`security`](security) - different security plugins, e.g. CSRF protection
+* [`server`](server) - a server composing these modules that can be configured
+* [`example`](example) - the demo app showing sessions and authentication for multiple
+services. It mocks the authentication (aka identity provider), authorization (aka access issuer) and upstream endpoints.
+
+Installation
+------------
+
+Every stable Border Patrol module is published at Bintray. The SNAPSHOT builds are published to JFrog.
+
+* _stable_ release:
+
+```scala
+libraryDependencies ++= Seq(
+  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.1.0"
+)
+```
+
+* `SNAPSHOT` release:
+
+```scala
+libraryDependencies ++= Seq(
+  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.1.22-SNAPSHOT"
+)
+```
+
+Building Border Patrol
+----------------------
+
+To build Border Patrol you should have [sbt](http://www.scala-sbt.org/0.13/tutorial/Setup.html)
+installed (prefer v0.13.8+). Run `sbt`, and then use any of the following commands:
+
+ * `compile`: compile the code
+ * `project [project]`: to switch projects, e.g. "project example"
+ * `console`: launch a REPL
+ * `test`: run the tests
+ * `unidoc`: generate the documentation
+ * `scalastyle`: run the style-checker on the code
+ * `validate`: run tests, style-checker, and doc generation
 
 Running the example
 -------------------

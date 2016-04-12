@@ -45,7 +45,7 @@ case class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", 
   private[this] def flush(): Unit = {
     if (dataBuffer.size() != 0) {
       Try(channel.send(ByteBuffer.wrap(dataBuffer.toByteArray), addr)).recover {
-        case e => log.warning(
+        case e => log.info(
           s"Failed to send stats to: $hostAndPort, size: ${dataBuffer.size()} with: ${e.getMessage}")
       }
       /* Whether we succeed or not, always reset the output buffer in the end */
