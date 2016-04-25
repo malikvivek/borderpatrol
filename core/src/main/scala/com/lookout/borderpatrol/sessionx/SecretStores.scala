@@ -143,7 +143,7 @@ object SecretStores {
         (_, secrets, result) <- fetchSecretsFromConsul(3, result, secrets)
       } yield processPolledSecrets(secrets, result)) handle {
         case e: Throwable =>
-          log.error(s"ConsulSecretStore: Failed to sync Secrets from Consul with: ${e.getMessage}, " +
+          log.error(s"ConsulSecretStore: failed to sync Secrets from Consul with: ${e.getMessage}, " +
             s"trying again soon in 1 minute")
           timer.schedule(Time.now + Duration(1, TimeUnit.MINUTES))(pollSecrets)
       }

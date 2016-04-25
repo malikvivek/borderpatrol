@@ -77,7 +77,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     Await.result(output).identity should be (Id(tokens))
   }
 
-  it should "propagate the Forbidden Status code from Keymaster service in the BpIdentityProviderError exception" in {
+  it should "throw BpForbiddenRequest if Keymaster returns the Forbidden Status code" in {
     val testIdentityManagerBinder = mkTestManagerBinder { request => Response(Status.Forbidden).toFuture }
 
     // Allocate and Session
@@ -94,10 +94,10 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       KeymasterIdentifyReq(sessionIdRequest, OAuth2CodeCredential("foo", "bar", cust2, two)))
 
     // Validate
-    val caught = the [BpIdentityProviderError] thrownBy {
+    val caught = the [BpForbiddenRequest] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should include ("IdentityProvider failed to authenticate user: 'foo'")
+    caught.getMessage should include ("Failed to authenticate user")
     caught.status should be (Status.Forbidden)
   }
 
@@ -121,7 +121,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the [BpIdentityProviderError] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should include ("IdentityProvider failed to authenticate user: 'foo', with status: ")
+    caught.getMessage should include ("Failed to authenticate user, with status: ")
     caught.status should be (Status.InternalServerError)
   }
 
@@ -446,7 +446,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the [BpAccessIssuerError] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should include ("AccessIssuer failed to permit access to the service: 'one', with status: ")
+    caught.getMessage should include ("Failed to permit access to the service: 'one', with: ")
     caught.getMessage should include (s"${Status.NotFound.code}")
     caught.status should be (Status.InternalServerError)
   }
@@ -488,7 +488,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the [BpForbiddenRequest] thrownBy {
       Await.result(output)
     }
-    caught.getMessage should be ("Forbidden: AccessIssuer denied access to the service: one")
+    caught.getMessage should be ("Forbidden: Failed to permit access to the service: 'one'")
     caught.status should be (Status.Forbidden)
   }
 

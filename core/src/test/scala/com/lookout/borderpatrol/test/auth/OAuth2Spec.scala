@@ -306,7 +306,7 @@ class OAuth2Spec extends BorderPatrolSuite {
   }
 
   /** this exception is thrown by codeToToken method in OAuth2CodeProtoManager */
-  it should "throw an Exception on if it receives HTTP request w/ OAuth2 code but without hostname" in {
+  it should "throw an exception on if it receives HTTP request w/ OAuth2 code but without hostname" in {
     // Allocate and Session
     val sessionId = sessionid.untagged
 
@@ -321,10 +321,10 @@ class OAuth2Spec extends BorderPatrolSuite {
       // Execute
       val output = new OAuth2CodeVerify().codeToClaimsSet(sessionIdRequest, oauth2CodeProtoManager)
     }
-    caught.getMessage should be("Host not found in HTTP Request")
+    caught.getMessage should include("Host not found in HTTP Request")
   }
 
-  it should "throw an exception if fails to parse OAuth2 AAD Token in the response" in {
+  it should "throw BpTokenParsingError if fails to parse OAuth2 AAD Token in the response" in {
     val server = com.twitter.finagle.Http.serve(
       "localhost:4567", mkTestService[Request, Response] { req =>
         assert(req.getParam("code") == "XYZ123")
@@ -356,7 +356,7 @@ class OAuth2Spec extends BorderPatrolSuite {
     }
   }
 
-  it should "throw an exception if OAuth2 Server returns an failure response for code to token conversion" in {
+  it should "throw a BpIdentityProviderError if OAuth2 Server returns an failure response for code to token conversion" in {
     val server = com.twitter.finagle.Http.serve(
       "localhost:4567", mkTestService[Request, Response] { req =>
         assert(req.getParam("code") == "XYZ123")
@@ -386,7 +386,7 @@ class OAuth2Spec extends BorderPatrolSuite {
     }
   }
 
-  it should "throw an Exception if it fails to parse ID-token in AAD-token returned by OAuth2 Server" in {
+  it should "throw a BpTokenParsingError if it fails to parse ID-token in AAD-token returned by OAuth2 Server" in {
     val idToken = "stuff" //"""{"key":"value"}"""
     val aadToken = AadToken(testRsaAccessToken.serialize(), idToken)
     val server = com.twitter.finagle.Http.serve(
@@ -420,7 +420,7 @@ class OAuth2Spec extends BorderPatrolSuite {
     }
   }
 
-  it should "throw an Exception if it fails to parse Access-token in AAD-token returned by OAuth2 Server" in {
+  it should "throw a BpTokenParsingError if it fails to parse Access-token in AAD-token returned by OAuth2 Server" in {
     val accessToken = new PlainJWT(new JWTClaimsSet.Builder().subject("SomethingAccess").build)
     val aadToken = AadToken(accessToken.serialize(), testRsaIdToken.serialize())
     val server = com.twitter.finagle.Http.serve(
@@ -454,7 +454,7 @@ class OAuth2Spec extends BorderPatrolSuite {
     }
   }
 
-  it should "throw an Exception if it fails to find thumbprint in the Access-token returned by OAuth2 Server" in {
+  it should "throw a BpTokenParsingError if it fails to find thumbprint in the Access-token returned by OAuth2 Server" in {
     // Prepare JWT with claims set
     val accessToken = new SignedJWT(
       new JWSHeader.Builder(JWSAlgorithm.RS256).build,
@@ -492,7 +492,7 @@ class OAuth2Spec extends BorderPatrolSuite {
     }
   }
 
-  it should "throw an exception if it fails to find Certificate in the XML code returned by OAuth2 Server" in {
+  it should "throw a BpCertificateError if it fails to find Certificate in the XML code returned by OAuth2 Server" in {
 
     //Launch a server for fetching token from a code
     val server = com.twitter.finagle.Http.serve(
@@ -545,7 +545,7 @@ class OAuth2Spec extends BorderPatrolSuite {
     }
   }
 
-  it should "throw an exception if it fails to parse XML code returned by OAuth2 Server" in {
+  it should "throw a BpCertificateError if it fails to parse XML code returned by OAuth2 Server" in {
 
     //Launch a server for fetching token from a code
     val server = com.twitter.finagle.Http.serve(
@@ -597,7 +597,7 @@ class OAuth2Spec extends BorderPatrolSuite {
     }
   }
 
-  it should "throw an exception if it fails to decode Certificate returned by OAuth2 Server" in {
+  it should "throw a BpCertificateError if it fails to decode Certificate returned by OAuth2 Server" in {
 
     //Launch a server for fetching token from a code
     val server = com.twitter.finagle.Http.serve(
@@ -639,7 +639,7 @@ class OAuth2Spec extends BorderPatrolSuite {
     }
   }
 
-  it should "throw an exception if algorithm of public key used by the certificate is unsupported " in {
+  it should "throw a BpCertificateError if algorithm of public key used by the certificate is unsupported " in {
 
     //  Generate key
     val pk = generateTestKeyPair("DSA", 1024)

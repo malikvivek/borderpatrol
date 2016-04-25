@@ -107,7 +107,7 @@ object helpers {
 
   // Request helper
   def req(subdomain: String, path: String, params: Tuple2[String, String]*): Request =
-    RequestBuilder().url(s"http://${subdomain + "."}example.com${Request.queryString(path, params:_*)}").buildGet()
+    RequestBuilder().url(s"http://${subdomain + "."}example.com${Request.queryString(Path(path).toString, params:_*)}").buildGet()
   def reqPost(subdomain: String, path: String, content: Buf, params: Tuple2[String, String]*): Request =
     RequestBuilder().url(s"http://${subdomain + "."}example.com${Request.queryString(path, params:_*)}")
       .buildPost(content)
