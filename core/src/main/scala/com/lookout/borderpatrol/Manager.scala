@@ -33,7 +33,7 @@ case class LoginManager(name: String, identityManager: Manager, accessManager: M
 trait ProtoManager {
   val name: String
   val loginConfirm: Path
-  def redirectLocation(host: Option[String]): String
+  def redirectLocation(req: Request): String
 }
 
 /**
@@ -46,7 +46,7 @@ trait ProtoManager {
  */
 case class InternalAuthProtoManager(name: String, loginConfirm: Path, authorizePath: Path)
     extends ProtoManager {
-  def redirectLocation(host: Option[String]): String = authorizePath.toString
+  def redirectLocation(req: Request): String = authorizePath.toString
 }
 
 /**
@@ -65,25 +65,25 @@ case class OAuth2CodeProtoManager(name: String, loginConfirm: Path, authorizeUrl
     extends ProtoManager{
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
-  def redirectLocation(host: Option[String]): String = {
-    val hostStr = host.getOrElse(throw new Exception("Host not found in HTTP Request"))
+  def redirectLocation(req: Request): String = {
+    val hostStr = req.host.getOrElse(throw new Exception(s"Host not found in HTTP $req"))
+    val scheme = req.headerMap.getOrElse("X-Forwarded-Proto", "http")
     Request.queryString(authorizeUrl.toString, ("response_type", "code"), ("state", "foo"), ("prompt", "login"),
-      ("client_id", clientId), ("redirect_uri", "http://" + hostStr + loginConfirm.toString))
+      ("client_id", clientId), ("redirect_uri", s"$scheme://$hostStr$loginConfirm"))
   }
   def codeToToken(req: Request): Future[Response] = {
-    val hostStr = req.host.getOrElse(throw new Exception("Host not found in HTTP Request"))
+    val hostStr = req.host.getOrElse(throw new Exception(s"Host not found in HTTP $req"))
+    val scheme = req.headerMap.getOrElse("X-Forwarded-Proto", "http")
     val request = util.Combinators.tap(Request(Method.Post, tokenUrl.toString))(re => {
       re.contentType = "application/x-www-form-urlencoded"
       re.contentString = Request.queryString(("grant_type", "authorization_code"), ("client_id", clientId),
         ("code", Helpers.scrubQueryParams(req.params, "code")
           .getOrElse(throw new Exception(s"OAuth2 code not found in HTTP ${req}"))),
-        ("redirect_uri", "http://" + hostStr + loginConfirm.toString),
+        ("redirect_uri", s"$scheme://$hostStr$loginConfirm"),
         ("client_secret", clientSecret), ("resource", "00000002-0000-0000-c000-000000000000"))
         .drop(1) /* Drop '?' */
     })
-    log.debug(s"Sending: ${request} to location: ${tokenUrl}, " +
-      s"x-forwarded-proto: ${req.headerMap.get("X-Forwarded-Proto")}, " +
-      s"x-forwarded-port: ${req.headerMap.get("X-Forwarded-Port")}")
+    log.debug(s"Sending: Request(GET $tokenUrl) to fetch tokens")
     BinderBase.connect(s"${name}.tokenUrl", Set(tokenUrl), request)
   }
 }

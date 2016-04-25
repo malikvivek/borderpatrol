@@ -313,7 +313,6 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     // Validate
     Await.result(output).status should be (Status.NotAcceptable)
     Await.result(output).contentType should be (Some("text/plain"))
-    Await.result(output).contentString should include ("No access allowed to service")
   }
 
   it should "succeed and convert the BpSessionStoreError exception into error Response" in {
@@ -326,7 +325,6 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Validate
     Await.result(output).status should be (Status.InternalServerError)
-    Await.result(output).contentString should include ("An error occurred interacting with the session store: update failed")
   }
 
   it should "succeed and convert the BpAccessIssuerError exception into JSON error Response" in {
@@ -344,7 +342,6 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     // Validate
     Await.result(output).status should be (Status.NotAcceptable)
     Await.result(output).contentType should be (Some("application/json"))
-    Await.result(output).contentString should include (""""description" : "BPAUTH: Some access issuer error"""")
   }
 
   it should "succeed and convert the BpIdentityProviderError exception into error Response" in {
@@ -357,7 +354,6 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Validate
     Await.result(output).status should be (Status.NotAcceptable)
-    Await.result(output).contentString should be ("BPAUTH: Some identity provider error")
   }
 
   it should "succeed and convert the BpCoreError exception into error Response" in {
@@ -370,7 +366,6 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Validate
     Await.result(output).status should be (Status.InternalServerError)
-    Await.result(output).contentString should include ("Some identity provider error")
   }
 
   it should "succeed and convert the BpBorderError exception into error Response" in {
@@ -383,7 +378,6 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Validate
     Await.result(output).status should be (Status.NotFound)
-    Await.result(output).contentString should be ("Not Found: Some identity provider error")
   }
 
   it should "succeed and convert the Runtime exception into error Response" in {
@@ -396,7 +390,6 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Validate
     Await.result(output).status should be (Status.InternalServerError)
-    Await.result(output).contentString should be ("some weird exception")
   }
 
   behavior of "SendToIdentityProvider"
@@ -539,6 +532,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
 
     // Login request
     val request = req("sky", "umb")
+    request.headerMap.add("X-Forwarded-Proto", "https")
 
     // Original request
     val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService) (
@@ -548,6 +542,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     val resp = Await.result(output)
     resp.status should be(Status.Found)
     resp.location.get should startWith(oauth2CodeProtoManager.authorizeUrl.toString)
+    resp.location.get should include(s"https%3A%2F%2Fsky.example.com%2Fsignin")
     val sessionIdZ = SignedId.fromResponse(resp).get
     sessionIdZ should be(sessionId)
   }
@@ -654,7 +649,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(reqZ).uri should be(request.uri)
   }
 
-  it should "throw an BpIdentityProviderError if it fails to find IdentityProvider service chain" in {
+  it should "throw a BpIdentityProviderError if it fails to find IdentityProvider service chain" in {
     val identityProviderMap = Map("foo" -> workingService)
 
     // Allocate and Session
@@ -711,7 +706,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
       val output = (SendToIdentityProvider(workingMap, sessionStore) andThen testService)(
         SessionIdRequest(request, cust2, Some(two), Some(sessionId)))
     }
-    caught.getMessage should equal("Host not found in HTTP Request")
+    caught.getMessage should include("Host not found in HTTP Request")
   }
 
   behavior of "SendToAccessIssuer"
@@ -770,7 +765,7 @@ class BorderAuthSpec extends BorderPatrolSuite  {
     Await.result(output).status should be (Status.NotFound)
   }
 
-  it should "throw an BpAccessIssuerError if it fails to find AccessIssuer service chain" in {
+  it should "throw a BpAccessIssuerError if it fails to find AccessIssuer service chain" in {
     val accessIssuerMap = Map("foo" -> workingService)
 
     // Allocate and Session

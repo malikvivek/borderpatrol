@@ -96,7 +96,7 @@ object SessionStores {
     def update[A](session: Session[A])(implicit ev: SessionDataEncoder[A]): Future[Unit] = {
       delete(session.id)
       if (store.add(session.map(ev.encode))) Future.Unit
-      else Future.exception[Unit](new BpSessionStoreError(s"update failed with $session"))
+      else Future.exception[Unit](new BpSessionStoreError(s"store update failed for ${session.id}"))
     }
 
     def delete(key: SignedId): Future[Unit] =

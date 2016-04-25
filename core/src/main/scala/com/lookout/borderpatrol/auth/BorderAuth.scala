@@ -62,7 +62,6 @@ object BorderAuth {
         case true =>
           res.status = status
           res.contentString = Json.fromFields(Seq(
-            ("description", msg.asJson),
             ("msg_source", "borderpatrol".asJson),
             ("redirect_url", location.asJson))).toString()
           res.setContentTypeJson()
@@ -70,7 +69,6 @@ object BorderAuth {
           // Change the Status to be 302
           res.status = Status.Found
           res.location = location
-          res.contentString = msg
           res.contentType = "text/plain"
       }})
   }
@@ -89,14 +87,12 @@ object BorderAuth {
         case true =>
           res.status = status
           res.contentString = Json.fromFields(Seq(
-            ("description", msg.asJson),
             ("msg_source", "borderpatrol".asJson),
             ("redirect_url", location.asJson))).toString()
           res.setContentTypeJson()
         case _ =>
           res.status = Status.Found
           res.location = location
-          res.contentString = msg
           res.contentType = "text/plain"
       }})
   }
@@ -187,7 +183,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
    */
   def redirectToLogin(req: SessionIdRequest, sessionIdOpt: Option[SignedId]): Future[Response] = {
     for {
-      location <- req.customerId.loginManager.protoManager.redirectLocation(req.req.host).toFuture
+      location <- req.customerId.loginManager.protoManager.redirectLocation(req.req).toFuture
       sessionId <- sessionIdOpt match {
         case Some(sessionId) => sessionId.toFuture
         case None =>
@@ -201,9 +197,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
         statLoginRedirects.incr()
         BorderAuth.formatRedirectResponse(req.req, Status.Unauthorized, location, Some(sessionId),
           s"Redirecting the ${req.req} for Untagged Session: ${sessionId.toLogIdString} " +
-            s"to login service, location: ${location}, " +
-            s"x-forwarded-proto: ${req.req.headerMap.get("X-Forwarded-Proto")}, " +
-            s"x-forwarded-port: ${req.req.headerMap.get("X-Forwarded-Port")}")
+            s"to login service, location: ${location}")
       }
   }
 
@@ -392,7 +386,7 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(
         session <- Session(req.req)
         _ <- store.update(session)
       } yield {
-        val location = req.customerId.loginManager.protoManager.redirectLocation(req.req.host)
+        val location = req.customerId.loginManager.protoManager.redirectLocation(req.req)
         BorderAuth.formatRedirectResponse(req.req, Status.Unauthorized, location, Some(session.id),
           s"Failed to find Session: ${req.sessionId.toLogIdString} for: ${req.req}, " +
             s"allocating a new session: ${session.id.toLogIdString}, redirecting to location: ${location}")
@@ -462,11 +456,9 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
       expectsJson(req) match {
         case true =>
           res.contentString = Json.fromFields(Seq(
-            ("description", msg.asJson),
             ("msg_source", "borderpatrol".asJson))).toString()
           res.contentType = "application/json"
         case _ =>
-          res.contentString = msg
           res.contentType = "text/plain"
       }
     })

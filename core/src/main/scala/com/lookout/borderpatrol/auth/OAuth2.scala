@@ -92,7 +92,7 @@ object OAuth2 {
             val thumb = DatatypeConverter.printBase64Binary(md.digest(dec)).replaceAll("=", "").replaceAll("/", "_")
             // Add it to the cache
             add(thumb, node.text)
-            log.debug(s"downloaded a certificate for thumbprint: " + thumb)
+            log.debug(s"Downloaded a certificate for thumbprint: " + thumb)
           })
 
           // Find again or throw exception
@@ -100,8 +100,8 @@ object OAuth2 {
             s"Unable to find certificate for thumbprint: $thumbprint")).toFuture
         }
 
-        case _ => Future.exception(BpCertificateError("Failed to download certificate from Server with: " +
-          res.status))
+        case _ => Future.exception(BpCertificateError(
+          s"Failed to download certificate from OAuth2 Server with: ${res.status}"))
       })
     }
 
@@ -129,12 +129,10 @@ object OAuth2 {
           BpCertificateError.apply)
       } yield signedJWT.verify(verifier(cert.getPublicKey)) match {
         case true =>
-          log.debug("Verified the signature on the AccessToken for: " +
-            s"${signedJWT.getJWTClaimsSet.getStringClaim("upn")}, with a certificate of thumbprint: " + thumbprint)
+          log.debug("Verified the signature on AccessToken, for a user with certificate thumbprint: " + thumbprint)
           signedJWT.getJWTClaimsSet
 
-        case false => throw BpVerifyTokenError(
-          s"${signedJWT.getJWTClaimsSet.getStringClaim("upn")}, with a certificate of thumbprint: $thumbprint")
+        case false => throw BpVerifyTokenError(s"for a user with certificate thumbprint: $thumbprint")
       }
     }
 
