@@ -71,16 +71,13 @@ object service {
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
     val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
 
-    val errorServiceId = config.findServiceIdentifier("error")
     RoutingService.byPath {
       case "/health" =>
         HealthCheckService(registry, BpBuild.BuildInfo.version)
 
       case _ =>
         /* Convert exceptions to responses */
-        /* Add Error redirect filter to redirect to checkpoint to render pre-canned error pages */
-        ErrorRedirectFilter2(serviceMatcher, errorServiceId.path.toString) andThen
-          ExceptionFilter() andThen
+        ExceptionFilter() andThen
           /* Validate that its our service */
           CustomerIdFilter(serviceMatcher) andThen
           /* Get or allocate Session/SignedId */
