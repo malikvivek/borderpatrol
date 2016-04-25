@@ -9,11 +9,10 @@ import com.twitter.finagle.Http
 import com.twitter.server.TwitterServer
 import com.twitter.util.Await
 
-import scala.util.{Failure, Success, Try}
 
-object BorderPatrolApp extends TwitterServer with Config {
+object BorderPatrolApp extends TwitterServer with ServerConfigMixin {
   import service._
-  import Config._
+  import ServerConfig._
 
   premain {
     implicit val bpStatsReceiver = statsReceiver
@@ -39,7 +38,8 @@ object BorderPatrolApp extends TwitterServer with Config {
     }
 
     // Create a StatsD exporter
-    val statsdReporter = StatsdExporter(serverConfig.statsdExporterConfig)
+    val statsdReporter = new StatsdExporter(serverConfig.statsdExporterConfig.host,
+      serverConfig.statsdExporterConfig.durationInSec, serverConfig.statsdExporterConfig.prefix)
 
     // Create a server
     val server1 = Http.serve(s":${serverConfig.listeningPort}", MainServiceChain)

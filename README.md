@@ -167,7 +167,7 @@ Every stable Border Patrol module is published at Bintray. The SNAPSHOT builds a
 
 ```scala
 libraryDependencies ++= Seq(
-  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.1.0"
+  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.2.0"
 )
 ```
 
@@ -175,7 +175,7 @@ libraryDependencies ++= Seq(
 
 ```scala
 libraryDependencies ++= Seq(
-  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.1.22-SNAPSHOT"
+  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.2.1-SNAPSHOT"
 )
 ```
 

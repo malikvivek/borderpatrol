@@ -8,49 +8,18 @@ import com.lookout.borderpatrol.sessionx.SessionStores._
 import com.lookout.borderpatrol.sessionx._
 import com.twitter.finagle.Memcached
 import com.twitter.finagle.http.path.Path
-import com.twitter.app.App
 import cats.data.Xor
 import com.twitter.logging.Logger
 import io.circe.{Encoder, _}
-import io.circe.jawn._
 import io.circe.generic.auto._
 import io.circe.syntax._
-import scala.io.Source
 
-
-case class ServerConfig(listeningPort: Int,
-                        secretStore: SecretStoreApi,
-                        sessionStore: SessionStore,
-                        statsdExporterConfig: StatsdExporterConfig,
-                        healthCheckUrls: Set[HealthCheckUrlConfig],
-                        customerIdentifiers: Set[CustomerIdentifier],
-                        serviceIdentifiers: Set[ServiceIdentifier],
-                        loginManagers: Set[LoginManager],
-                        identityManagers: Set[Manager],
-                        accessManagers: Set[Manager]) {
-
-  def findIdentityManager(n: String): Manager = identityManagers.find(_.name == n)
-    .getOrElse(throw new BpInvalidConfigError("Failed to find IdentityManager for: " + n))
-
-  def findAccessManager(n: String): Manager = accessManagers.find(_.name == n)
-    .getOrElse(throw new BpInvalidConfigError("Failed to find Manager for: " + n))
-
-  def findLoginManager(n: String): LoginManager = loginManagers.find(_.name == n)
-    .getOrElse(throw new BpInvalidConfigError("Failed to find LoginManager for: " + n))
-
-  def findServiceIdentifier(n: String): ServiceIdentifier = serviceIdentifiers.find(_.name == n)
-    .getOrElse(throw new BpInvalidConfigError("Failed to find ServiceIdentifier for: " + n))
-}
-
-case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String)
-case class HealthCheckUrlConfig(name: String, url: URL)
 
 /**
  * Where you will find the Secret Store and Session Store
  */
 object Config {
 
-  val defaultConfigFile = "bpConfig.json"
   val defaultSecretStore = SecretStores.InMemorySecretStore(Secrets(Secret(), Secret()))
   val defaultSessionStore = SessionStores.InMemoryStore
   private[this] val log = Logger.get(getClass.getPackage.getName)
@@ -104,7 +73,7 @@ object Config {
    * Encoder/Decoder for protoManager
    *
    * Note that Decoder for protoManager does not work standalone, it can be only used
-   * while decoding the entire ServerConfig due to dependency issues
+   * while decoding the entire Config due to dependency issues
    */
   implicit val encodeProtoManager: Encoder[ProtoManager] = Encoder.instance {
     case bpm: InternalAuthProtoManager => Json.fromFields(Seq(
@@ -144,7 +113,7 @@ object Config {
    * Encoder/Decoder for LoginManager
    *
    * Note that Decoder for LoginManager does not work standalone, it can be only used
-   * while decoding the entire ServerConfig due to dependency issues
+   * while decoding the entire Config due to dependency issues
    */
   implicit val encodeLoginManager: Encoder[LoginManager] = Encoder.instance { lm =>
     Json.fromFields(Seq(
@@ -212,41 +181,6 @@ object Config {
         )
       } yield CustomerIdentifier(subdomain, sid, lm)
     }
-
-  /**
-   * Decoder for ServerConfig (Using circe default encoder for encoding)
-   */
-  implicit val serverConfigEncoder: Encoder[ServerConfig] = Encoder.instance { serverConfig =>
-    Json.fromFields(Seq(
-      ("listeningPort", serverConfig.listeningPort.asJson),
-      ("secretStore", serverConfig.secretStore.asJson),
-      ("sessionStore", serverConfig.sessionStore.asJson),
-      ("statsdReporter", serverConfig.statsdExporterConfig.asJson),
-      ("identityManagers", serverConfig.identityManagers.asJson),
-      ("accessManagers", serverConfig.accessManagers.asJson),
-      ("loginManagers", serverConfig.loginManagers.asJson),
-      ("serviceIdentifiers", serverConfig.serviceIdentifiers.asJson),
-      ("customerIdentifiers", serverConfig.customerIdentifiers.asJson)))
-  }
-  implicit val serverConfigDecoder: Decoder[ServerConfig] = Decoder.instance { c =>
-    for {
-      listeningPort <- c.downField("listeningPort").as[Int]
-      secretStore <- c.downField("secretStore").as[SecretStoreApi]
-      sessionStore <- c.downField("sessionStore").as[SessionStore]
-      statsdExporterConfig <- c.downField("statsdReporter").as[StatsdExporterConfig]
-      healthCheckUrlConfigSet <- c.downField("healthCheckUrls").as[Option[Set[HealthCheckUrlConfig]]].map(
-        _.getOrElse(Set.empty))
-      ims <- c.downField("identityManagers").as[Set[Manager]]
-      ams <- c.downField("accessManagers").as[Set[Manager]]
-      lms <- c.downField("loginManagers").as(Decoder.decodeCanBuildFrom[LoginManager, Set](
-        decodeLoginManager(ims.map(im => im.name -> im).toMap, ams.map(am => am.name -> am).toMap), implicitly))
-      sids <- c.downField("serviceIdentifiers").as[Set[ServiceIdentifier]]
-      cids <- c.downField("customerIdentifiers").as(Decoder.decodeCanBuildFrom[CustomerIdentifier, Set](
-        decodeCustomerIdentifier(sids.map(sid => sid.name -> sid).toMap, lms.map(lm => lm.name -> lm).toMap),
-        implicitly))
-    } yield ServerConfig(listeningPort, secretStore, sessionStore, statsdExporterConfig,
-      healthCheckUrlConfigSet, cids, sids, lms, ims, ams)
-  }
 
   /**
    * Validate Hosts (i.e. Set of URLs) configuration
@@ -340,70 +274,32 @@ object Config {
     cond(cids.size > cids.map(cid => cid.subdomain).size,
       s"Duplicate entries for key (subdomain) are found in the field: ${field}")
   }
-
-  /**
-   * Validates the BorderPatrol Configuration
-   * - for duplicates
-   * - invalid host configurations
-   *
-   * @param serverConfig
-   * @return set of all the errors encountered during validation
-   */
-  def validate(serverConfig: ServerConfig): Set[String] = {
-    //  Validate Secret Store config
-    validateSecretStoreConfig("secretStore", serverConfig.secretStore) ++ (
-
-      //  Validate identityManagers config
-      validateManagerConfig("identityManagers", serverConfig.identityManagers) ++
-
-      //  Validate accessManagers config
-      validateManagerConfig("accessManagers", serverConfig.accessManagers) ++
-
-      //  Validate loginManagers config
-      validateLoginManagerConfig("loginManagers", serverConfig.loginManagers) ++
-
-      //  Validate serviceIdentifiers config
-      validateServiceIdentifierConfig("serviceIdentifiers", serverConfig.serviceIdentifiers) ++
-
-      //  Validate customerIdentifiers config
-      validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers))
-  }
-
-  /**
-   * Reads BorderPatrol configuration from the given filename
-   *
-   * @param filename
-   * @return ServerConfig
-   */
-  def readServerConfig(filename: String): ServerConfig = {
-    /**
-     * Parse the config using `circe`.
-     */
-    decode[ServerConfig](Source.fromFile(filename).mkString) match {
-      /** Validate the parsed config */
-      case Xor.Right(cfg) => validate(cfg) match {
-        case s if s.isEmpty => cfg
-        case s => throw BpConfigError(s.mkString("\n\t", "\n\t", "\n"))
-      }
-      case Xor.Left(err) => {
-        val fields = "CursorOpDownField\\(([A-Za-z]+)\\)".r.findAllIn(err.getMessage).matchData.map(
-          m => m.group(1)).mkString(",")
-        val reason = err.getMessage.reverse.dropWhile(_ != ':').reverse
-        throw BpConfigError(s"${reason}failed to decode following field(s): $fields")
-      }
-    }
-  }
 }
 
 /**
- * A [[com.twitter.app.App]] mixin to use for Configuration. Defines flags
- * to configure the BorderPatrol Server
+ * Trait
  */
-trait Config {self: App =>
-  import Config._
+trait Config {
 
-  // Flag for Secret Store
-  val configFile = flag("configFile", defaultConfigFile,
-    "BorderPatrol config file in JSON format")
+  def loginManagers: Set[LoginManager]
+  def identityManagers: Set[Manager]
+  def accessManagers: Set[Manager]
+  def serviceIdentifiers: Set[ServiceIdentifier]
+  def customerIdentifiers: Set[CustomerIdentifier]
+  def secretStore: SecretStoreApi
+  def sessionStore: SessionStore
+
+  def findIdentityManager(n: String): Manager = identityManagers.find(_.name == n)
+    .getOrElse(throw new BpInvalidConfigError("Failed to find IdentityManager for: " + n))
+
+  def findAccessManager(n: String): Manager = accessManagers.find(_.name == n)
+    .getOrElse(throw new BpInvalidConfigError("Failed to find Manager for: " + n))
+
+  def findLoginManager(n: String): LoginManager = loginManagers.find(_.name == n)
+    .getOrElse(throw new BpInvalidConfigError("Failed to find LoginManager for: " + n))
+
+  def findServiceIdentifier(n: String): ServiceIdentifier = serviceIdentifiers.find(_.name == n)
+    .getOrElse(throw new BpInvalidConfigError("Failed to find ServiceIdentifier for: " + n))
+
 }
 

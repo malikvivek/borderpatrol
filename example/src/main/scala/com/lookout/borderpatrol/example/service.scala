@@ -29,7 +29,7 @@ import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.auth.keymaster.Keymaster._
 import com.lookout.borderpatrol.auth.keymaster._
 import com.lookout.borderpatrol.auth.keymaster.Tokens._
-import com.lookout.borderpatrol.server.{HealthCheckService, ServerConfig}
+import com.lookout.borderpatrol.server.{HealthCheckService, Config}
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.util.Combinators._
 import com.twitter.finagle.stats.StatsReceiver
@@ -65,7 +65,7 @@ object service {
   /**
    * The sole entry point for all service chains
    */
-  def MainServiceChain(implicit config: ServerConfig, statsReceiver: StatsReceiver, registry: HealthCheckRegistry,
+  def MainServiceChain(implicit config: Config, statsReceiver: StatsReceiver, registry: HealthCheckRegistry,
                        secretStore: SecretStoreApi):
       Service[Request, Response] = {
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
@@ -167,7 +167,7 @@ object service {
   }
 
   // Mock Routing service
-  def getMockRoutingService(implicit config: ServerConfig, statsReceiver: StatsReceiver):
+  def getMockRoutingService(implicit config: Config, statsReceiver: StatsReceiver):
   Service[Request, Response] = {
     val checkpoint = config.findServiceIdentifier("checkpoint")
     val keymasterIdManager = config.findIdentityManager("keymaster")
