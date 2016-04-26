@@ -94,7 +94,6 @@ object BorderAuth {
           res.status = Status.Found
           res.location = location
           res.contentType = "text/plain"
-          println(s"***$location")
       }})
   }
 }

@@ -75,8 +75,7 @@ object service {
    * The sole entry point for all service chains
    */
   def MainServiceChain(implicit config: Config, statsReceiver: StatsReceiver, registry: HealthCheckRegistry,
-                       secretStore: SecretStoreApi):
-      Service[Request, Response] = {
+                       secretStore: SecretStoreApi): Service[Request, Response] = {
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
     val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
 
@@ -144,7 +143,7 @@ object service {
   }
 
   //  Mock Login Service
-  def mockLoginService(loginConfirm: Path) = new Service[Request, Response] {
+  def mockLoginService(loginConfirm: Path): Service[Request, Response] = new Service[Request, Response] {
     val loginForm = Buf.Utf8(
       s"""<html><body>
         |<h1>Example Account Service Login</h1>
@@ -182,7 +181,7 @@ object service {
   }
 
   //  Mock Aad authenticate service
-  def mockAadAuthenticateService(redirectUrl: URL) = new Service[Request, Response] {
+  def mockAadAuthenticateService(redirectUrl: URL): Service[Request, Response] = new Service[Request, Response] {
     def apply(request: Request): Future[Response] =
       tap(Response(Status.Found))(res => {
         res.location = redirectUrl.toString + Request.queryString("code" -> "XXYYZZ")
@@ -208,8 +207,8 @@ object service {
   }
 
   // Mock Routing service
-  def getMockRoutingService(implicit config: Config, statsReceiver: StatsReceiver, secretStore: SecretStoreApi):
-  Service[Request, Response] = {
+  def getMockRoutingService(implicit config: Config, statsReceiver: StatsReceiver,
+                            secretStore: SecretStoreApi): Service[Request, Response] = {
     Try {
       val internalLm = config.findLoginManager("internal").asInstanceOf[BasicLoginManager]
       val externalLm = config.findLoginManager("external").asInstanceOf[OAuth2LoginManager]
@@ -228,7 +227,8 @@ object service {
 
         /** *FIXME: Mocking external AAD authentication */
         case path if path.startsWith(externalLm.authorizeEndpoint.path) => mockLoginService(externalPostPath)
-        case externalPostPath => mockAadAuthenticateService(new URL(s"http://api.localhost:8080${externalLm.loginConfirm}"))
+        case externalPostPath =>
+          mockAadAuthenticateService(new URL(s"http://api.localhost:8080${externalLm.loginConfirm}"))
         case path if path.startsWith(externalLm.tokenEndpoint.path) => mockAadTokenService
         case path if path.startsWith(externalLm.certificateEndpoint.path) => mockAadTokenService
 
