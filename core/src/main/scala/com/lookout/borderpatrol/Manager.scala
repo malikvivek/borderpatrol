@@ -13,68 +13,71 @@ import com.twitter.util.Future
  * @param path path to the manager
  * @param hosts endpoints for the manager
  */
-case class Manager(name: String, path: Path, hosts: Set[URL])
+case class Endpoint(name: String, path: Path, hosts: Set[URL])
 
 /**
  * Login Manager defines various collections of the identity manager, access manager and proto manager.
  * The customerIdentifier configuration picks the login manager appropriate for their cloud.
- *
- * @param name name of the login manager
- * @param identityManager identity manager used by the given login manager
- * @param accessManager access manager
- * @param protoManager protocol used by the login manager
  */
-case class LoginManager(name: String, identityManager: Manager, accessManager: Manager,
-                        protoManager: ProtoManager)
-
-/**
- * ProtoManager defines parameters specific to the protocol
- */
-trait ProtoManager {
+trait LoginManager {
   val name: String
+  val ty: String
+  val guid: String
   val loginConfirm: Path
+  val identityEndpoint: Endpoint
+  val accessEndpoint: Endpoint
   def redirectLocation(req: Request): String
 }
 
 /**
  * Internal authentication, that merely redirects user to internal service that does the authentication
  *
- * @param name name of the proto manager
- * @param loginConfirm path intercepted by bordetpatrol and internal authentication service posts
- *                     the authentication response on this path
- * @param authorizePath path of the internal authentication service where client is redirected
+ * @param name name of the login manager
+ * @param guid
+ * @param loginConfirm path owned by borderpatrol. The interal login form POSTs here
+ * @param authorizePath path of the internal login form
+ * @param identityEndpoint endpoint that does identity provisioning for the cloud
+ * @param accessEndpoint endpoint that does access issuing for the cloud
  */
-case class InternalAuthProtoManager(name: String, loginConfirm: Path, authorizePath: Path)
-    extends ProtoManager {
+case class BasicLoginManager(name: String, ty: String, guid: String, loginConfirm: Path, authorizePath: Path,
+                             identityEndpoint: Endpoint, accessEndpoint: Endpoint)
+    extends LoginManager {
   def redirectLocation(req: Request): String = authorizePath.toString
 }
 
 /**
  * OAuth code framework, that redirects user to OAuth2 server.
  *
- * @param name name of the proto manager
- * @param loginConfirm path intercepted by borderpatrol and OAuth2 server posts the oAuth2 code on this path
- * @param authorizeUrl URL of the OAuth2 service where client is redirected for authenticaiton
- * @param tokenUrl URL of the OAuth2 server to convert OAuth2 code to OAuth2 token
- * @param certificateUrl URL of the OAuth2 server to fetch the certificate for verifying token signature
+ * @param name name of the login manager
+ * @param guid
+ * @param loginConfirm path owned by borderpatrol. The OAuth2 server posts the oAuth2 code on this path
+ * @param identityEndpoint endpoint that does identity provisioning for the cloud
+ * @param accessEndpoint endpoint that does access issuing for the cloud
+ * @param authorizeEndpoint External endpoint of the OAuth2 service where client is redirected for authentication
+ * @param tokenEndpoint External endpoint of the OAuth2 server to convert OAuth2 code to OAuth2 token
+ * @param certificateEndpoint External endpoint of the OAuth2 server to fetch the certificate to verify token signature
  * @param clientId Id used for communicating with OAuth2 server
  * @param clientSecret Secret used for communicating with OAuth2 server
  */
-case class OAuth2CodeProtoManager(name: String, loginConfirm: Path, authorizeUrl: URL, tokenUrl: URL,
-                                  certificateUrl: URL, clientId: String, clientSecret: String)
-    extends ProtoManager{
+case class OAuth2LoginManager(name: String, ty: String, guid: String, loginConfirm: Path,
+                              identityEndpoint: Endpoint, accessEndpoint: Endpoint,
+                              authorizeEndpoint: Endpoint, tokenEndpoint: Endpoint, certificateEndpoint: Endpoint,
+                              clientId: String, clientSecret: String)
+    extends LoginManager {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
   def redirectLocation(req: Request): String = {
     val hostStr = req.host.getOrElse(throw new Exception(s"Host not found in HTTP $req"))
     val scheme = req.headerMap.getOrElse("X-Forwarded-Proto", "http")
-    Request.queryString(authorizeUrl.toString, ("response_type", "code"), ("state", "foo"), ("prompt", "login"),
-      ("client_id", clientId), ("redirect_uri", s"$scheme://$hostStr$loginConfirm"))
+    /* Send URL with query string */
+    authorizeEndpoint.hosts.headOption.fold("")(_.toString) +
+    Request.queryString(authorizeEndpoint.path.toString, ("response_type", "code"), ("state", "foo"),
+      ("prompt", "login"), ("client_id", clientId), ("redirect_uri", s"$scheme://$hostStr$loginConfirm"))
   }
   def codeToToken(req: Request): Future[Response] = {
     val hostStr = req.host.getOrElse(throw new Exception(s"Host not found in HTTP $req"))
     val scheme = req.headerMap.getOrElse("X-Forwarded-Proto", "http")
-    val request = util.Combinators.tap(Request(Method.Post, tokenUrl.toString))(re => {
+    val request = util.Combinators.tap(Request(Method.Post, tokenEndpoint.path.toString))(re => {
       re.contentType = "application/x-www-form-urlencoded"
       re.contentString = Request.queryString(("grant_type", "authorization_code"), ("client_id", clientId),
         ("code", Helpers.scrubQueryParams(req.params, "code")
@@ -83,7 +86,7 @@ case class OAuth2CodeProtoManager(name: String, loginConfirm: Path, authorizeUrl
         ("client_secret", clientSecret), ("resource", "00000002-0000-0000-c000-000000000000"))
         .drop(1) /* Drop '?' */
     })
-    log.debug(s"Sending: Request(GET $tokenUrl) to fetch tokens")
-    BinderBase.connect(s"${name}.tokenUrl", Set(tokenUrl), request)
+    log.debug(s"Sending: Request(GET ${tokenEndpoint.path}) to fetch tokens")
+    Binder.connect(tokenEndpoint, request)
   }
 }

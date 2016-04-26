@@ -23,7 +23,6 @@
  */
 package com.lookout.borderpatrol.example
 
-import com.lookout.borderpatrol.Binder.ServiceIdentifierBinder
 import com.lookout.borderpatrol.{HealthCheckRegistry, ServiceMatcher}
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.auth.keymaster.Keymaster._
@@ -49,8 +48,10 @@ object service {
    */
   def identityProviderChainMap(sessionStore: SessionStore)(
     implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
-  Map[String, Service[BorderRequest, Response]] =
-    Map("keymaster" -> keymasterIdentityProviderChain(sessionStore))
+  Map[String, Service[BorderRequest, Response]] = Map(
+    "keymaster.basic" -> keymasterIdentityProviderChain(sessionStore),
+    "keymaster.oauth2" -> keymasterIdentityProviderChain(sessionStore)
+  )
 
   /**
    * Get AccessIssuer map of name -> Service chain
@@ -59,8 +60,10 @@ object service {
    */
   def accessIssuerChainMap(sessionStore: SessionStore)(
     implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
-  Map[String, Service[BorderRequest, Response]] =
-    Map("keymaster" -> keymasterAccessIssuerChain(sessionStore))
+  Map[String, Service[BorderRequest, Response]] = Map(
+    "keymaster.basic" -> keymasterAccessIssuerChain(sessionStore),
+    "keymaster.oauth2" -> keymasterAccessIssuerChain(sessionStore)
+  )
 
   /**
    * The sole entry point for all service chains
@@ -87,13 +90,13 @@ object service {
           /* If authenticated and protected service, send it via Access Issuer chain */
           SendToAccessIssuer(accessIssuerChainMap(config.sessionStore)) andThen
           /* Authenticated or not, send it to unprotected service, if its destined to that */
-          SendToUnprotectedService(ServiceIdentifierBinder, config.sessionStore) andThen
+          SendToUnprotectedService(config.sessionStore) andThen
           /* Not found */
           notFoundService
     }
   }
 
-  //  Mock Keymaster identityManager
+  //  Mock Keymaster identityEndpoint
   val mockKeymasterIdentityService = new Service[Request, Response] {
 
     val userMap: Map[String, String] = Map(
@@ -129,7 +132,7 @@ object service {
   }
 
   //  Mock Login Service
-  val mockCheckpointService = new Service[Request, Response] {
+  val mockLoginService = new Service[Request, Response] {
     val loginForm = Buf.Utf8(
       """<html><body>
         |<h1>Example Account Service Login</h1>
@@ -167,19 +170,18 @@ object service {
   }
 
   // Mock Routing service
-  def getMockRoutingService(implicit config: Config, statsReceiver: StatsReceiver):
+  def getMockRoutingService(implicit config: Config, statsReceiver: StatsReceiver, secretStore: SecretStoreApi):
   Service[Request, Response] = {
-    val checkpoint = config.findServiceIdentifier("checkpoint")
-    val keymasterIdManager = config.findIdentityManager("keymaster")
-    val keymasterAccessManager = config.findAccessManager("keymaster")
+    val login = config.findServiceIdentifier("login")
+    val keymasterIdEndpoint = config.findEndpoint("keymaster-identity-example")
+    val keymasterAccessEndpoint = config.findEndpoint("keymasterEndpoint")
     val logout = config.findServiceIdentifier("logout")
-    implicit val secretStore = config.secretStore
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
 
     RoutingService.byPathObject {
-      case keymasterAccessManager.path => mockKeymasterAccessIssuerService
-      case keymasterIdManager.path => mockKeymasterIdentityService
-      case path if path.startsWith(checkpoint.path) => mockCheckpointService
+      case keymasterAccessEndpoint.path => mockKeymasterAccessIssuerService
+      case keymasterIdEndpoint.path => mockKeymasterIdentityService
+      case path if path.startsWith(login.path) => mockLoginService
       case path if path.startsWith(logout.rewritePath.getOrElse(path)) =>
         ExceptionFilter() andThen /* Convert exceptions to responses */
           CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */

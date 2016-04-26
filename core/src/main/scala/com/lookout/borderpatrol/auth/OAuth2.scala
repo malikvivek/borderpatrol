@@ -10,7 +10,7 @@ import io.circe._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.Encoder
-import com.lookout.borderpatrol.{OAuth2CodeProtoManager, BinderBase}
+import com.lookout.borderpatrol.{OAuth2LoginManager, Binder}
 import com.lookout.borderpatrol.sessionx._
 import com.nimbusds.jose.JWSVerifier
 import com.nimbusds.jose.crypto.{ECDSAVerifier, RSASSAVerifier}
@@ -71,10 +71,10 @@ object OAuth2 {
         node.attributes.exists(_.value.text == "fed:SecurityTokenServiceType"))) \\ "X509Certificate"
     }
 
-    private[this] def downloadAadCerts(protoManager: OAuth2CodeProtoManager, thumbprint: String): Future[String] = {
+    private[this] def downloadAadCerts(loginManager: OAuth2LoginManager, thumbprint: String): Future[String] = {
       //  Fetch the response
-      BinderBase.connect(s"${protoManager.name}.certificateUrl", Set(protoManager.certificateUrl),
-        Request(protoManager.certificateUrl.getPath)).flatMap(res => res.status match {
+      Binder.connect(loginManager.certificateEndpoint,
+        Request(loginManager.certificateEndpoint.path.toString)).flatMap(res => res.status match {
 
         //  Parse for Tokens if Status.Ok
         case Status.Ok => {
@@ -115,16 +115,15 @@ object OAuth2 {
     /**
      * Parse the signed token, download the certificate/public key if necessary and verify the signature
      *
-     * @param protoManager
      * @param tokenStr
      * @return
      */
-    private[this] def getClaimsSet(protoManager: OAuth2CodeProtoManager, tokenStr: String): Future[JWTClaimsSet] = {
+    private[this] def getClaimsSet(loginManager: OAuth2LoginManager, tokenStr: String): Future[JWTClaimsSet] = {
       for {
         signedJWT <- wrapFuture({ () => SignedJWT.parse(tokenStr) }, BpTokenParsingError.apply)
         thumbprint <- wrapFuture({() => signedJWT.getHeader.getX509CertThumbprint }, BpTokenParsingError.apply)
         certStr <- find(thumbprint.toString).fold(downloadAadCerts(
-          protoManager, thumbprint.toString))(Future.value(_))
+          loginManager, thumbprint.toString))(Future.value(_))
         cert <- wrapFuture({ () => X509CertUtils.parse(DatatypeConverter.parseBase64Binary(certStr)) },
           BpCertificateError.apply)
       } yield signedJWT.verify(verifier(cert.getPublicKey)) match {
@@ -140,12 +139,11 @@ object OAuth2 {
      * Download the AAD tokens, have the Access Token verified and return it to callers
      *
      * @param req
-     * @param protoManager
      * @return
      */
-    def codeToClaimsSet(req: BorderRequest, protoManager: OAuth2CodeProtoManager): Future[JWTClaimsSet] = {
+    def codeToClaimsSet(req: BorderRequest, loginManager: OAuth2LoginManager): Future[JWTClaimsSet] = {
       for {
-        aadToken <- protoManager.codeToToken(req.req).flatMap(res => res.status match {
+        aadToken <- loginManager.codeToToken(req.req).flatMap(res => res.status match {
           //  Parse for Tokens if Status.Ok
           case Status.Ok =>
             OAuth2.derive[AadToken](res.contentString).fold[Future[AadToken]](
@@ -157,7 +155,7 @@ object OAuth2 {
             s"Failed to receive the token from OAuth2 Server: ${req.customerId.loginManager.name}"))
         })
         idClaimSet <- wrapFuture({() => PlainJWT.parse(aadToken.idToken).getJWTClaimsSet}, BpTokenParsingError.apply)
-        accessClaimSet <- getClaimsSet(protoManager, aadToken.accessToken)
+        accessClaimSet <- getClaimsSet(loginManager, aadToken.accessToken)
       } yield accessClaimSet
     }
   }

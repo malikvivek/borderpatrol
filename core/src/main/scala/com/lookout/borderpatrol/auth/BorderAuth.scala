@@ -1,10 +1,10 @@
 package com.lookout.borderpatrol.auth
 
-import com.lookout.borderpatrol.Binder.{BindRequest, MBinder}
+import com.lookout.borderpatrol.{ServiceMatcher, ServiceIdentifier, CustomerIdentifier}
+import com.lookout.borderpatrol.{Binder, BpCoreError}
 import com.lookout.borderpatrol.util.Combinators._
 import com.lookout.borderpatrol.errors.{BpBorderError, BpNotFoundRequest}
 import com.lookout.borderpatrol.util.Helpers
-import com.lookout.borderpatrol.{BpCoreError, CustomerIdentifier, ServiceIdentifier, ServiceMatcher}
 import com.lookout.borderpatrol.sessionx._
 import com.twitter.finagle.http.path.{Root, Path}
 import com.twitter.finagle.http._
@@ -170,11 +170,10 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
   def sendToIdentityProvider(req: BorderRequest): Future[Response] = {
     log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
       s"to identity provider chain for service: ${req.serviceId.name}")
-    identityProviderMap.get(req.customerId.loginManager.identityManager.name) match {
+    identityProviderMap.get(req.customerId.loginManager.ty) match {
       case Some(ip) => statIdentityProvider.incr(); ip(req)
       case None => Future.exception(BpIdentityProviderError(Status.NotFound,
-        "Failed to find IdentityProvider Service Chain for " +
-        req.customerId.loginManager.identityManager.name))
+        s"Failed to find IdentityProvider Service Chain for loginManager type: ${req.customerId.loginManager.ty}"))
     }
   }
 
@@ -183,7 +182,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
    */
   def redirectToLogin(req: SessionIdRequest, sessionIdOpt: Option[SignedId]): Future[Response] = {
     for {
-      location <- req.customerId.loginManager.protoManager.redirectLocation(req.req).toFuture
+      location <- req.customerId.loginManager.redirectLocation(req.req).toFuture
       sessionId <- sessionIdOpt match {
         case Some(sessionId) => sessionId.toFuture
         case None =>
@@ -206,7 +205,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
 
       /* 1. loginConfirm path w/ untagged SessionId, dispatch to Identity Provider chain */
       case (Some(Untagged), _)
-        if Path(req.req.path).startsWith(req.customerId.loginManager.protoManager.loginConfirm) => {
+        if Path(req.req.path).startsWith(req.customerId.loginManager.loginConfirm) => {
         sendToIdentityProvider(BorderRequest(req, req.customerId.defaultServiceId, req.sessionIdOpt.get))
       }
 
@@ -215,7 +214,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
        *    It creates default request on the fly and for location it uses defaultServiceId or destination param
        */
       case (None, _)
-        if Path(req.req.path).startsWith(req.customerId.loginManager.protoManager.loginConfirm) => {
+        if Path(req.req.path).startsWith(req.customerId.loginManager.loginConfirm) => {
         val location = Helpers.scrubQueryParams(req.req.params, "destination")
           .getOrElse(req.customerId.defaultServiceId.path.toString)
         for {
@@ -247,7 +246,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
 /**
  * Send the request on AccessIssuer chain
  *
- * This filter only deals with Authneticated SessionIds or forwards it to next filter
+ * This filter only deals with Authenticated SessionIds or forwards it to next filter
  *
  * @param accessIssuerMap
  */
@@ -260,10 +259,10 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
   def sendToAccessIssuer(req: BorderRequest): Future[Response] = {
     log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
       s"to access issuer chain for service: ${req.serviceId.name}")
-    accessIssuerMap.get(req.customerId.loginManager.accessManager.name) match {
+    accessIssuerMap.get(req.customerId.loginManager.ty) match {
       case Some(ip) => statAccessIssuer.incr(); ip(req)
       case None => Future.exception(BpAccessIssuerError(Status.NotFound,
-        s"Failed to find AccessIssuer Service Chain for ${req.customerId.loginManager.accessManager.name}"))
+        s"Failed to find AccessIssuer Service Chain for loginManager type: ${req.customerId.loginManager.ty}"))
     }
   }
 
@@ -293,18 +292,17 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
  * This filter only deals with the Request has SessionId (Authenticate or Untagged) and destined to unprotected
  * Service. Everything else is forwarded to the next filter in the chain.
  *
- * @param serviceBinder
  * @param store
  * @param secretStore
  * @param statsReceiver
  */
-case class SendToUnprotectedService(serviceBinder: MBinder[ServiceIdentifier], store: SessionStore)(
-  implicit secretStore: SecretStoreApi, statsReceiver: StatsReceiver)
+case class SendToUnprotectedService(store: SessionStore)
+                                   (implicit secretStore: SecretStoreApi, statsReceiver: StatsReceiver)
     extends SimpleFilter[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val statRequestSends = statsReceiver.counter("req.unprotected.upstream.service.forwards")
   private[this] val unprotectedServiceChain = RewriteFilter() andThen Service.mk[BorderRequest, Response] {
-    br => serviceBinder(BindRequest(br.serviceId, br.req)) }
+    br => Binder.connect(br.serviceId.endpoint, br.req) }
 
   def sendToUnprotectedService(req: BorderRequest): Future[Response] = {
     statRequestSends.incr
@@ -386,7 +384,7 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(
         session <- Session(req.req)
         _ <- store.update(session)
       } yield {
-        val location = req.customerId.loginManager.protoManager.redirectLocation(req.req)
+        val location = req.customerId.loginManager.redirectLocation(req.req)
         BorderAuth.formatRedirectResponse(req.req, Status.Unauthorized, location, Some(session.id),
           s"Failed to find Session: ${req.sessionId.toLogIdString} for: ${req.req}, " +
             s"allocating a new session: ${session.id.toLogIdString}, redirecting to location: ${location}")
@@ -398,9 +396,8 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(
 /**
  * This filter acquires the access and then forwards the request to upstream service
  *
- * @param binder It binds to the upstream service endpoint using the info passed in ServiceIdentifier
  */
-case class AccessFilter[A, B](binder: MBinder[ServiceIdentifier])(implicit statsReceiver: StatsReceiver)
+case class AccessFilter[A, B](implicit statsReceiver: StatsReceiver)
     extends Filter[AccessIdRequest[A], Response, AccessRequest[A], AccessResponse[B]] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val statRequestSends = statsReceiver.counter("req.upstream.service.request.forwards")
@@ -409,14 +406,14 @@ case class AccessFilter[A, B](binder: MBinder[ServiceIdentifier])(implicit stats
             accessService: Service[AccessRequest[A], AccessResponse[B]]): Future[Response] = {
     for {
       accessResp <- accessService(AccessRequest(req.id, req.customerId, req.serviceId, req.sessionId))
-      resp <- binder(BindRequest(req.serviceId,
-        tap(req.req) { r => {
+      resp <- Binder.connect(req.serviceId.endpoint,
+        tap(req.req) { r =>
           statRequestSends.incr
           log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
             s"to the protected upstream service: ${req.serviceId.name}")
           r.headerMap.add("Auth-Token", accessResp.access.access.toString)
-        }}
-      ))
+        }
+      )
     } yield resp
   }
 }

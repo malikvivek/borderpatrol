@@ -3,11 +3,12 @@ package com.lookout.borderpatrol.sessionx
 import java.net.URL
 import javax.xml.bind.DatatypeConverter
 
-import com.lookout.borderpatrol.BinderBase
+import com.lookout.borderpatrol.Binder
 import com.lookout.borderpatrol.sessionx.SecretStores._
 import com.lookout.borderpatrol.sessionx.ConsulResponse._
 import com.lookout.borderpatrol.test._
 import com.lookout.borderpatrol.util.Combinators.tap
+import com.twitter.finagle.Service
 import com.twitter.finagle.http.service.RoutingService
 import com.twitter.finagle.http.{Method, Status, Response, Request}
 import com.twitter.util.Await
@@ -24,7 +25,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
       super.afterEach() // To be stackable, must call super.afterEach
     }
     finally {
-      BinderBase.clear
+      Binder.clear
     }
   }
 
@@ -93,7 +94,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
     val server = com.twitter.finagle.Http.serve(
       "localhost:6789",
       RoutingService.byMethodAndPath {
-        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+        case (Method.Get, _) => Service.mk[Request, Response]{ req =>
           if (serverModifyIndex == 0) {
             // Step-1 GET
             serverModifyIndex = 1
@@ -106,7 +107,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
             fail("Step-3 GET should be skipped")
           }
         }
-        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+        case (Method.Put, _) => Service.mk[Request, Response] { req =>
           // Step-2 PUT
           fail("Step-2 PUT should be skipped")
         }
@@ -135,7 +136,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
     val server = com.twitter.finagle.Http.serve(
       "localhost:6789",
       RoutingService.byMethodAndPath {
-        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+        case (Method.Get, _) => Service.mk[Request, Response]{ req =>
           if (serverModifyIndex == 0) {
             // Step-1 GET
             serverModifyIndex = 1
@@ -149,7 +150,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
             fail("Step-3 GET should be skipped")
           }
         }
-        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+        case (Method.Put, _) => Service.mk[Request, Response] { req =>
           // Step-2 PUT
           tap(Response(Status.Ok))(res => {
             res.contentString = "true"
@@ -179,7 +180,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
     val server = com.twitter.finagle.Http.serve(
       "localhost:6789",
       RoutingService.byMethodAndPath {
-        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+        case (Method.Get, _) => Service.mk[Request, Response]{ req =>
           if (serverModifyIndex == 0) {
             // Step-1 GET
             serverModifyIndex = 1
@@ -190,7 +191,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
             fail("Step-3 GET should be skipped")
           }
         }
-        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+        case (Method.Put, _) => Service.mk[Request, Response] { req =>
           // Step-2 PUT
           tap(Response(Status.Ok))(res => {
             res.contentString = "true"
@@ -220,7 +221,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
     val server = com.twitter.finagle.Http.serve(
       "localhost:6789",
       RoutingService.byMethodAndPath {
-        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+        case (Method.Get, _) => Service.mk[Request, Response]{ req =>
           if (serverModifyIndex == 0) {
             // Step-1 GET
             serverModifyIndex = 1
@@ -234,7 +235,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
             }).toFuture
           }
         }
-        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+        case (Method.Put, _) => Service.mk[Request, Response] { req =>
           // Step-2 PUT
           tap(Response(Status.Ok))(res => {
             res.contentString = "false"
@@ -267,7 +268,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
     val server = com.twitter.finagle.Http.serve(
       "localhost:6789",
       RoutingService.byMethodAndPath {
-        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+        case (Method.Get, _) => Service.mk[Request, Response]{ req =>
           if (serverModifyIndex == 0) {
             // Step-1 GET
             serverModifyIndex = 1
@@ -281,7 +282,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
             fail("Step-3 GET should be skipped")
           }
         }
-        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+        case (Method.Put, _) => Service.mk[Request, Response] { req =>
           // Step-2 PUT
           fail("Step-2 PUT should be skipped")
         }
@@ -311,7 +312,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
     val server = com.twitter.finagle.Http.serve(
       "localhost:6789",
       RoutingService.byMethodAndPath {
-        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+        case (Method.Get, _) => Service.mk[Request, Response]{ req =>
           if (serverModifyIndex == 0) {
             // Step-1 GET
             serverModifyIndex = 1
@@ -322,7 +323,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
             fail("Step-3 GET should be skipped")
           }
         }
-        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+        case (Method.Put, _) => Service.mk[Request, Response] { req =>
           // Step-2 PUT
           fail("Step-2 PUT should be skipped")
         }
@@ -353,7 +354,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
     val server = com.twitter.finagle.Http.serve(
       "localhost:6789",
       RoutingService.byMethodAndPath {
-        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+        case (Method.Get, _) => Service.mk[Request, Response]{ req =>
           if (serverModifyIndex == 0) {
             // Step-1 GET
             serverModifyIndex = 1
@@ -364,7 +365,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
             fail("Step-3 GET should be skipped")
           }
         }
-        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+        case (Method.Put, _) => Service.mk[Request, Response] { req =>
           // Step-2 PUT
           Response(Status.NotFound).toFuture
         }
@@ -392,7 +393,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
     val server = com.twitter.finagle.Http.serve(
       "localhost:6789",
       RoutingService.byMethodAndPath {
-        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+        case (Method.Get, _) => Service.mk[Request, Response]{ req =>
           if (serverModifyIndex == 0) {
             // Step-1 GET
             serverModifyIndex = 1
@@ -406,7 +407,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
             }).toFuture
           }
         }
-        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+        case (Method.Put, _) => Service.mk[Request, Response] { req =>
           // Step-2 PUT
           tap(Response(Status.Ok))(res => {
             res.contentString = "false"
@@ -439,7 +440,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
     val server = com.twitter.finagle.Http.serve(
       "localhost:6789",
       RoutingService.byMethodAndPath {
-        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+        case (Method.Get, _) => Service.mk[Request, Response]{ req =>
           if (serverModifyIndex == 0) {
             // Step-1 GET
             serverModifyIndex = 1
@@ -453,7 +454,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
             }).toFuture
           }
         }
-        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+        case (Method.Put, _) => Service.mk[Request, Response] { req =>
           // Step-2 PUT
           tap(Response(Status.Ok))(res => {
             res.contentString = "false"
@@ -485,13 +486,13 @@ class SecretStoresSpec extends BorderPatrolSuite {
     val server = com.twitter.finagle.Http.serve(
       "localhost:6789",
       RoutingService.byMethodAndPath {
-        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+        case (Method.Get, _) => Service.mk[Request, Response]{ req =>
           tap(Response(Status.Ok))(res => {
             res.contentString = Set(consulResponse).asJson.toString
             res.contentType = "application/json"
           }).toFuture
         }
-        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+        case (Method.Put, _) => Service.mk[Request, Response] { req =>
           // Step-2 PUT
           fail("Step-2 PUT should be skipped")
         }
@@ -524,11 +525,11 @@ class SecretStoresSpec extends BorderPatrolSuite {
     val server = com.twitter.finagle.Http.serve(
       "localhost:6789",
       RoutingService.byMethodAndPath {
-        case (Method.Get, _) => mkTestService[Request, Response]{ req =>
+        case (Method.Get, _) => Service.mk[Request, Response]{ req =>
           // Step-11 GET
           Response(Status.NotFound).toFuture
         }
-        case (Method.Put, _) => mkTestService[Request, Response] { req =>
+        case (Method.Put, _) => Service.mk[Request, Response] { req =>
           // Step-2 PUT
           fail("Step-2 PUT should be skipped")
         }

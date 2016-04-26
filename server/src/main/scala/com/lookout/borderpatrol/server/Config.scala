@@ -70,76 +70,82 @@ object Config {
   }
 
   /**
-   * Encoder/Decoder for protoManager
-   *
-   * Note that Decoder for protoManager does not work standalone, it can be only used
-   * while decoding the entire Config due to dependency issues
-   */
-  implicit val encodeProtoManager: Encoder[ProtoManager] = Encoder.instance {
-    case bpm: InternalAuthProtoManager => Json.fromFields(Seq(
-      ("type", Json.string("Internal")),
-      ("loginConfirm", bpm.loginConfirm.asJson),
-      ("authorizePath", bpm.authorizePath.asJson)))
-    case opm: OAuth2CodeProtoManager => Json.fromFields(Seq(
-      ("type", Json.string("OAuth2Code")),
-      ("loginConfirm", opm.loginConfirm.asJson),
-      ("authorizeUrl", opm.authorizeUrl.asJson),
-      ("tokenUrl", opm.tokenUrl.asJson),
-      ("certificateUrl", opm.certificateUrl.asJson),
-      ("clientId", opm.clientId.asJson),
-      ("clientSecret", opm.clientSecret.asJson)))
-  }
-  implicit def decodeProtoManager(name: String): Decoder[ProtoManager] = Decoder.instance { c =>
-    c.downField("type").as[String].flatMap {
-      case "Internal" =>
-        for {
-          loginConfirm <- c.downField("loginConfirm").as[Path]
-          authorizePath <- c.downField("authorizePath").as[Path]
-        } yield InternalAuthProtoManager(name, loginConfirm, authorizePath)
-      case "OAuth2Code" =>
-        for {
-          loginConfirm <- c.downField("loginConfirm").as[Path]
-          authorizeUrl <- c.downField("authorizeUrl").as[URL]
-          tokenUrl <- c.downField("tokenUrl").as[URL]
-          certificateUrl <- c.downField("certificateUrl").as[URL]
-          clientId <- c.downField("clientId").as[String]
-          clientSecret <- c.downField("clientSecret").as[String]
-        } yield OAuth2CodeProtoManager(name, loginConfirm, authorizeUrl, tokenUrl, certificateUrl,
-            clientId, clientSecret)
-    }
-  }
-
-  /**
    * Encoder/Decoder for LoginManager
    *
    * Note that Decoder for LoginManager does not work standalone, it can be only used
    * while decoding the entire Config due to dependency issues
    */
-  implicit val encodeLoginManager: Encoder[LoginManager] = Encoder.instance { lm =>
+  implicit val encodeLoginManager: Encoder[LoginManager] = Encoder.instance {
+    case blm: BasicLoginManager => blm.asJson
+    case olm: OAuth2LoginManager => olm.asJson
+  }
+  implicit val encodeBasicLoginManager: Encoder[BasicLoginManager] = Encoder.instance { blm =>
     Json.fromFields(Seq(
-      ("name", lm.name.asJson),
-      ("identityManager", lm.identityManager.name.asJson),
-      ("accessManager", lm.accessManager.name.asJson),
-      ("proto", lm.protoManager.asJson)))
+      ("name", blm.name.asJson),
+      ("type", blm.ty.asJson),
+      ("guid", blm.guid.asJson),
+      ("loginConfirm", blm.loginConfirm.asJson),
+      ("authorizePath", blm.authorizePath.asJson),
+      ("identityEndpoint", blm.identityEndpoint.name.asJson),
+      ("accessEndpoint", blm.accessEndpoint.name.asJson)
+    ))
+  }
+  implicit val encodeOAuth2LoginManager: Encoder[OAuth2LoginManager] = Encoder.instance { olm =>
+    Json.fromFields(Seq(
+      ("name", olm.name.asJson),
+      ("type", olm.ty.asJson),
+      ("guid", olm.guid.asJson),
+      ("loginConfirm", olm.loginConfirm.asJson),
+      ("identityEndpoint", olm.identityEndpoint.name.asJson),
+      ("accessEndpoint", olm.accessEndpoint.name.asJson),
+      ("authorizeEndpoint", olm.authorizeEndpoint.name.asJson),
+      ("tokenEndpoint", olm.tokenEndpoint.name.asJson),
+      ("certificateEndpoint", olm.certificateEndpoint.name.asJson),
+      ("clientId", olm.clientId.asJson),
+      ("clientSecret", olm.clientSecret.asJson)
+    ))
+  }
+  def decodeLoginManager(eps: Map[String, Endpoint]): Decoder[LoginManager] = Decoder.instance { c =>
+    c.downField("type").as[String].flatMap {
+      case "keymaster.basic" => decodeBasicLoginManager(eps).apply(c)
+      case "keymaster.oauth2" => decodeOAuth2LoginManager(eps).apply(c)
+    }
+  }
+  def decodeBasicLoginManager(eps: Map[String, Endpoint]): Decoder[BasicLoginManager] = Decoder.instance { c =>
+    for {
+      name <- c.downField("name").as[String]
+      guid <- c.downField("guid").as[String]
+      loginConfirm <- c.downField("loginConfirm").as[Path]
+      authorizePath <- c.downField("authorizePath").as[Path]
+      ieName <- c.downField("identityEndpoint").as[String]
+      ie <- Xor.fromOption(eps.get(ieName), DecodingFailure(s"identityEndpoint '$ieName' not found: ", c.history))
+      aeName <- c.downField("accessEndpoint").as[String]
+      ae <- Xor.fromOption(eps.get(aeName), DecodingFailure(s"accessEndpoint '$aeName' not found: ", c.history))
+    } yield BasicLoginManager(name, "keymaster.basic", guid, loginConfirm, authorizePath, ie, ae)
+  }
+  def decodeOAuth2LoginManager(eps: Map[String, Endpoint]): Decoder[OAuth2LoginManager] = Decoder.instance { c =>
+    for {
+      name <- c.downField("name").as[String]
+      guid <- c.downField("guid").as[String]
+      loginConfirm <- c.downField("loginConfirm").as[Path]
+      ieName <- c.downField("identityEndpoint").as[String]
+      ie <- Xor.fromOption(eps.get(ieName), DecodingFailure(s"identityEndpoint '$ieName' not found: ", c.history))
+      aeName <- c.downField("accessEndpoint").as[String]
+      ae <- Xor.fromOption(eps.get(aeName), DecodingFailure(s"accessEndpoint '$aeName' not found: ", c.history))
+      auName <- c.downField("authorizeEndpoint").as[String]
+      au <- Xor.fromOption(eps.get(auName), DecodingFailure(s"authorizeEndpoint '$auName' not found: ", c.history))
+      teName <- c.downField("tokenEndpoint").as[String]
+      te <- Xor.fromOption(eps.get(teName), DecodingFailure(s"tokenEndpoint '$teName' not found: ", c.history))
+      ceName <- c.downField("certificateEndpoint").as[String]
+      ce <- Xor.fromOption(eps.get(ceName),
+        DecodingFailure(s"certificateEndpoint '$ceName' not found: ", c.history))
+      clientId <- c.downField("clientId").as[String]
+      clientSecret <- c.downField("clientSecret").as[String]
+    } yield OAuth2LoginManager(name, "keymaster.oauth2", guid, loginConfirm, ie, ae, au, te, ce,
+      clientId, clientSecret)
   }
 
-  def decodeLoginManager(ims: Map[String, Manager], ams: Map[String, Manager]):
-      Decoder[LoginManager] =
-    Decoder.instance { c =>
-      for {
-        name <- c.downField("name").as[String]
-        ipName <- c.downField("identityManager").as[String]
-        im <- Xor.fromOption(ims.get(ipName),
-          DecodingFailure(s"""IdentityManager "$ipName" not found: """, c.history))
-        apName <- c.downField("accessManager").as[String]
-        am <- Xor.fromOption(ams.get(apName),
-          DecodingFailure(s"""AccessManager "$apName" not found: """, c.  history)
-        )
-        pm <- c.downField("proto").as(decodeProtoManager(name + "ProtoManager"))//[ProtoManager]
-      } yield LoginManager(name, im, am, pm)
-    }
-
-  // Encoder/Decoder for ServiceIdentifier
+    // Encoder/Decoder for ServiceIdentifier
   implicit val encodeServiceIdentifier: Encoder[ServiceIdentifier] = Encoder.instance { sid =>
     Json.fromFields(Seq(
       ("name", sid.name.asJson),
@@ -163,6 +169,7 @@ object Config {
   implicit val encodeCustomerIdentifier: Encoder[CustomerIdentifier] = Encoder.instance { cid =>
     Json.fromFields(Seq(
       ("subdomain", cid.subdomain.asJson),
+      ("guid", cid.guid.asJson),
       ("defaultServiceIdentifier", cid.defaultServiceId.name.asJson),
       ("loginManager", cid.loginManager.name.asJson)))
   }
@@ -171,15 +178,16 @@ object Config {
     Decoder.instance { c =>
       for {
         subdomain <- c.downField("subdomain").as[String]
+        guid <- c.downField("guid").as[String]
         sidName <- c.downField("defaultServiceIdentifier").as[String]
         sid <- Xor.fromOption(sids.get(sidName),
-          DecodingFailure(s"""ServiceIdentifier "$sidName" not found: """, c.history)
+          DecodingFailure(s"ServiceIdentifier '$sidName' not found: ", c.history)
         )
         lmName <- c.downField("loginManager").as[String]
         lm <- Xor.fromOption(lms.get(lmName),
-          DecodingFailure(s"""LoginManager "$lmName" not found: """, c.history)
+          DecodingFailure(s"LoginManager '$lmName' not found: ", c.history)
         )
-      } yield CustomerIdentifier(subdomain, sid, lm)
+      } yield CustomerIdentifier(subdomain, guid, sid, lm)
     }
 
   /**
@@ -217,18 +225,18 @@ object Config {
   }
 
   /**
-   * Validate Manager configuration
+   * Validate Endpoint configuration
    * @param field
-   * @param managers
+   * @param endpoints
    * @return set of all the errors encountered during validation
    */
-  def validateManagerConfig(field: String, managers: Set[Manager]): Set[String] = {
-    // Find if managers have duplicate entries
-    (cond(managers.size > managers.map(m => m.name).size,
+  def validateEndpointConfig(field: String, endpoints: Set[Endpoint]): Set[String] = {
+    // Find if endpoints have duplicate entries
+    (cond(endpoints.size > endpoints.map(m => m.name).size,
       s"Duplicate entries for key (name) are found in the field: ${field}") ++
 
-    // Make sure hosts in Manager have http or https protocol
-    managers.map(m => validateHostsConfig(field, m.name, m.hosts)).flatten)
+    // Make sure hosts in Endpoint have http or https protocol
+    endpoints.map(m => validateHostsConfig(field, m.name, m.hosts)).flatten)
   }
 
   /**
@@ -282,24 +290,19 @@ object Config {
 trait Config {
 
   def loginManagers: Set[LoginManager]
-  def identityManagers: Set[Manager]
-  def accessManagers: Set[Manager]
+  def endpoints: Set[Endpoint]
   def serviceIdentifiers: Set[ServiceIdentifier]
   def customerIdentifiers: Set[CustomerIdentifier]
   def secretStore: SecretStoreApi
   def sessionStore: SessionStore
 
-  def findIdentityManager(n: String): Manager = identityManagers.find(_.name == n)
-    .getOrElse(throw new BpInvalidConfigError("Failed to find IdentityManager for: " + n))
-
-  def findAccessManager(n: String): Manager = accessManagers.find(_.name == n)
-    .getOrElse(throw new BpInvalidConfigError("Failed to find Manager for: " + n))
+  def findEndpoint(n: String): Endpoint = endpoints.find(_.name == n)
+    .getOrElse(throw new BpInvalidConfigError(s"Failed to find endpoint for: $n"))
 
   def findLoginManager(n: String): LoginManager = loginManagers.find(_.name == n)
     .getOrElse(throw new BpInvalidConfigError("Failed to find LoginManager for: " + n))
 
   def findServiceIdentifier(n: String): ServiceIdentifier = serviceIdentifiers.find(_.name == n)
     .getOrElse(throw new BpInvalidConfigError("Failed to find ServiceIdentifier for: " + n))
-
 }
 

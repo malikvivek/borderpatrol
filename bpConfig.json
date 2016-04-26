@@ -1,84 +1,92 @@
 {
-  "listeningPort": "9090",
+  "listeningPort": "8080",
   "statsdReporter": {
      "host": "localhost:8125",
      "durationInSec": 60,
      "prefix": "bp"
   },
-  "healthCheckUrls": [
-    {
-      "name": "keymaster",
-      "url": "http://localhost:8081/health"
-    }
-  ],
-  "accessManagers": [
-    {
-      "hosts": ["http://localhost:8081"],
-      "path": "/accessIssuer",
-      "name": "keymaster"
-    }
-  ],
   "sessionStore": {
     "type": "InMemoryStore"
   },
-  "loginManagers": [
+  "secretStore": {
+    "type": "InMemorySecretStore"
+  },
+  "endpoints": [
     {
-      "name": "checkpoint",
-      "identityManager": "keymaster",
-      "accessManager": "keymaster",
-      "proto": {
-        "type": "Internal",
-        "loginConfirm": "/z/login",
-        "authorizePath": "/z"
-      }
+      "name": "keymaster-identity-example",
+      "hosts": ["http://localhost:8081"],
+      "path": "/identityProvider"
     },
     {
-      "name": "dilli",
-      "identityManager": "keymaster",
-      "accessManager": "keymaster",
-      "proto": {
-        "type": "OAuth2Code",
-        "loginConfirm": "/signin",
-        "authorizeUrl": "https://login.zoo.com:443/common/oauth2/authorize",
-        "tokenUrl": "https://login.zoo.com:443/common/oauth2/token",
-        "certificateUrl": "https://login.zoo.com:443/common/certificate",
-        "clientId": "MySecretClientId",
-        "clientSecret": "MySecretClientSecret"
-      }
+      "name": "keymaster-access-example",
+      "hosts": ["http://localhost:8081"],
+      "path": "/accessIssuer"
+    },
+    {
+      "name": "keymaster-health-check-example",
+      "hosts": ["http://localhost:8081"],
+      "path": "/health"
+    },
+    {
+      "name": "aad-authorize-example",
+      "hosts": ["http://localhost:8081"],
+      "path": "/common/oauth2/authorize"
+    },
+    {
+      "name": "aad-token-example",
+      "hosts": ["http://localhost:8081"],
+      "path": "/common/oauth2/token"
+    },
+    {
+      "name": "aad-certificate-example",
+      "hosts": ["http://localhost:8081"],
+      "path": "/common/certificate"
     }
   ],
-  "secretStore": {
-    "type": "ConsulSecretStore",
-    "hosts": ["http://localhost:8500"],
-    "key": "BpSecrets"
-  },
-  "identityManagers": [
+  "loginManagers": [
     {
-      "hosts": ["http://localhost:8081"],
-      "path": "/identityManager",
-      "name": "keymaster"
+      "name": "internal",
+      "type": "keymaster.basic",
+      "guid": "1111-1111-11111111",
+      "loginConfirm": "/z/login",
+      "authorizePath": "/z",
+      "identityEndpoint": "keymaster-identity-example",
+      "accessEndpoint": "keymaster-access-example"
+    },
+    {
+      "name": "external",
+      "type": "keymaster.oauth2",
+      "guid": "1111-1111-22222222",
+      "loginConfirm": "/signin",
+      "identityEndpoint": "keymaster-identity-example",
+      "accessEndpoint": "keymaster-access-example",
+      "authorizeEndpoint": "aad-authorize-example",
+      "tokenEndpoint": "aad-token-example",
+      "certificateEndpoint": "aad-certificate-example",
+      "clientId": "MySecretClientId",
+      "clientSecret": "MySecretClientSecret"
     }
   ],
   "serviceIdentifiers": [
     {
-      "hosts": ["http://localhost:8081"],
+      "hosts": ["http://localhost:9091"],
       "path": "/serv",
       "name": "one"
     },
     {
-      "hosts": ["http://localhost:8081"],
+      "hosts": ["http://localhost:9091"],
       "path": "/top",
       "rewritePath": "/internal/top",
       "name": "two"
     },
     {
-      "hosts": ["http://localhost:8081"],
+      "hosts": ["http://localhost:9091"],
       "path": "/z",
       "protected": false,
-      "name": "checkpoint"
+      "name": "login"
     },
     {
-      "hosts": ["http://localhost:8081"],
+      "hosts": ["http://localhost:9091"],
       "path": "/logout",
       "rewritePath": "/signout",
       "protected": false,
@@ -87,14 +95,19 @@
   ],
   "customerIdentifiers": [
     {
-      "loginManager": "checkpoint",
       "subdomain": "ent",
+      "guid": "2222-1111-11111111",
+      "loginManager": "internal",
       "defaultServiceIdentifier": "one"
     },
     {
-      "loginManager": "dilli",
       "subdomain": "api",
+      "guid": "2222-1111-22222222",
+      "loginManager": "external",
       "defaultServiceIdentifier": "two"
     }
+  ],
+  "healthCheckEndpoints": [
+    "keymaster-health-check-example"
   ]
 }
