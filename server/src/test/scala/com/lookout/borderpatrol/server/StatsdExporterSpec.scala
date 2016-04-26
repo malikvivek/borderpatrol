@@ -17,9 +17,8 @@ class StatsdExporterSpec extends BorderPatrolSuite {
   private[this] val server = DatagramChannel.open().bind(addr)
   server.configureBlocking(false)
   private[this] val host = s"localhost:$port"
-
-  // StatdExporter
-  val defaultStatsdExporterConfig = StatsdExporterConfig(host, 300, "prefix")
+  private[this] val durationInSec = 300
+  private[this] val prefix = "prefix"
 
   private[this] def receiveStat: Option[String] = {
     val buf1 = ByteBuffer.allocateDirect(65536)
@@ -38,7 +37,7 @@ class StatsdExporterSpec extends BorderPatrolSuite {
   behavior of "StatsdExporter"
 
   it should "instantiate with StatsExporterConfig" in {
-    val exporter = StatsdExporter(defaultStatsdExporterConfig)
+    val exporter = new StatsdExporter(host, durationInSec, prefix)
     exporter.report()
     exporter.timer.stop()
   }

@@ -20,12 +20,12 @@ Border Patrol Concepts
 
  * The Border Patrol fronts all services (configured using `ServiceIdentifier`) in a Cloud.
  * The Cloud is identified by one or more subdomains (configured using `CustomerIdentifier`)
- * The Cloud has an identity `manager` (for authentication) and access `manager` (for authorization).
- * The identity manager, access manager, subdomains and default service forms the policy, which is defined using
+ * The Cloud, typically, has an identity `endpoint` (for authentication) and access `endpoint` (for authorization).
+ * The identity endpoint, access endpoint, subdomains and default service forms the policy, which is defined using
 `LoginManager`.
  * When a HTTP request with URL `<http[s]>://<subdomain>:[port]/<path-prefix>` hits BorderPatrol:
-   * Looks up the CustomerIdentifier using subdomain prefix. It returns 404, if no match is found.
-   * Looks up the ServiceIdentifier using path prefix. In the absence of any path, the request is
+   * It looks up the CustomerIdentifier using subdomain prefix. It returns 404, if no match is found.
+   * It looks up the ServiceIdentifier using path prefix. In the absence of any path (i.e. Root), the request is
 redirected to the default service.
 
 Border Patrol Components:
@@ -35,18 +35,29 @@ Border Patrol Components:
    * A service can be configured as protected (default) or unprotected.
    * Once authenticated, the user has access to all the protected services in the Cloud
    * The user (authenticated or not) has access to all the unprotected services in the Cloud
-   * A service identifier is comprised of a "unique" `/path` located on an upstream `[hosts]` in the Cloud
- * Identity Manager:
-   * If external authentication (e.g. OAuth2) is used, then identity manager provisions the user in Cloud.
-   * `keymaster` is a currently supported identity manager. It sends user credentials to an authentication service
-in the Cloud. The authentication service responds with a Master Token.
-   * The identity manager caches the Master Token in the Session.
-   * The implementation is modular and new managers can easily be added
- * Access Manager:
-   * `keymaster` is a currently supported access manager. It sends service name and Master Token to an authorization
-service in the Cloud. The authorization service responds with a Service Token.
-   * The access manager caches the Service Token in the Session.
-   * The implementation is modular and new managers can easily be added
+   * A service identifier is comprised of a "unique" `/path` located on an upstream `[hosts]` in the Cloud.
+   * The Service path is mapped onto the subdomain that Border Patrol represents.
+ * Endpoint:
+   * An endpoint is represented by set of URLs and a unique path.
+   * Border Patrol connects to these remote REST endpoints fetches information or execute operations such as
+identity provisioning (i.e. identity endpoint), access issuing (i.e. access endpoint), authorization (external
+endpoint that does identity provisioning), token issuing (i.e. issues token for oauth2 code), etc.
+ * Identity Endpoint:
+   * If external authentication (e.g. OAuth2) is used, then identity endpoint provisions the user in Cloud.
+   * Currently, there are 2 identity provider service chains available for `keymaster.basic` and `keymaster.oauth2`.
+   * The `keymaster.basic` chain simply sends the user credentials to an identity endpoint in the Cloud.
+   * The `keymaster.oauth2` chain redirects the user to authorization endpoint, with instructions to return the oauth2
+code after authentication. The user authenticates with oauth2 server and oauth2 server returns oauth2 code (via browser
+redirect) to Border Patrol. The BorderPatrol user token endpoint to convert oauth2 code into access token. The Border
+Patrol fetches certificate from certificate endpoint and verifies the access token. The Border Patrol uses triple of
+subject, login manager name and subdomain to authenticate the user to identity endpoint.
+   * The identity endpoint responds with a Master Token. The Master Token is cached in the Session.
+   * The implementation is modular and new service chains can easily be added
+ * Access Endpoint:
+   * `keymaster.basic` and `keymaster.oauth2` use the same access service chain. It sends service name and
+Master Token to the access endpoint in the Cloud. That responds with a Service Token.
+   * The Service Token is cached in the Session.
+   * The implementation is modular and new service chains can easily be added
    * It relays Request w/ Service Token to the upstream endpoints, so that it can validate it.
  * Session Store:
    * A store is used to cache information about a Session.
@@ -100,43 +111,41 @@ Configuration
      }
      ```
 
- * `accessManagers`: A list of ACCESS `Manager`s. An Access manager authorizes access for authenticated users to
- protected endpoints in the Cloud.
- * `identityManagers`: A list of IDENTITY `Manager`s. An Identity manager authenticates the user or provisions an
- externally authenticated user in the Cloud.
- * `Manager`:
+ * `endpoints`: A list of `endpoint`s.
+ * `endpoint`:
    * `hosts`: A list of endpoint URLs (Format: `[<http[s]>://<host>:[port]]+`)
-   * `path`: A path serviced by the authentication (aka Identity Provider) or authorization (aka Acces Issuer) endpoint.
-   * `name`: A unique name that identifies this Manager
+   * `path`: A path serviced by the endpoint.
+   * `name`: A unique name that identifies this endpoint
  * `loginManagers`: A list of LOGIN `Manager`s
- * `loginManager`: It defines policy items such as authentication backend, identity manager and access manager used
+ * `loginManager`: It defines policy items such as authentication backend, identity endpoint, access endpoint, etc used
 for the given CustomerIdentifier.
    * `name`:  unique name that identifies this Login Manager
-   * `identityManager`: Identity manager name used by this Login Manager
-   * `accessManager`: Access manager used by this Login Manager
-   * `proto`: A protocol module that defines authentication backend used for
-     * `loginConfirm`: The path at which `Internal` login form or external authenticator posts the login
+   * `guid`: the global UID for the login manager
+   * `identityEndpoint`: Identity endpoint name used by this Login Manager
+   * `accessEndpoint`: Access endpoint used by this Login Manager
+   * `loginConfirm`: The path at which `Internal` login form or external authenticator posts the login
 credentials
-     * `type`: The type of proto used. Currently supported types are `Internal` and `OAuth2Code`
-     * `Internal` specific config:
-       * `authorizePath`:
-     * `OAuth2Code` specific config:
-       * `authorizeUrl`: A URL to request an authorization code for access to a resource
-       * `tokenUrl`: A URL to request access token using authorization code
-       * `certificateUrl`: A URL to fetch certificate to verify token signature
+   * `type`: The type of proto used. Currently supported types are `keymaster.basic` and `keymaster.oauth2`
+     * `keymaster.basic` specific config:
+       * `authorizePath`: A path to request login form
+     * `keymaster.oauth2` specific config:
+       * `authorizeEndpoint`: An endpoint to request an authorization code for access to a resource
+       * `tokenEndpoint`: An endpoint to request access token using authorization code
+       * `certificateEndpoint`: An endpoint to fetch certificate to verify token signature
        * `clientId`: Client id of the OAuth2 server application
        * `clientSecret`: Client secret of the OAuth2 server application
- * `serviceIdentifiers`: A list of service endpoints in the cloud.
- * `serviceIdentifier`: A service endpoint.
+ * `serviceIdentifiers`: A list of services in the cloud.
+ * `serviceIdentifier`: A service.
    * `hosts`: A list of service URLs (Format: `[<http[s]>://<host>:[port]]+`)
    * `name`: A unique name that identifies this Service. For protected services, the access issuer must be aware of
 this service
-   * `path`: A path serviced by the service endpoint
+   * `path`: A path serviced by the service, which is mapped on the subdomain.
    * `rewritePath`: If configured, this path replaces the `path` in the incoming Request
    * `protected`: If the service is NOT protected, then it bypasses access issuer. The default is `true`.
  * `customerIdentifiers`: A list of customer identifiers.
  * `customerIdentifier`:
    * `loginManager`: Login Manager or policy used by this customer identifier
+   * `guid`: the global UID for the subdomain
    * `subdomain`: A subdomain represented by this identifier
    * `defaultServiceIdentifier`: The default "protected" service for this customer identifier
  * `statdReporter`: The statsd reporter configuration
@@ -144,7 +153,7 @@ this service
    * `durationInSec`: Reporting frequency in Seconds.
    * `prefix`: Prefix attached to each reported stat
  * `listeningPort`: Border Patrol listens to new requests on this port.
- * `healthCheckUrls`: External dependencies that impact the Border Patrol Health Status
+ * `healthCheckEndpoints`: A set of endpoints that impact the Border Patrol Health Status
 
 Modules
 -------
@@ -156,7 +165,8 @@ Border Patrol uses a multi-project structure and contains the following _modules
 * [`security`](security) - different security plugins, e.g. CSRF protection
 * [`server`](server) - a server composing these modules that can be configured
 * [`example`](example) - the demo app showing sessions and authentication for multiple
-services. It mocks the authentication (aka identity provider), authorization (aka access issuer) and upstream endpoints.
+services. It mocks the authentication (aka identity provider), authorization (aka access issuer) and upstream
+endpoints.
 
 Installation
 ------------
@@ -167,7 +177,7 @@ Every stable Border Patrol module is published at Bintray. The SNAPSHOT builds a
 
 ```scala
 libraryDependencies ++= Seq(
-  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.1.0"
+  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.2.0"
 )
 ```
 
@@ -175,7 +185,7 @@ libraryDependencies ++= Seq(
 
 ```scala
 libraryDependencies ++= Seq(
-  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.1.22-SNAPSHOT"
+  "com.lookout.borderpatrol" %% "[borderpatrol-module]" % "0.2.1-SNAPSHOT"
 )
 ```
 

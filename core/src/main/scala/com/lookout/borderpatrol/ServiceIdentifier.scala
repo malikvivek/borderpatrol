@@ -19,6 +19,7 @@ case class ServiceIdentifier(name: String, hosts: Set[URL], path: Path, rewriteP
                              protekted: Boolean) {
   def isServicePath(p: Path): Boolean =
     p.startsWith(path)
+  lazy val endpoint: Endpoint = Endpoint(name, path, hosts)
 }
 
 /**
@@ -29,4 +30,5 @@ case class ServiceIdentifier(name: String, hosts: Set[URL], path: Path, rewriteP
  * @param defaultServiceId
  * @param loginManager
  */
-case class CustomerIdentifier(subdomain: String, defaultServiceId: ServiceIdentifier, loginManager: LoginManager)
+case class CustomerIdentifier(subdomain: String, guid: String, defaultServiceId: ServiceIdentifier,
+                              loginManager: LoginManager)

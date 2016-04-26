@@ -9,11 +9,10 @@ import com.twitter.finagle.Http
 import com.twitter.server.TwitterServer
 import com.twitter.util.Await
 
-import scala.util.{Failure, Success, Try}
 
-object BorderPatrolApp extends TwitterServer with Config {
+object BorderPatrolApp extends TwitterServer with ServerConfigMixin {
   import service._
-  import Config._
+  import ServerConfig._
 
   premain {
     implicit val bpStatsReceiver = statsReceiver
@@ -34,16 +33,19 @@ object BorderPatrolApp extends TwitterServer with Config {
         healthCheckRegistry.register(memcachedCheck)
       case _ =>
     }
-    serverConfig.healthCheckUrls.foreach { conf =>
-      healthCheckRegistry.register(UrlHealthCheck(conf.name, conf.url))
+    serverConfig.healthCheckEndpointsVal .foreach { endpoint =>
+      healthCheckRegistry.register(UrlHealthCheck(endpoint.name, endpoint))
     }
 
     // Create a StatsD exporter
-    val statsdReporter = StatsdExporter(serverConfig.statsdExporterConfig)
+    val statsdReporter = new StatsdExporter(
+      serverConfig.statsdExporterConfigVal.host,
+      serverConfig.statsdExporterConfigVal.durationInSec,
+      serverConfig.statsdExporterConfigVal.prefix)
 
     // Create a server
-    val server1 = Http.serve(s":${serverConfig.listeningPort}", MainServiceChain)
-    val server2 = Http.serve(s":${serverConfig.listeningPort+1}", getMockRoutingService)
+    val server1 = Http.serve(s":${serverConfig.listeningPortVal}", MainServiceChain)
+    val server2 = Http.serve(s":${serverConfig.listeningPortVal+1}", getMockRoutingService)
     Await.all(server1, server2)
   }
 }

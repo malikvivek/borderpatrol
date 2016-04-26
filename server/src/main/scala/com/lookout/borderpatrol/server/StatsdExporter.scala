@@ -22,6 +22,11 @@ case class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", 
   private[this] val channel = DatagramChannel.open(StandardProtocolFamily.INET)
   private[this] val dataBuffer = new ByteArrayOutputStream()
 
+  def this(hostname: String, durationInSec: Int, prefix: String) = this(MetricsStatsReceiver.defaultRegistry,
+    HashedWheelTimer(),
+    prefix.getOrDefault(Try(InetAddress.getLocalHost.getHostName).getOrDefault("localhost")),
+    Duration.fromSeconds(durationInSec), hostname)
+
   // Schedule exporter
   timer.schedule(duration)(report)
 
@@ -95,11 +100,4 @@ case class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", 
     /** Flush the data buffer in the end */
     flush()
   }
-}
-
-object StatsdExporter {
-  def apply(config: StatsdExporterConfig): StatsdExporter =
-    StatsdExporter(MetricsStatsReceiver.defaultRegistry, HashedWheelTimer(),
-      config.prefix.getOrDefault(Try(InetAddress.getLocalHost.getHostName).getOrDefault("localhost")),
-      Duration.fromSeconds(config.durationInSec), config.host)
 }

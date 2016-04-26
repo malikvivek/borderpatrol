@@ -12,7 +12,6 @@ import io.circe._
 import io.circe.jawn._
 import io.circe.generic.auto._
 import io.circe.syntax._
-import scala.reflect.io.File
 
 
 class ConfigSpec extends BorderPatrolSuite {
@@ -24,7 +23,7 @@ class ConfigSpec extends BorderPatrolSuite {
       super.afterEach() // To be stackable, must call super.afterEach
     }
     finally {
-      BinderBase.clear
+      Binder.clear
     }
   }
 
@@ -32,30 +31,59 @@ class ConfigSpec extends BorderPatrolSuite {
   val memcachedSessionStore = SessionStores.MemcachedStore(new memcached.MockClient())
   val consulSecretStore = SecretStores.ConsulSecretStore("testBpKey", Set(new URL("http://localhost:1234")))
 
-  // StatdExporter
-  val defaultStatsdExporterConfig = StatsdExporterConfig("host", 300, "prefix")
-
-  // HealthCheckUrlsConfig
-  val healthCheckUrls = Set(HealthCheckUrlConfig("node1", new URL("http://localhost:1234")))
-
-  // Configs
-  val serverConfig = ServerConfig(bpPort, defaultSecretStore, defaultSessionStore, defaultStatsdExporterConfig,
-    healthCheckUrls, cids, sids, loginManagers, Set(keymasterIdManager), Set(keymasterAccessManager))
-  val serverConfig1 = ServerConfig(bpPort, consulSecretStore, memcachedSessionStore, defaultStatsdExporterConfig,
-    healthCheckUrls, cids, sids, loginManagers, Set(keymasterIdManager), Set(keymasterAccessManager))
-
-  // Verify
-  def verifyServerConfig(a: ServerConfig, b: ServerConfig): Unit = {
-    a.secretStore.getClass should be (b.secretStore.getClass)
-    a.sessionStore.getClass should be (b.sessionStore.getClass)
-    assert(a.customerIdentifiers == b.customerIdentifiers)
-    assert(a.serviceIdentifiers == b.serviceIdentifiers)
-    assert(a.loginManagers == b.loginManagers)
-    assert(a.identityManagers == b.identityManagers)
-    assert(a.accessManagers == b.accessManagers)
+  // Helpers
+  def decodeCids(json: Json, sids: Set[ServiceIdentifier], lms: Set[LoginManager]) : Set[CustomerIdentifier] = {
+    Decoder.decodeCanBuildFrom[CustomerIdentifier, Set](decodeCustomerIdentifier(
+      sids.map(sid => sid.name -> sid).toMap, lms.map(l => l.name -> l).toMap), implicitly).decodeJson(json) match {
+      //parse(s).flatMap { json => d(Cursor(json).hcursor) } match {
+      case Xor.Right(a) => a
+      case Xor.Left(b) => throw new Exception(b.getMessage)
+    }
+  }
+  def decodeCid(json: Json, sids: Set[ServiceIdentifier], lms: Set[LoginManager]) : CustomerIdentifier = {
+    decodeCustomerIdentifier(sids.map(sid => sid.name -> sid).toMap,
+      lms.map(l => l.name -> l).toMap).decodeJson(json) match {
+      case Xor.Right(a) => a
+      case Xor.Left(b) => throw new Exception(b.getMessage)
+    }
+  }
+  def decodeLms(json: Json, eps: Set[Endpoint]) : Set[LoginManager] = {
+    Decoder.decodeCanBuildFrom[LoginManager, Set](decodeLoginManager(eps.map(ep => ep.name -> ep).toMap),
+      implicitly).decodeJson(json) match {
+      case Xor.Right(a) => a
+      case Xor.Left(b) => throw new Exception(b.getMessage)
+    }
+  }
+  def decodeLm(json: Json, eps: Set[Endpoint]) : LoginManager = {
+    decodeLoginManager(eps.map(ep => ep.name -> ep).toMap).decodeJson(json) match {
+      case Xor.Right(a) => a
+      case Xor.Left(b) => throw new Exception(b.getMessage)
+    }
   }
 
   behavior of "Config"
+
+  it should "uphold encoding/decoding SecretStore" in {
+    decodeSecretStore.decodeJson(defaultSecretStore.asInstanceOf[SecretStoreApi].asJson).toOption should
+      be(Some(defaultSecretStore.asInstanceOf[SecretStoreApi]))
+//    decodeSecretStore.decodeJson(consulSecretStore.asInstanceOf[SecretStoreApi].asJson).toOption should
+//      be(Some(consulSecretStore.asInstanceOf[SecretStoreApi]))
+    decodeSecretStore.decodeJson(Json.obj(("type", "InMemorySecretStore".asJson))).toOption should
+      be(Some(defaultSecretStore.asInstanceOf[SecretStoreApi]))
+    decodeSecretStore.decodeJson(Json.obj(("type", "ConsulSecretStore".asJson))).toOption should be(None)
+    decodeSecretStore.decodeJson(Json.obj(("type", Json.string("woof")))).toOption should be(None)
+  }
+
+  it should "uphold encoding/decoding SessionStore" in {
+    decodeSessionStore.decodeJson(defaultSessionStore.asInstanceOf[SessionStore].asJson).toOption should
+      be(Some(defaultSessionStore.asInstanceOf[SessionStore]))
+//    decodeSessionStore.decodeJson(memcachedSessionStore.asInstanceOf[SessionStore].asJson).toOption should
+//      be(Some(memcachedSessionStore.asInstanceOf[SessionStore]))
+    decodeSessionStore.decodeJson(Json.obj(("type", "InMemoryStore".asJson))).toOption should
+      be(Some(defaultSessionStore.asInstanceOf[SessionStore]))
+    decodeSessionStore.decodeJson(Json.obj(("type", "MemcachedStore".asJson))).toOption should be(None)
+    decodeSessionStore.decodeJson(Json.obj(("type", Json.string("woof")))).toOption should be(None)
+  }
 
   it should "uphold encoding/decoding ServiceIdentifier" in {
     def decodeFromJson(json: Json): ServiceIdentifier =
@@ -74,476 +102,124 @@ class ConfigSpec extends BorderPatrolSuite {
   }
 
   it should "uphold encoding/decoding CustomerIdentifier" in {
-    def decode(s: String) : CustomerIdentifier = {
-      implicit val d = decodeCustomerIdentifier(sids.map(sid => sid.name -> sid).toMap,
-        loginManagers.map(l => l.name -> l).toMap)
-      val out = parse(s).flatMap { json => d(Cursor(json).hcursor) }
-      out match {
-        case Xor.Right(a) => a
-        case Xor.Left(b) => CustomerIdentifier("failed", one, checkpointLoginManager)
-      }
-    }
-
-    decode(cust1.asJson.toString) should be (cust1)
-    decode(cust2.asJson.toString) should be (cust2)
+    decodeCid(cust1.asJson, sids, loginManagers) should be (cust1)
+    decodeCid(cust2.asJson, sids, loginManagers) should be (cust2)
+    decodeCids(cids.asJson, sids, loginManagers) should be (cids)
   }
 
-  it should "uphold encoding/decoding Manager" in {
-    def encodeDecode(m: Manager) : Manager = {
+  it should "uphold encoding/decoding Endpoint" in {
+    def encodeDecode(m: Endpoint) : Endpoint = {
       val encoded = m.asJson
-      decode[Manager](encoded.toString()) match {
+      decode[Endpoint](encoded.toString()) match {
         case Xor.Right(a) => a
-        case Xor.Left(b) => Manager("failed", Path("f"), urls)
+        case Xor.Left(b) => Endpoint("failed", Path("f"), urls)
       }
     }
-    encodeDecode(keymasterIdManager) should be (keymasterIdManager)
+    encodeDecode(keymasterIdEndpoint) should be (keymasterIdEndpoint)
   }
 
-  it should "uphold encoding/decoding ServerConfig" in {
-    def encodeDecode(config: ServerConfig): ServerConfig = {
-      val encoded = config.asJson
-      decode[ServerConfig](encoded.toString()) match {
-        case Xor.Right(a) => a
-        case Xor.Left(b) => ServerConfig(bpPort, defaultSecretStore, defaultSessionStore,
-          defaultStatsdExporterConfig, Set(), Set(), Set(), Set(), Set(), Set())
-      }
-    }
-    verifyServerConfig(encodeDecode(serverConfig), serverConfig)
-    verifyServerConfig(encodeDecode(serverConfig1), serverConfig1)
-  }
-
-  it should "find managers and loginManagers by name" in {
-    serverConfig.findLoginManager("checkpoint") should be(checkpointLoginManager)
-    serverConfig.findIdentityManager("keymaster") should be(keymasterIdManager)
-    serverConfig.findAccessManager("keymaster") should be(keymasterAccessManager)
-    serverConfig.findServiceIdentifier("one") should be(one)
-    the[BpInvalidConfigError] thrownBy {
-      serverConfig.findLoginManager("foo")
-    }
-    the[BpInvalidConfigError] thrownBy {
-      serverConfig.findIdentityManager("foo")
-    }
-    the[BpInvalidConfigError] thrownBy {
-      serverConfig.findAccessManager("foo")
-    }
-    the[BpInvalidConfigError] thrownBy {
-      serverConfig.findServiceIdentifier("foo")
-    }
-  }
-
-  it should "succeed to build a valid ServerConfig from a file with valid contents" in {
-    val validContents = serverConfig.asJson.toString()
-    val tempValidFile = File.makeTemp("ServerConfigValid", ".tmp")
-    tempValidFile.writeAll(validContents)
-
-    val readConfig = readServerConfig(tempValidFile.toCanonical.toString)
-    verifyServerConfig(readConfig, serverConfig)
-  }
-
-  it should "fail and raise an exception while reading from a file with invalid contents" in {
-    val invalidContents = """[{"name":"one","path": {"str" :"customer1"},"subdomain":"customer1","login":"/login"}]"""
-    val tempInvalidFile = File.makeTemp("ServerConfigSpecInvalid", ".tmp")
-    tempInvalidFile.writeAll(invalidContents)
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempInvalidFile.toCanonical.toString)
-    }
-    caught.getMessage should include ("failed to decode following field(s): listeningPort")
-  }
-
-  it should "raise a BpConfigError exception due to lack of listeningPort config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", Set(checkpointLoginManager).asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
-    }
-    caught.getMessage should include ("failed to decode following field(s): listeningPort")
-  }
-
-  it should "raise a BpConfigError exception due to lack of Secret Store config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", Set(checkpointLoginManager).asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
-    }
-    caught.getMessage should include ("failed to decode following field(s): secretStore")
-  }
-
-  it should "raise a BpConfigError exception due to invalid of Secret Store config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", Json.obj(("type", Json.string("woof")))),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", Set(checkpointLoginManager).asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
-    }
-    caught.getMessage should include ("Invalid secretStore:failed to decode following field(s): secretStore")
-  }
-
-  it should "raise a BpConfigError exception due to lack of Session Store config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", consulSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", Set(checkpointLoginManager).asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
-    }
-    caught.getMessage should include ("failed to decode following field(s): sessionStore")
-  }
-
-  it should "raise a BpConfigError exception due to invalid Session Store config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", consulSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", Json.obj(("type", Json.string("woof")))),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", Set(checkpointLoginManager).asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
-    }
-    caught.getMessage should include ("Invalid sessionStore:failed to decode following field(s): sessionStore")
-  }
-
-  it should "raise a BpConfigError exception due to lack of Statsd Reporter config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", Set(checkpointLoginManager).asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
-    }
-    caught.getMessage should include ("failed to decode following field(s): statsdReporter")
-  }
-
-  it should "raise a BpConfigError exception due to lack of CustomerIdentifier config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", Set(checkpointLoginManager).asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
-    }
-    caught.getMessage should include ("failed to decode following field(s): customerIdentifiers")
+  it should "uphold encoding/decoding LoginManager" in {
+    decodeLm(checkpointLoginManager.asJson, endpoints) should be (checkpointLoginManager)
+    decodeLm(umbrellaLoginManager.asJson, endpoints) should be (umbrellaLoginManager)
+    decodeLms(loginManagers.asJson, endpoints) should be (loginManagers)
   }
 
   it should "raise a BpConfigError exception due to missing LoginManager in CustomerIdentifier config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("healthCheckUrls", healthCheckUrls.asJson),
-      ("customerIdentifiers", Json.array(Json.fromFields(Seq(
+    val partialContents = Json.array(Json.fromFields(Seq(
         ("subdomain", "some".asJson),
+        ("guid", "some".asJson),
         ("defaultServiceIdentifier", "one".asJson),
-        ("loginManager", "bad".asJson))))),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", Set(checkpointLoginManager).asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
+        ("loginManager", "bad".asJson))))
 
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
+    val caught = the [Exception] thrownBy {
+      decodeCids(partialContents, sids, loginManagers)
     }
-    caught.getMessage should include (
-      "LoginManager \"bad\" not found:failed to decode following field(s): customerIdentifiers")
+    caught.getMessage should include ("LoginManager 'bad' not found")
   }
 
   it should "raise a BpConfigError exception due to missing ServiceIdentifier in CustomerIdentifier config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", Json.array(Json.fromFields(Seq(
+    val partialContents = Json.array(Json.fromFields(Seq(
         ("subdomain", "some".asJson),
+        ("guid", "some".asJson),
         ("defaultServiceIdentifier", "bad".asJson),
-        ("loginManager", "checkpoint".asJson))))),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", Set(checkpointLoginManager).asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
+        ("loginManager", "checkpoint".asJson))))
 
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
+    val caught = the [Exception] thrownBy {
+      decodeCids(partialContents, sids, loginManagers)
     }
-    caught.getMessage should include (
-      "ServiceIdentifier \"bad\" not found:failed to decode following field(s): customerIdentifiers")
+    caught.getMessage should include ("ServiceIdentifier 'bad' not found")
   }
 
-  it should "raise a BpConfigError exception due to lack of ServiceIdentifier config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("loginManagers", Set(checkpointLoginManager).asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
+  it should "succeed a BpConfigError exception if identityEndpoint that is used in LoginManager is missing" in {
+    val partialContents = Set(checkpointLoginManager).asJson
+    val caught = the [Exception] thrownBy {
+      decodeLms(partialContents, Set(keymasterAccessEndpoint))
     }
-    caught.getMessage should include ("failed to decode following field(s): serviceIdentifiers")
+    caught.getMessage should include ("identityEndpoint 'keymasterIdEndpoint' not found")
   }
 
-  it should "raise a BpConfigError exception if identityManager that is used in LoginManager is missing" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", Set(checkpointLoginManager).asJson),
-      ("identityManagers", Set(Manager("some", Path("/some"), urls)).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
+  it should "raise a BpConfigError exception if accessEndpoint that is used in LoginManager is missing" in {
+    val partialContents = Set(checkpointLoginManager).asJson
+    val caught = the [Exception] thrownBy {
+      decodeLms(partialContents, Set(keymasterIdEndpoint))
     }
-    caught.getMessage should include (
-      "IdentityManager \"keymaster\" not found:failed to decode following field(s): loginManagers")
+    caught.getMessage should include ("accessEndpoint 'keymasterAccessEndpoint' not found")
   }
 
-  it should "raise a BpConfigError exception if duplicate are configured in idManagers config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", loginManagers.asJson),
-      ("identityManagers", Set(keymasterIdManager,
-        Manager("keymaster", Path("/some"), urls)).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
+  it should "succeed a BpConfigError exception if authorizeEndpoint that is used in LoginManager is missing" in {
+    val partialContents = Set(umbrellaLoginManager).asJson
+    val caught = the [Exception] thrownBy {
+      decodeLms(partialContents, Set(keymasterIdEndpoint, keymasterAccessEndpoint, ulmTokenEndpoint,
+        ulmCertificateEndpoint))
     }
-    caught.getMessage should include ("Duplicate entries for key (name) are found in the field: identityManagers")
+    caught.getMessage should include ("authorizeEndpoint 'ulmAuthorizeEndpoint' not found")
   }
 
-  it should "raise a BpConfigError exception if accessManager that is used in LoginManager is missing" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", Set(checkpointLoginManager).asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(Manager("some", Path("/some"), urls)).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
+  it should "succeed a BpConfigError exception if tokenEndpoint that is used in LoginManager is missing" in {
+    val partialContents = Set(umbrellaLoginManager).asJson
+    val caught = the [Exception] thrownBy {
+      decodeLms(partialContents, Set(keymasterIdEndpoint, keymasterAccessEndpoint, ulmAuthorizeEndpoint,
+        ulmCertificateEndpoint))
     }
-    caught.getMessage should include (
-      "AccessManager \"keymaster\" not found:failed to decode following field(s): loginManagers")
+    caught.getMessage should include ("tokenEndpoint 'ulmTokenEndpoint' not found")
   }
 
-  it should "raise a BpConfigError exception if duplicates are configured in accessManagers config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", loginManagers.asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager,
-        Manager("keymaster", Path("/some"), urls)).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
+  it should "succeed a BpConfigError exception if certificateEndpoint that is used in LoginManager is missing" in {
+    val partialContents = Set(umbrellaLoginManager).asJson
+    val caught = the [Exception] thrownBy {
+      decodeLms(partialContents, Set(keymasterIdEndpoint, keymasterAccessEndpoint, ulmAuthorizeEndpoint,
+        ulmTokenEndpoint))
     }
-    caught.getMessage should include ("Duplicate entries for key (name) are found in the field: accessManagers")
+    caught.getMessage should include ("certificateEndpoint 'ulmCertificateEndpoint' not found")
+  }
+
+  it should "raise a BpConfigError exception if duplicate are configured in endpoints config" in {
+    val output = validateEndpointConfig("endpoints",
+      endpoints + Endpoint("keymasterIdEndpoint", Path("/some"), urls))
+    output should contain ("Duplicate entries for key (name) are found in the field: endpoints")
   }
 
   it should "raise a BpConfigError exception if duplicates are configured in loginManagers config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", (loginManagers +
-        LoginManager("checkpoint", keymasterIdManager, keymasterAccessManager,
-          InternalAuthProtoManager("some", Path("/some"), Path("/some")))).asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
-    }
-    caught.getMessage should include ("Duplicate entries for key (name) are found in the field: loginManagers")
+    val output = validateLoginManagerConfig("loginManagers", loginManagers +
+      BasicLoginManager("checkpointLoginManager", "keymaster-basic", "some-guid", Path("/some"), Path("/some"),
+        keymasterIdEndpoint, keymasterAccessEndpoint))
+    output should contain ("Duplicate entries for key (name) are found in the field: loginManagers")
   }
 
   it should "raise a BpConfigError exception if duplicate paths are configured in serviceIdentifiers config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", cids.asJson),
-      ("serviceIdentifiers", (sids + ServiceIdentifier("some", urls, Path("/ent"), None, false)
-        + ServiceIdentifier("some", urls, Path("/some"), None, false)).asJson),
-      ("loginManagers", loginManagers.asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
-    }
-    caught.getMessage should include (
-      "Duplicate entries for key (path) are found in the field: serviceIdentifiers")
+    val output = validateServiceIdentifierConfig("serviceIdentifiers",
+      sids + ServiceIdentifier("some", urls, Path("/ent"), None, false)
+        + ServiceIdentifier("some", urls, Path("/some"), None, false))
+    output should contain ("Duplicate entries for key (path) are found in the field: serviceIdentifiers")
   }
 
   it should "raise a BpConfigError exception if duplicate subdomains are configured in customerIdentifiers config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", (cids + CustomerIdentifier("enterprise", two, checkpointLoginManager)).asJson),
-      ("serviceIdentifiers", sids.asJson),
-      ("loginManagers", loginManagers.asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
-    }
-    caught.getMessage should include (
-      "Duplicate entries for key (subdomain) are found in the field: customerIdentifiers")
+    val output = validateCustomerIdentifierConfig("customerIdentifiers",
+      cids + CustomerIdentifier("enterprise", "some-guid", two, checkpointLoginManager))
+    output should contain ("Duplicate entries for key (subdomain) are found in the field: customerIdentifiers")
   }
 
-  it should "raise a BpConfigError exception when it catches multiple errors in the config" in {
-    val partialContents = Json.fromFields(Seq(
-      ("listeningPort", bpPort.asJson),
-      ("secretStore", defaultSecretStore.asInstanceOf[SecretStoreApi].asJson),
-      ("sessionStore", defaultSessionStore.asInstanceOf[SessionStore].asJson),
-      ("statsdReporter", defaultStatsdExporterConfig.asJson),
-      ("customerIdentifiers", (cids + CustomerIdentifier("enterprise", two, checkpointLoginManager)).asJson),
-      ("serviceIdentifiers", (sids + ServiceIdentifier("some", urls, Path("/ent"), None, false)).asJson),
-      ("loginManagers", loginManagers.asJson),
-      ("identityManagers", Set(keymasterIdManager).asJson),
-      ("accessManagers", Set(keymasterAccessManager).asJson)))
-
-    val tempFile = File.makeTemp("ServerConfigTest", ".tmp")
-    tempFile.writeAll(partialContents.toString)
-
-    val caught = the [BpConfigError] thrownBy {
-      readServerConfig(tempFile.toCanonical.toString)
-    }
-    caught.getMessage should include (
-      "Duplicate entries for key (path) are found in the field: serviceIdentifiers")
-    caught.getMessage should include (
-      "Duplicate entries for key (subdomain) are found in the field: customerIdentifiers")
-  }
-
-  it should "validate URLs configuration" in {
+  it should "validate Hosts configuration" in {
     val u1 = new URL("http://sample.com")
     val u2 = new URL("http://sample.com:8080/goto")
     val u3 = new URL("http://tample.com:2345/foo")
@@ -559,5 +235,7 @@ class ConfigSpec extends BorderPatrolSuite {
       "hosts configuration for failed2 in some: has unsupported protocol")
     validateHostsConfig("some", "failed3", Set(u4, u5)).mkString should include (
       "hosts configuration for failed3 in some: https urls have mismatching hostnames")
+    validateHostsConfig("some", "failed4", Set()) should contain (
+      "hosts configuration for failed4 in some: has unsupported protocol")
   }
 }

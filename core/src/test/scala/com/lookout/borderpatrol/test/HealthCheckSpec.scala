@@ -4,6 +4,9 @@ import java.net.URL
 
 import com.lookout.borderpatrol.HealthCheck.UrlHealthCheck
 import com.lookout.borderpatrol._
+import com.twitter.finagle.Service
+import com.twitter.finagle.http.path.Path
+import com.twitter.finagle.http.service.RoutingService
 import com.twitter.finagle.http.{Response, Request, Status}
 import com.twitter.util.{Future, Await}
 import io.circe.generic.auto._
@@ -11,8 +14,6 @@ import io.circe.syntax._
 
 
 class HealthCheckSpec extends BorderPatrolSuite {
-
-  import sessionx.helpers._
 
   val healthyCheck1 = new HealthCheck() {
     val name: String = "healthyCheck1"
@@ -55,7 +56,7 @@ class HealthCheckSpec extends BorderPatrolSuite {
       super.afterEach() // To be stackable, must call super.afterEach
     }
     finally {
-      BinderBase.clear
+      Binder.clear
     }
   }
 
@@ -92,22 +93,37 @@ class HealthCheckSpec extends BorderPatrolSuite {
 
   it should "collect output from all HealthChecks" in {
     val server = com.twitter.finagle.Http.serve(
-      "localhost:5679", mkTestService[Request, Response] { _ => Response(Status.Ok).toFuture})
+      "localhost:5679",
+      RoutingService.byPath {
+        case p1 if p1 contains "good" => Service.mk[Request, Response] { req =>
+          Response(Status.Ok).toFuture
+        }
+        case _ => Service.mk[Request, Response] { _ => Response(Status.NotAcceptable).toFuture}
+      }
+    )
     try {
-      val goodUrlHealthCheck = UrlHealthCheck("goodUrlHealthCheck", new URL("http://localhost:5679"))
-      val badUrlHealthCheck = UrlHealthCheck("badUrlHealthCheck", new URL("http://localhost:999"))
+      val goodUrlHealthCheck = UrlHealthCheck("goodUrlHealthCheck",
+        Endpoint("good", Path("/good"), Set(new URL("http://localhost:5679"))))
+      val badUrlHealthCheck = UrlHealthCheck("badUrlHealthCheck",
+        Endpoint("bad", Path("/bad"), Set(new URL("http://localhost:5679"))))
+      val uglyUrlHealthCheck = UrlHealthCheck("uglyUrlHealthCheck",
+        Endpoint("ugly", Path("ugly"), Set(new URL("http://localhost:9999"))))
       val registry = new HealthCheckRegistry()
       registry.register(goodUrlHealthCheck)
       registry.register(badUrlHealthCheck)
+      registry.register(uglyUrlHealthCheck)
 
       // Execute
       val output = registry.collectHealthCheckResults()
 
+      println(Await.result(output))
+
       // Verify
       Await.result(output).get("goodUrlHealthCheck").get.status should be(Status.Ok)
-      Await.result(output).get("badUrlHealthCheck").get.status should be(Status.InternalServerError)
+      Await.result(output).get("badUrlHealthCheck").get.status should be(Status.NotAcceptable)
+      Await.result(output).get("uglyUrlHealthCheck").get.status should be(Status.InternalServerError)
       Await.result(output).asJson.toString() should include(
-        "An error occurred while talking to: Failed to connect for: 'UrlHealthCheck.badUrlHealthCheck'")
+        "An error occurred while talking to: Failed to connect for: 'ugly'")
 
     } finally {
       server.close()

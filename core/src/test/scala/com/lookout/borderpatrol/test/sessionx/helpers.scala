@@ -2,7 +2,6 @@ package com.lookout.borderpatrol.test.sessionx
 
 import java.net.URL
 
-import com.lookout.borderpatrol.Binder.{BindRequest, MBinder}
 import com.lookout.borderpatrol.auth.OAuth2.OAuth2CodeVerify
 import com.lookout.borderpatrol._
 import com.lookout.borderpatrol.sessionx.SecretStores.InMemorySecretStore
@@ -59,27 +58,37 @@ object helpers {
   val urls = Set(new URL("http://localhost:5678"))
   val bpPort: Int = 8080
 
-  //  Managers
-  val keymasterIdManager = Manager("keymaster", Path("/identityProvider"), urls)
-  val keymasterAccessManager = Manager("keymaster", Path("/accessIssuer"), urls)
-  val internalProtoManager = InternalAuthProtoManager("checkpointProtoManager", Path("/loginConfirm"), Path("/check"))
-  val checkpointLoginManager = LoginManager("checkpoint", keymasterIdManager, keymasterAccessManager,
-    internalProtoManager)
-  val oauth2CodeProtoManager = OAuth2CodeProtoManager("ulmProtoManager", Path("/signin"),
-    new URL("http://example.com/authorizeUrl"),
-    new URL("http://localhost:4567/tokenUrl"),
-    new URL("http://localhost:4567/certificateUrl"),
+  //  endpoints
+  val keymasterIdEndpoint = Endpoint("keymasterIdEndpoint", Path("/identityProvider"), urls)
+  val keymasterAccessEndpoint = Endpoint("keymasterAccessEndpoint", Path("/accessIssuer"), urls)
+  val ulmAuthorizeEndpoint = Endpoint("ulmAuthorizeEndpoint", Path("/authorize"), Set(new URL("http://example.com")))
+  val ulmTokenEndpoint = Endpoint("ulmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:4567")))
+  val ulmCertificateEndpoint = Endpoint("ulmCertificateEndpoint", Path("/certificate"),
+    Set(new URL("http://localhost:4567")))
+  val rlmAuthorizeEndpoint = Endpoint("rlmAuthorizeEndpoint", Path("/authorize"),
+    Set(new URL("http://localhost:9999")))
+  val rlmTokenEndpoint = Endpoint("rlmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:9999")))
+  val rlmCertificateEndpoint = Endpoint("rlmCertificateEndpoint", Path("/certificate"),
+    Set(new URL("http://localhost:9999")))
+  val endpoints = Set(keymasterIdEndpoint, keymasterAccessEndpoint,
+    ulmAuthorizeEndpoint, ulmTokenEndpoint, ulmCertificateEndpoint,
+    rlmAuthorizeEndpoint, rlmTokenEndpoint, rlmCertificateEndpoint)
+
+  val checkpointLoginManager = BasicLoginManager("checkpointLoginManager", "keymaster.basic", "cp-guid", Path("/loginConfirm"),
+    Path("/check"), keymasterIdEndpoint, keymasterAccessEndpoint)
+
+  val umbrellaLoginManager = OAuth2LoginManager("ulmLoginManager", "keymaster.oauth2", "ulm-guid", Path("/signin"),
+    keymasterIdEndpoint, keymasterAccessEndpoint,
+    ulmAuthorizeEndpoint, ulmTokenEndpoint, ulmCertificateEndpoint,
     "clientId", "clientSecret")
-  val umbrellaLoginManager = LoginManager("ulm", keymasterIdManager, keymasterAccessManager,
-    oauth2CodeProtoManager)
-  val oauth2CodeBadProtoManager = OAuth2CodeProtoManager("rlmProtoManager", Path("/signblew"),
-    new URL("http://localhost:9999/authorizeUrl"),
-    new URL("http://localhost:9999/tokenUrl"),
-    new URL("http://localhost:9999/certificateUrl"),
+
+  val rainyLoginManager = OAuth2LoginManager("rlmProtoManager", "keymaster.oauth2", "rlm-guid", Path("/signblew"),
+    keymasterIdEndpoint, keymasterAccessEndpoint,
+    rlmAuthorizeEndpoint, rlmTokenEndpoint, rlmCertificateEndpoint,
     "clientId", "clientSecret")
-  val rainyLoginManager = LoginManager("rlm", keymasterIdManager, keymasterAccessManager,
-    oauth2CodeBadProtoManager)
-  val loginManagers = Set(checkpointLoginManager, umbrellaLoginManager, rainyLoginManager)
+  val loginManagers = Set(checkpointLoginManager.asInstanceOf[LoginManager],
+    umbrellaLoginManager.asInstanceOf[LoginManager],
+    rainyLoginManager.asInstanceOf[LoginManager])
 
   //  oAuth2 Code Verify object
   val oAuth2CodeVerify = new OAuth2CodeVerify
@@ -87,39 +96,24 @@ object helpers {
   // sids
   val one = ServiceIdentifier("one", urls, Path("/ent"), None, true)
   val oneTwo = ServiceIdentifier("oneTwo", urls, Path("/ent2"), None, true)
-  val cust1 = CustomerIdentifier("enterprise", one, checkpointLoginManager)
+  val cust1 = CustomerIdentifier("enterprise", "cust1-guid", one, checkpointLoginManager)
   val two = ServiceIdentifier("two", urls, Path("/umb"), Some(Path("/broken/umb")), true)
-  val cust2 = CustomerIdentifier("sky", two, umbrellaLoginManager)
+  val cust2 = CustomerIdentifier("sky", "cust2-guid", two, umbrellaLoginManager)
   val three = ServiceIdentifier("three", urls, Path("/rain"), None, true)
-  val cust3 = CustomerIdentifier("rainy", three, rainyLoginManager)
+  val cust3 = CustomerIdentifier("rainy", "cust3-guid", three, rainyLoginManager)
   val unproCheckpointSid = ServiceIdentifier("login", urls, Path("/check"), None, false)
   val proCheckpointSid = ServiceIdentifier("checkpoint", urls, Path("/check/that"), None, true)
-  val cust4 = CustomerIdentifier("repeat", proCheckpointSid, checkpointLoginManager)
+  val cust4 = CustomerIdentifier("repeat", "cust4-guid", proCheckpointSid, checkpointLoginManager)
   val cids = Set(cust1, cust2, cust3, cust4)
   val sids = Set(one, oneTwo, two, three, proCheckpointSid, unproCheckpointSid)
   val serviceMatcher = ServiceMatcher(cids, sids)
   val sessionStore = SessionStores.InMemoryStore
 
-  // Test Services
-  def mkTestService[A, B](f: (A) => Future[B]) : Service[A, B] = new Service[A, B] {
-    def apply(request: A) = f(request)
-  }
-
   // Request helper
   def req(subdomain: String, path: String, params: Tuple2[String, String]*): Request =
-    RequestBuilder().url(s"http://${subdomain + "."}example.com${Request.queryString(Path(path).toString, params:_*)}").buildGet()
+    RequestBuilder().url(s"http://${subdomain + "."}example.com${Request.queryString(Path(path).toString,
+      params:_*)}").buildGet()
   def reqPost(subdomain: String, path: String, content: Buf, params: Tuple2[String, String]*): Request =
     RequestBuilder().url(s"http://${subdomain + "."}example.com${Request.queryString(path, params:_*)}")
       .buildPost(content)
-
-  // Binders
-  case class TestManagerBinder() extends MBinder[Manager]
-  def mkTestManagerBinder(f: (BindRequest[Manager]) => Future[Response]): TestManagerBinder = new TestManagerBinder {
-    override def apply(request: BindRequest[Manager]) = f(request)
-  }
-  case class TestServiceIdentifierBinder() extends MBinder[ServiceIdentifier]
-  def mkTestSidBinder(f: (BindRequest[ServiceIdentifier]) => Future[Response]): TestServiceIdentifierBinder =
-    new TestServiceIdentifierBinder {
-      override def apply(request: BindRequest[ServiceIdentifier]) = f(request)
-    }
 }

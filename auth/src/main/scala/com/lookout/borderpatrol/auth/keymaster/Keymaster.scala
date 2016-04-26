@@ -5,7 +5,6 @@ import com.lookout.borderpatrol.errors.{BpForbiddenRequest, BpBadRequest}
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol._
-import com.lookout.borderpatrol.Binder._
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.util.Helpers
 import com.twitter.finagle.stats.StatsReceiver
@@ -34,10 +33,8 @@ object Keymaster {
   /**
    * The identity provider for Keymaster, will connect to the remote keymaster server to authenticate and get an
    * identity (master token)
-   * @param binder Binder that binds to Keymaster identity service passed in the IdentityManager
    */
-  case class KeymasterIdentityProvider(binder: MBinder[Manager])
-                                      (implicit statsReceiver: StatsReceiver)
+  case class KeymasterIdentityProvider(implicit statsReceiver: StatsReceiver)
       extends IdentityProvider[Credential, Tokens] {
     private[this] val log = Logger.get(getClass.getPackage.getName)
     private[this] val statRequestSends = statsReceiver.counter("keymaster.identity.provider.request.sends")
@@ -57,7 +54,7 @@ object Keymaster {
       statRequestSends.incr
 
       //  Authenticate user by the Keymaster
-      binder(BindRequest(req.credential.customerId.loginManager.identityManager, req.credential.toRequest))
+      Binder.connect(req.credential.customerId.loginManager.identityEndpoint, req.credential.toRequest)
         .flatMap(res => res.status match {
         //  Parse for Tokens if Status.Ok
         case Status.Ok =>
@@ -101,9 +98,9 @@ object Keymaster {
       }
     }
 
-    def transformOAuth2(req: BorderRequest, protoManager: OAuth2CodeProtoManager): Future[OAuth2CodeCredential] = {
+    def transformOAuth2(req: BorderRequest, loginManager: OAuth2LoginManager): Future[OAuth2CodeCredential] = {
       for {
-          accessClaimSet <- oAuth2CodeVerify.codeToClaimsSet(req, protoManager)
+          accessClaimSet <- oAuth2CodeVerify.codeToClaimsSet(req, loginManager)
       } yield OAuth2CodeCredential(accessClaimSet.getStringClaim("upn"), accessClaimSet.getSubject,
         req.customerId, req.serviceId)
     }
@@ -111,9 +108,9 @@ object Keymaster {
     def apply(req: BorderRequest,
               service: Service[KeymasterIdentifyReq, Response]): Future[Response] = {
       for {
-        transformed: Credential <- req.customerId.loginManager.protoManager match {
-          case a: InternalAuthProtoManager => transformInternal(req)
-          case b: OAuth2CodeProtoManager => transformOAuth2(req, b)
+        transformed: Credential <- req.customerId.loginManager match {
+          case a: BasicLoginManager => transformInternal(req)
+          case b: OAuth2LoginManager => transformOAuth2(req, b)
         }
         resp <- service(KeymasterIdentifyReq(req, transformed))
       } yield resp
@@ -164,10 +161,9 @@ object Keymaster {
 
   /**
    * The access issuer will use the MasterToken to gain access to service tokens
-   * @param binder It binds to the Keymaster Access Issuer using info in AccessManager
    * @param store Session store
    */
-  case class KeymasterAccessIssuer(binder: MBinder[Manager], store: SessionStore)
+  case class KeymasterAccessIssuer(store: SessionStore)
                                   (implicit statsReceiver: StatsReceiver)
       extends AccessIssuer[Tokens, ServiceToken] {
     private[this] val log = Logger.get(getClass.getPackage.getName)
@@ -183,7 +179,7 @@ object Keymaster {
     private[this] val statCacheHits = statsReceiver.counter("keymaster.access.issuer.cache.hits")
 
     def api(accessRequest: AccessRequest[Tokens]): Request =
-      tap(Request(Method.Post, accessRequest.customerId.loginManager.accessManager.path.toString))(req => {
+      tap(Request(Method.Post, accessRequest.customerId.loginManager.accessEndpoint.path.toString))(req => {
         req.contentType = "application/x-www-form-urlencoded"
         req.contentString = Request.queryString("services" -> accessRequest.serviceId.name)
           .drop(1) /* Drop '?' */
@@ -198,7 +194,7 @@ object Keymaster {
       req.identity.id.service(req.serviceId.name).fold[Future[ServiceToken]]({
         statRequestSends.incr()
         //  Fetch ServiceToken from the Keymaster
-        binder(BindRequest(req.customerId.loginManager.accessManager, api(req))).flatMap(res => res.status match {
+        Binder.connect(req.customerId.loginManager.accessEndpoint, api(req)).flatMap(res => res.status match {
           //  Parse for Tokens if Status.Ok
           case Status.Ok =>
             Tokens.derive[Tokens](res.contentString).fold[Future[ServiceToken]](
@@ -238,7 +234,7 @@ object Keymaster {
     implicit secretStoreApi: SecretStoreApi, statsReceiver: StatsReceiver): Service[BorderRequest, Response] =
         KeymasterTransformFilter(new OAuth2CodeVerify) andThen
         KeymasterPostLoginFilter(store) andThen
-        KeymasterIdentityProvider(ManagerBinder)
+        KeymasterIdentityProvider()
 
 
   /**
@@ -249,7 +245,7 @@ object Keymaster {
     implicit secretStoreApi: SecretStoreApi, statsReceiver: StatsReceiver): Service[BorderRequest, Response] =
       RewriteFilter() andThen
         IdentityFilter[Tokens](store) andThen
-        AccessFilter[Tokens, ServiceToken](ServiceIdentifierBinder) andThen
-        KeymasterAccessIssuer(ManagerBinder, store)
+        AccessFilter[Tokens, ServiceToken]() andThen
+        KeymasterAccessIssuer(store)
 
 }

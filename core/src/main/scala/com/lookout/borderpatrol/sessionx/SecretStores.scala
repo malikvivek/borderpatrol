@@ -5,12 +5,13 @@ import java.util.concurrent.TimeUnit
 import javax.xml.bind.DatatypeConverter
 
 import argonaut.Parse
+import com.twitter.finagle.http.path.Path
 import io.circe.{Decoder, Json, jawn}
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.generic.semiauto._
 
-import com.lookout.borderpatrol.{HealthCheckStatus, HealthCheck, BinderBase}
+import com.lookout.borderpatrol.{Endpoint, HealthCheckStatus, HealthCheck, Binder}
 import com.lookout.borderpatrol.util.Combinators._
 import com.twitter.finagle.http.{Method, Status, Request}
 import com.twitter.finagle.util.{HashedWheelTimer, DefaultTimer}
@@ -84,6 +85,7 @@ object SecretStores {
     private[this] val log = Logger.get(getClass.getPackage.getName)
     private[this] val consulBinderName = s"${getClass.getSimpleName}.consulUrl"
     private[this] val consulPath = s"/v1/kv/${key}"
+    private[this] val consulEndpoint = Endpoint(consulBinderName, Path(consulPath), consulUrls)
 
     /* Kick off a poll timer */
     timer.schedule(Time.now)(pollSecrets)
@@ -155,7 +157,7 @@ object SecretStores {
      * @param step
      */
     private[this] def getConsulResponse(step: Int): Future[List[ConsulResponse]] =
-      BinderBase.connect(consulBinderName, consulUrls, Request(consulPath)).flatMap(res =>
+      Binder.connect(consulEndpoint, Request(consulEndpoint.path.toString)).flatMap(res =>
         res.status match {
           case Status.Ok => jawn.decode[List[ConsulResponse]](res.contentString)
             .fold[Future[List[ConsulResponse]]](
@@ -195,11 +197,11 @@ object SecretStores {
      */
     private[this] def setSecretsOnConsul(step: Int, newSecrets: Secrets, modifyIndex: Int):
         Future[(Option[Secrets], Boolean)] =
-      BinderBase.connect(consulBinderName, consulUrls,
-        tap(Request(Method.Put, Request.queryString(consulPath, ("cas" -> modifyIndex.toString))))(req => {
+      Binder.connect(consulEndpoint, tap(Request(Method.Put,
+        Request.queryString(consulEndpoint.path.toString, ("cas" -> modifyIndex.toString)))){ req =>
           req.contentString = SecretsEncoder.EncodeJson.encode(newSecrets).toString
           req.contentType = "application/json"
-        })).flatMap(res => res.status match {
+        }).flatMap(res => res.status match {
             case Status.Ok =>
               log.info("ConsulSecretStore: LEADER: Updated the new Secrets on Consul " +
                 s"with an id: ${newSecrets.current.id}, expiry: ${newSecrets.current.expiry}")
