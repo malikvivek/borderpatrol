@@ -2,8 +2,10 @@ package com.lookout.borderpatrol.server
 
 import java.net.URL
 
+import com.lookout.borderpatrol.auth.keymaster._
+import com.lookout.borderpatrol.auth.keymaster.LoginManagers._
 import com.lookout.borderpatrol.sessionx._
-import com.lookout.borderpatrol.test.{sessionx, BorderPatrolSuite}
+import com.lookout.borderpatrol.test._
 import com.lookout.borderpatrol._
 import com.twitter.finagle.memcached
 import com.twitter.finagle.http.path.Path
@@ -15,7 +17,8 @@ import io.circe.syntax._
 
 
 class ConfigSpec extends BorderPatrolSuite {
-  import sessionx.helpers._
+  import coreTestHelpers._
+  import keymasterTestHelpers._
   import Config._
 
   override def afterEach(): Unit = {
@@ -35,7 +38,6 @@ class ConfigSpec extends BorderPatrolSuite {
   def decodeCids(json: Json, sids: Set[ServiceIdentifier], lms: Set[LoginManager]) : Set[CustomerIdentifier] = {
     Decoder.decodeCanBuildFrom[CustomerIdentifier, Set](decodeCustomerIdentifier(
       sids.map(sid => sid.name -> sid).toMap, lms.map(l => l.name -> l).toMap), implicitly).decodeJson(json) match {
-      //parse(s).flatMap { json => d(Cursor(json).hcursor) } match {
       case Xor.Right(a) => a
       case Xor.Left(b) => throw new Exception(b.getMessage)
     }
@@ -105,6 +107,9 @@ class ConfigSpec extends BorderPatrolSuite {
     decodeCid(cust1.asJson, sids, loginManagers) should be (cust1)
     decodeCid(cust2.asJson, sids, loginManagers) should be (cust2)
     decodeCids(cids.asJson, sids, loginManagers) should be (cids)
+    decodeCid(cust1k.asJson, sids, loginManagersk) should be (cust1k)
+    decodeCid(cust2k.asJson, sids, loginManagersk) should be (cust2k)
+    decodeCids(cidsk.asJson, sids, loginManagersk) should be (cidsk)
   }
 
   it should "uphold encoding/decoding Endpoint" in {
@@ -121,7 +126,7 @@ class ConfigSpec extends BorderPatrolSuite {
   it should "uphold encoding/decoding LoginManager" in {
     decodeLm(checkpointLoginManager.asJson, endpoints) should be (checkpointLoginManager)
     decodeLm(umbrellaLoginManager.asJson, endpoints) should be (umbrellaLoginManager)
-    decodeLms(loginManagers.asJson, endpoints) should be (loginManagers)
+    decodeLms(loginManagersk.asJson, endpoints) should be (loginManagersk)
   }
 
   it should "raise a BpConfigError exception due to missing LoginManager in CustomerIdentifier config" in {
@@ -132,7 +137,7 @@ class ConfigSpec extends BorderPatrolSuite {
         ("loginManager", "bad".asJson))))
 
     val caught = the [Exception] thrownBy {
-      decodeCids(partialContents, sids, loginManagers)
+      decodeCids(partialContents, sids, loginManagersk)
     }
     caught.getMessage should include ("LoginManager 'bad' not found")
   }
@@ -145,7 +150,7 @@ class ConfigSpec extends BorderPatrolSuite {
         ("loginManager", "checkpoint".asJson))))
 
     val caught = the [Exception] thrownBy {
-      decodeCids(partialContents, sids, loginManagers)
+      decodeCids(partialContents, sids, loginManagersk)
     }
     caught.getMessage should include ("ServiceIdentifier 'bad' not found")
   }
@@ -200,7 +205,7 @@ class ConfigSpec extends BorderPatrolSuite {
   }
 
   it should "raise a BpConfigError exception if duplicates are configured in loginManagers config" in {
-    val output = validateLoginManagerConfig("loginManagers", loginManagers +
+    val output = validateLoginManagerConfig("loginManagers", loginManagersk +
       BasicLoginManager("checkpointLoginManager", "keymaster-basic", "some-guid", Path("/some"), Path("/some"),
         keymasterIdEndpoint, keymasterAccessEndpoint))
     output should contain ("Duplicate entries for key (name) are found in the field: loginManagers")

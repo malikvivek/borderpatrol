@@ -32,7 +32,7 @@ import com.lookout.borderpatrol.crypto._
 import com.lookout.borderpatrol.test._
 import com.twitter.finagle.{http, memcached}
 import com.twitter.io.Buf
-import com.twitter.util.{Future, Await}
+import com.twitter.util.Await
 
 import scala.util.Try
 
@@ -84,7 +84,7 @@ class cryptoSpec extends BorderPatrolSuite {
     implicit def bytes2Str(b: Array[Byte]): String = new String(b)
     val str = "Hello"
 
-    import com.lookout.borderpatrol.test.sessionx.helpers.secretStore
+    import com.lookout.borderpatrol.test.coreTestHelpers.secretStore
     import com.lookout.borderpatrol.crypto.Encryptable._
 
     def enc[A : Encryptable](session: Session[A]): Array[Byte] =
@@ -104,7 +104,7 @@ class cryptoSpec extends BorderPatrolSuite {
   }
 
   behavior of "EncryptedSessionStore"
-  import com.lookout.borderpatrol.test.sessionx.helpers._
+  import com.lookout.borderpatrol.test.coreTestHelpers._
 
   val store = EncryptedSessionStore.MemcachedStore(new memcached.MockClient())
   val strSession = Session("hello").results

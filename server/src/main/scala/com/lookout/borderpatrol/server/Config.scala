@@ -3,6 +3,7 @@ package com.lookout.borderpatrol.server
 import java.net.URL
 
 import com.lookout.borderpatrol._
+import com.lookout.borderpatrol.auth.keymaster.LoginManagers._
 import com.lookout.borderpatrol.sessionx.SecretStores._
 import com.lookout.borderpatrol.sessionx.SessionStores._
 import com.lookout.borderpatrol.sessionx._
@@ -82,7 +83,7 @@ object Config {
   implicit val encodeBasicLoginManager: Encoder[BasicLoginManager] = Encoder.instance { blm =>
     Json.fromFields(Seq(
       ("name", blm.name.asJson),
-      ("type", blm.ty.asJson),
+      ("type", blm.tyfe.asJson),
       ("guid", blm.guid.asJson),
       ("loginConfirm", blm.loginConfirm.asJson),
       ("authorizePath", blm.authorizePath.asJson),
@@ -93,7 +94,7 @@ object Config {
   implicit val encodeOAuth2LoginManager: Encoder[OAuth2LoginManager] = Encoder.instance { olm =>
     Json.fromFields(Seq(
       ("name", olm.name.asJson),
-      ("type", olm.ty.asJson),
+      ("type", olm.tyfe.asJson),
       ("guid", olm.guid.asJson),
       ("loginConfirm", olm.loginConfirm.asJson),
       ("identityEndpoint", olm.identityEndpoint.name.asJson),
@@ -114,6 +115,7 @@ object Config {
   def decodeBasicLoginManager(eps: Map[String, Endpoint]): Decoder[BasicLoginManager] = Decoder.instance { c =>
     for {
       name <- c.downField("name").as[String]
+      tyfe <- c.downField("type").as[String]
       guid <- c.downField("guid").as[String]
       loginConfirm <- c.downField("loginConfirm").as[Path]
       authorizePath <- c.downField("authorizePath").as[Path]
@@ -121,11 +123,12 @@ object Config {
       ie <- Xor.fromOption(eps.get(ieName), DecodingFailure(s"identityEndpoint '$ieName' not found: ", c.history))
       aeName <- c.downField("accessEndpoint").as[String]
       ae <- Xor.fromOption(eps.get(aeName), DecodingFailure(s"accessEndpoint '$aeName' not found: ", c.history))
-    } yield BasicLoginManager(name, "keymaster.basic", guid, loginConfirm, authorizePath, ie, ae)
+    } yield BasicLoginManager(name, tyfe, guid, loginConfirm, authorizePath, ie, ae)
   }
   def decodeOAuth2LoginManager(eps: Map[String, Endpoint]): Decoder[OAuth2LoginManager] = Decoder.instance { c =>
     for {
       name <- c.downField("name").as[String]
+      tyfe <- c.downField("type").as[String]
       guid <- c.downField("guid").as[String]
       loginConfirm <- c.downField("loginConfirm").as[Path]
       ieName <- c.downField("identityEndpoint").as[String]
@@ -141,7 +144,7 @@ object Config {
         DecodingFailure(s"certificateEndpoint '$ceName' not found: ", c.history))
       clientId <- c.downField("clientId").as[String]
       clientSecret <- c.downField("clientSecret").as[String]
-    } yield OAuth2LoginManager(name, "keymaster.oauth2", guid, loginConfirm, ie, ae, au, te, ce,
+    } yield OAuth2LoginManager(name, tyfe, guid, loginConfirm, ie, ae, au, te, ce,
       clientId, clientSecret)
   }
 

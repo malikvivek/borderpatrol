@@ -23,6 +23,9 @@
  */
 package com.lookout.borderpatrol.example
 
+import java.net.URL
+
+import com.lookout.borderpatrol.auth.keymaster.LoginManagers.{OAuth2LoginManager, BasicLoginManager}
 import com.lookout.borderpatrol.{HealthCheckRegistry, ServiceMatcher}
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.auth.keymaster.Keymaster._
@@ -31,6 +34,7 @@ import com.lookout.borderpatrol.auth.keymaster.Tokens._
 import com.lookout.borderpatrol.server.{HealthCheckService, Config}
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.util.Combinators._
+import com.twitter.finagle.http.path.Path
 import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.io.Buf
 import com.twitter.finagle.http.{Method, Request, Response, Status}
@@ -38,6 +42,8 @@ import com.twitter.finagle.http.service.RoutingService
 import com.twitter.finagle.Service
 import com.twitter.util.Future
 import io.finch.response.ResponseBuilder
+
+import scala.util.{Failure, Success, Try}
 
 
 object service {
@@ -77,6 +83,12 @@ object service {
     RoutingService.byPath {
       case "/health" =>
         HealthCheckService(registry, BpBuild.BuildInfo.version)
+
+      /** Logout */
+      case "/logout" =>
+        ExceptionFilter() andThen /* Convert exceptions to responses */
+          CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
+          LogoutService(config.sessionStore)
 
       case _ =>
         /* Convert exceptions to responses */
@@ -132,11 +144,11 @@ object service {
   }
 
   //  Mock Login Service
-  val mockLoginService = new Service[Request, Response] {
+  def mockLoginService(loginConfirm: Path) = new Service[Request, Response] {
     val loginForm = Buf.Utf8(
-      """<html><body>
+      s"""<html><body>
         |<h1>Example Account Service Login</h1>
-        |<form action="/a/login" method="post">
+        |<form action=$loginConfirm method="post">
         |<label>username</label><input type="text" name="username" />
         |<label>password</label><input type="password" name="password" />
         |<input type="submit" name="login" value="login" />
@@ -169,24 +181,65 @@ object service {
       }).toFuture
   }
 
+  //  Mock Aad authenticate service
+  def mockAadAuthenticateService(redirectUrl: URL) = new Service[Request, Response] {
+    def apply(request: Request): Future[Response] =
+      tap(Response(Status.Found))(res => {
+        res.location = redirectUrl.toString + Request.queryString("code" -> "XXYYZZ")
+      }).toFuture
+  }
+
+  //  Mock Aad token service
+  val mockAadTokenService = new Service[Request, Response] {
+    def apply(request: Request): Future[Response] =
+      tap(Response(Status.Ok))(res => {
+        res.contentString = """access token""" //***FIXME
+        res.setContentTypeJson()
+      }).toFuture
+  }
+
+  //  Mock Aad certificate service
+  val mockAadCertificateService = new Service[Request, Response] {
+    def apply(request: Request): Future[Response] =
+      tap(Response(Status.Ok))(res => {
+        res.contentString = """certificate""" //***FIXME
+        res.setContentTypeJson()
+      }).toFuture
+  }
+
   // Mock Routing service
   def getMockRoutingService(implicit config: Config, statsReceiver: StatsReceiver, secretStore: SecretStoreApi):
   Service[Request, Response] = {
-    val login = config.findServiceIdentifier("login")
-    val keymasterIdEndpoint = config.findEndpoint("keymaster-identity-example")
-    val keymasterAccessEndpoint = config.findEndpoint("keymasterEndpoint")
-    val logout = config.findServiceIdentifier("logout")
-    val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
+    Try {
+      val internalLm = config.findLoginManager("internal").asInstanceOf[BasicLoginManager]
+      val externalLm = config.findLoginManager("external").asInstanceOf[OAuth2LoginManager]
+      val externalPostPath = Path("aadPostPath")
+      val keymasterIdEndpoint = config.findEndpoint("keymaster-identity-example")
+      val keymasterAccessEndpoint = config.findEndpoint("keymaster-access-example")
+      val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
 
-    RoutingService.byPathObject {
-      case keymasterAccessEndpoint.path => mockKeymasterAccessIssuerService
-      case keymasterIdEndpoint.path => mockKeymasterIdentityService
-      case path if path.startsWith(login.path) => mockLoginService
-      case path if path.startsWith(logout.rewritePath.getOrElse(path)) =>
-        ExceptionFilter() andThen /* Convert exceptions to responses */
-          CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
-          LogoutService(config.sessionStore)
-      case _ => mockUpstreamService
+      RoutingService.byPathObject {
+        /** Cloud's own identity & access service */
+        case keymasterAccessEndpoint.path => mockKeymasterAccessIssuerService
+        case keymasterIdEndpoint.path => mockKeymasterIdentityService
+
+        /** Mocking internal authentication */
+        case path if path.startsWith(internalLm.authorizePath) => mockLoginService(internalLm.loginConfirm)
+
+        /** *FIXME: Mocking external AAD authentication */
+        case path if path.startsWith(externalLm.authorizeEndpoint.path) => mockLoginService(externalPostPath)
+        case externalPostPath => mockAadAuthenticateService(new URL(s"http://api.localhost:8080${externalLm.loginConfirm}"))
+        case path if path.startsWith(externalLm.tokenEndpoint.path) => mockAadTokenService
+        case path if path.startsWith(externalLm.certificateEndpoint.path) => mockAadTokenService
+
+        /** Upstream */
+        case _ => mockUpstreamService
+      }
+    } match {
+      case Success(a) => a
+      case Failure(e) =>
+        // Workaround, when testing with other configurations
+        Service.mk[Request, Response] { _ => Response().toFuture }
     }
   }
 }

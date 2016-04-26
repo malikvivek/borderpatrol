@@ -1,5 +1,6 @@
-package com.lookout.borderpatrol.test
+package com.lookout.borderpatrol.test.util
 
+import com.lookout.borderpatrol.test._
 import com.lookout.borderpatrol.util.Combinators._
 import com.lookout.borderpatrol.util.Helpers._
 import com.twitter.finagle.http.{Method, Request}

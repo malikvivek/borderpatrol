@@ -8,7 +8,7 @@ import com.twitter.finagle.http.{Response, Cookie, Request, Status}
 import com.twitter.util.{Await, Future}
 
 class CsrfSpec extends BorderPatrolSuite {
-  import sessionx.helpers.{secretStore => store, _}
+  import coreTestHelpers.{secretStore => store, _}
 
   val csrf1 = sessionid.untagged.asBase64
   val csrf2 = sessionid.untagged.asBase64

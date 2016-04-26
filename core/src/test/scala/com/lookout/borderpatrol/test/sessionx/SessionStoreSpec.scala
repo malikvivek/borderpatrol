@@ -1,19 +1,18 @@
-package com.lookout.borderpatrol.sessionx
+package com.lookout.borderpatrol.test.sessionx
 
-import com.lookout.borderpatrol.sessionx.SessionStores.{MemcachedStore, MemcachedHealthCheck}
+import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
 import com.twitter.finagle.http.Status
 import com.twitter.finagle.memcached.GetResult
-import com.twitter.finagle.memcached.protocol.Value
 import com.twitter.io.Buf
 import com.twitter.util.{Time, Future, Await}
 import com.twitter.finagle.http
 import com.twitter.finagle.memcached
 
-import scala.collection.mutable
 
 class SessionStoreSpec extends BorderPatrolSuite {
-  import sessionx.helpers._
+  import coreTestHelpers._
+  import SessionStores._
 
   behavior of "SessionStore"
 

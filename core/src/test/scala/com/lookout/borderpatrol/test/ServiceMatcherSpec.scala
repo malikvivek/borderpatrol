@@ -5,7 +5,7 @@ import com.twitter.finagle.http.path.Path
 
 
 class ServiceMatcherSpec extends BorderPatrolSuite {
-  import sessionx.helpers._
+  import coreTestHelpers._
 
   val sOneOne = ServiceIdentifier("eOne", urls, Path("/ent1"), None, true)
   val sOneTwo = ServiceIdentifier("eTwo", urls, Path("/ent2"), None, true)
@@ -13,10 +13,10 @@ class ServiceMatcherSpec extends BorderPatrolSuite {
   val sThree = ServiceIdentifier("three", urls, Path("/apis"), None, true)
   val sFour = ServiceIdentifier("four", urls, Path("/apis/test"), None, true)
   val serviceIds = Set(sOneOne, sOneTwo, sTwo, sThree, sFour)
-  val cOne = CustomerIdentifier("enterprise", "c1-guid", sOneOne, checkpointLoginManager)
-  val cTwo = CustomerIdentifier("api", "c2-guid", two, umbrellaLoginManager)
-  val cThree = CustomerIdentifier("api.subdomain", "c3-guid", sThree, checkpointLoginManager)
-  val cFour = CustomerIdentifier("api.testdomain", "c4-guid", sFour, umbrellaLoginManager)
+  val cOne = CustomerIdentifier("enterprise", "c1-guid", sOneOne, test1LoginManager)
+  val cTwo = CustomerIdentifier("api", "c2-guid", two, test2LoginManager)
+  val cThree = CustomerIdentifier("api.subdomain", "c3-guid", sThree, test1LoginManager)
+  val cFour = CustomerIdentifier("api.testdomain", "c4-guid", sFour, test2LoginManager)
   val custIds = Set(cOne, cTwo, cThree, cFour)
   val testServiceMatcher = ServiceMatcher(custIds, serviceIds)
 

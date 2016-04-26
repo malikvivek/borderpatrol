@@ -1,9 +1,9 @@
-package com.lookout.borderpatrol.test.sessionx
+package com.lookout.borderpatrol.test
 
 import java.net.URL
 
-import com.lookout.borderpatrol.auth.OAuth2.OAuth2CodeVerify
 import com.lookout.borderpatrol._
+import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.sessionx.SecretStores.InMemorySecretStore
 import com.twitter.finagle.http.path.Path
 import com.twitter.finagle.http.{RequestBuilder, Response, Request}
@@ -15,8 +15,7 @@ import com.twitter.bijection.Injection
 import com.twitter.util.{Await, Time}
 
 
-object helpers {
-  import com.lookout.borderpatrol.sessionx._
+object coreTestHelpers {
   import com.lookout.borderpatrol.crypto.Generator.{EntropyGenerator => Entropy}
   /**
    * Common usage of secrets across tests
@@ -61,52 +60,49 @@ object helpers {
   //  endpoints
   val keymasterIdEndpoint = Endpoint("keymasterIdEndpoint", Path("/identityProvider"), urls)
   val keymasterAccessEndpoint = Endpoint("keymasterAccessEndpoint", Path("/accessIssuer"), urls)
-  val ulmAuthorizeEndpoint = Endpoint("ulmAuthorizeEndpoint", Path("/authorize"), Set(new URL("http://example.com")))
-  val ulmTokenEndpoint = Endpoint("ulmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:4567")))
-  val ulmCertificateEndpoint = Endpoint("ulmCertificateEndpoint", Path("/certificate"),
-    Set(new URL("http://localhost:4567")))
-  val rlmAuthorizeEndpoint = Endpoint("rlmAuthorizeEndpoint", Path("/authorize"),
-    Set(new URL("http://localhost:9999")))
-  val rlmTokenEndpoint = Endpoint("rlmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:9999")))
-  val rlmCertificateEndpoint = Endpoint("rlmCertificateEndpoint", Path("/certificate"),
-    Set(new URL("http://localhost:9999")))
-  val endpoints = Set(keymasterIdEndpoint, keymasterAccessEndpoint,
-    ulmAuthorizeEndpoint, ulmTokenEndpoint, ulmCertificateEndpoint,
-    rlmAuthorizeEndpoint, rlmTokenEndpoint, rlmCertificateEndpoint)
 
-  val checkpointLoginManager = BasicLoginManager("checkpointLoginManager", "keymaster.basic", "cp-guid", Path("/loginConfirm"),
-    Path("/check"), keymasterIdEndpoint, keymasterAccessEndpoint)
-
-  val umbrellaLoginManager = OAuth2LoginManager("ulmLoginManager", "keymaster.oauth2", "ulm-guid", Path("/signin"),
-    keymasterIdEndpoint, keymasterAccessEndpoint,
-    ulmAuthorizeEndpoint, ulmTokenEndpoint, ulmCertificateEndpoint,
-    "clientId", "clientSecret")
-
-  val rainyLoginManager = OAuth2LoginManager("rlmProtoManager", "keymaster.oauth2", "rlm-guid", Path("/signblew"),
-    keymasterIdEndpoint, keymasterAccessEndpoint,
-    rlmAuthorizeEndpoint, rlmTokenEndpoint, rlmCertificateEndpoint,
-    "clientId", "clientSecret")
-  val loginManagers = Set(checkpointLoginManager.asInstanceOf[LoginManager],
-    umbrellaLoginManager.asInstanceOf[LoginManager],
-    rainyLoginManager.asInstanceOf[LoginManager])
-
-  //  oAuth2 Code Verify object
-  val oAuth2CodeVerify = new OAuth2CodeVerify
+  // Login Managers
+  case object test1LoginManager extends LoginManager {
+    val name: String = "test1LoginManager"
+    val tyfe: String = "test1.type"
+    val guid: String = "test1.guid"
+    val loginConfirm: Path = Path("/test1/confirm")
+    val identityEndpoint: Endpoint = keymasterIdEndpoint
+    val accessEndpoint: Endpoint = keymasterAccessEndpoint
+    def redirectLocation(req: Request): String = "/test1/redirect"
+  }
+  case object test2LoginManager extends LoginManager {
+    val name: String = "test2LoginManager"
+    val tyfe: String = "test2.type"
+    val guid: String = "test2.guid"
+    val loginConfirm: Path = Path("/test2/confirm")
+    val identityEndpoint: Endpoint = keymasterIdEndpoint
+    val accessEndpoint: Endpoint = keymasterAccessEndpoint
+    def redirectLocation(req: Request): String = "/test2/redirect"
+  }
+  val loginManagers = Set(test1LoginManager.asInstanceOf[LoginManager],
+    test2LoginManager.asInstanceOf[LoginManager])
 
   // sids
   val one = ServiceIdentifier("one", urls, Path("/ent"), None, true)
   val oneTwo = ServiceIdentifier("oneTwo", urls, Path("/ent2"), None, true)
-  val cust1 = CustomerIdentifier("enterprise", "cust1-guid", one, checkpointLoginManager)
   val two = ServiceIdentifier("two", urls, Path("/umb"), Some(Path("/broken/umb")), true)
-  val cust2 = CustomerIdentifier("sky", "cust2-guid", two, umbrellaLoginManager)
   val three = ServiceIdentifier("three", urls, Path("/rain"), None, true)
-  val cust3 = CustomerIdentifier("rainy", "cust3-guid", three, rainyLoginManager)
   val unproCheckpointSid = ServiceIdentifier("login", urls, Path("/check"), None, false)
   val proCheckpointSid = ServiceIdentifier("checkpoint", urls, Path("/check/that"), None, true)
-  val cust4 = CustomerIdentifier("repeat", "cust4-guid", proCheckpointSid, checkpointLoginManager)
+
+  // cids
+  val cust1 = CustomerIdentifier("enterprise", "cust1-guid", one, test1LoginManager)
+  val cust2 = CustomerIdentifier("sky", "cust2-guid", two, test2LoginManager)
+  val cust3 = CustomerIdentifier("rainy", "cust3-guid", three, test2LoginManager)
+  val cust4 = CustomerIdentifier("repeat", "cust4-guid", proCheckpointSid, test1LoginManager)
+
+  // Matcher
   val cids = Set(cust1, cust2, cust3, cust4)
   val sids = Set(one, oneTwo, two, three, proCheckpointSid, unproCheckpointSid)
   val serviceMatcher = ServiceMatcher(cids, sids)
+
+  // Store
   val sessionStore = SessionStores.InMemoryStore
 
   // Request helper
