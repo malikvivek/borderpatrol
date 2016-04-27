@@ -1,9 +1,10 @@
-package com.lookout.borderpatrol.sessionx
+package com.lookout.borderpatrol.test.sessionx
 
 import java.net.URL
 import javax.xml.bind.DatatypeConverter
 
 import com.lookout.borderpatrol.Binder
+import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.sessionx.SecretStores._
 import com.lookout.borderpatrol.sessionx.ConsulResponse._
 import com.lookout.borderpatrol.test._
@@ -18,7 +19,7 @@ import io.circe.generic.semiauto._
 
 
 class SecretStoresSpec extends BorderPatrolSuite {
-  import sessionx.helpers.{secretStore => store, _}, secrets._
+  import coreTestHelpers.{secretStore => store, _}, secrets._
 
   override def afterEach(): Unit = {
     try {

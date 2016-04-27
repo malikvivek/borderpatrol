@@ -1,12 +1,13 @@
-package com.lookout.borderpatrol.sessionx
+package com.lookout.borderpatrol.test.sessionx
 
 import java.util.concurrent.TimeUnit
 
+import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
 import com.twitter.util.{Time, Duration}
 
 class SecretSpec extends BorderPatrolSuite {
-  import sessionx.helpers.secrets._
+  import coreTestHelpers.secrets._
 
   behavior of "Secret"
 

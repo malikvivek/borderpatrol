@@ -1,9 +1,10 @@
-package com.lookout.borderpatrol.sessionx
+package com.lookout.borderpatrol.test.sessionx
 
+import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
 
 class SessionSpec extends BorderPatrolSuite {
-  import sessionx.helpers._
+  import coreTestHelpers._
 
   behavior of "Session"
 

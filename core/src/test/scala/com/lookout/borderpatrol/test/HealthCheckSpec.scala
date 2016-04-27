@@ -116,8 +116,6 @@ class HealthCheckSpec extends BorderPatrolSuite {
       // Execute
       val output = registry.collectHealthCheckResults()
 
-      println(Await.result(output))
-
       // Verify
       Await.result(output).get("goodUrlHealthCheck").get.status should be(Status.Ok)
       Await.result(output).get("badUrlHealthCheck").get.status should be(Status.NotAcceptable)

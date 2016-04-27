@@ -1,6 +1,6 @@
 package com.lookout.borderpatrol.auth.keymaster
 
-import com.lookout.borderpatrol.auth.OAuth2.OAuth2CodeVerify
+import com.lookout.borderpatrol.auth.keymaster.LoginManagers.{BasicLoginManager, OAuth2LoginManager}
 import com.lookout.borderpatrol.errors.{BpForbiddenRequest, BpBadRequest}
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.lookout.borderpatrol.sessionx._
@@ -16,6 +16,7 @@ import com.twitter.util.Future
 
 object Keymaster {
   import Tokens._
+  import OAuth2._
 
   case class KeymasterIdentifyReq(req: Request, customerId: CustomerIdentifier, serviceId: ServiceIdentifier,
                                   sessionId: SignedId, credential: Credential) extends IdentifyRequest[Credential]

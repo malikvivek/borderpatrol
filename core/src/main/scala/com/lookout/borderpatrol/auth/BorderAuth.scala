@@ -170,10 +170,10 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
   def sendToIdentityProvider(req: BorderRequest): Future[Response] = {
     log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
       s"to identity provider chain for service: ${req.serviceId.name}")
-    identityProviderMap.get(req.customerId.loginManager.ty) match {
+    identityProviderMap.get(req.customerId.loginManager.tyfe) match {
       case Some(ip) => statIdentityProvider.incr(); ip(req)
       case None => Future.exception(BpIdentityProviderError(Status.NotFound,
-        s"Failed to find IdentityProvider Service Chain for loginManager type: ${req.customerId.loginManager.ty}"))
+        s"Failed to find IdentityProvider Service Chain for loginManager type: ${req.customerId.loginManager.tyfe}"))
     }
   }
 
@@ -259,10 +259,10 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
   def sendToAccessIssuer(req: BorderRequest): Future[Response] = {
     log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
       s"to access issuer chain for service: ${req.serviceId.name}")
-    accessIssuerMap.get(req.customerId.loginManager.ty) match {
+    accessIssuerMap.get(req.customerId.loginManager.tyfe) match {
       case Some(ip) => statAccessIssuer.incr(); ip(req)
       case None => Future.exception(BpAccessIssuerError(Status.NotFound,
-        s"Failed to find AccessIssuer Service Chain for loginManager type: ${req.customerId.loginManager.ty}"))
+        s"Failed to find AccessIssuer Service Chain for loginManager type: ${req.customerId.loginManager.tyfe}"))
     }
   }
 

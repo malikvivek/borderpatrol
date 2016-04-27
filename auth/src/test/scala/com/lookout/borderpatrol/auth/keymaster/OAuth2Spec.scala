@@ -1,4 +1,4 @@
-package com.lookout.borderpatrol.test.auth
+package com.lookout.borderpatrol.auth.keymaster
 
 import java.math.BigInteger
 import java.security.{PublicKey, KeyPairGenerator, KeyPair}
@@ -10,7 +10,7 @@ import javax.xml.bind.DatatypeConverter
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.{Binder, BpCommunicationError}
 import com.lookout.borderpatrol.sessionx._
-import com.lookout.borderpatrol.test.{sessionx, BorderPatrolSuite}
+import com.lookout.borderpatrol.test._
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.nimbusds.jose.{JWSVerifier, JWSSigner, JWSHeader, JWSAlgorithm}
 import com.nimbusds.jose.crypto.{ECDSAVerifier, ECDSASigner, RSASSAVerifier, RSASSASigner}
@@ -24,8 +24,9 @@ import org.bouncycastle.x509.X509V1CertificateGenerator
 
 
 class OAuth2Spec extends BorderPatrolSuite {
-  import sessionx.helpers._
+  import coreTestHelpers._
   import OAuth2._
+  import keymaster.keymasterTestHelpers._
 
   override def afterEach(): Unit = {
     try {
@@ -286,47 +287,6 @@ class OAuth2Spec extends BorderPatrolSuite {
     } finally {
       server.close()
     }
-  }
-
-  it should "throw a BpCommunicationError if it fails to reach OAuth2 IDP to convert code to token" in {
-
-    // Allocate and Session
-    val sessionId = sessionid.untagged
-
-    // Login POST request
-    val loginRequest = req("rainy", "/signblew", ("code" -> "XYZ123"))
-
-    // BorderRequest
-    val sessionIdRequest = BorderRequest(loginRequest, cust3, three, sessionId)
-
-    // Execute
-    val output = new OAuth2CodeVerify().codeToClaimsSet(sessionIdRequest, rainyLoginManager)
-
-    // Validate
-    val caught = the[BpCommunicationError] thrownBy {
-      Await.result(output)
-    }
-    caught.getMessage should include (
-      "An error occurred while talking to: Failed to connect for: 'rlmTokenEndpoint'")
-  }
-
-  /** this exception is thrown by codeToToken method in umbrellaLoginManager */
-  it should "throw an exception on if it receives HTTP request w/ OAuth2 code but without hostname" in {
-    // Allocate and Session
-    val sessionId = sessionid.untagged
-
-    // Login POST request
-    val loginRequest = Request("/signin", ("code" -> "XYZ123"))
-
-    // BorderRequest
-    val sessionIdRequest = BorderRequest(loginRequest, cust2, two, sessionId)
-
-    // Validate
-    val caught = the[Exception] thrownBy {
-      // Execute
-      val output = new OAuth2CodeVerify().codeToClaimsSet(sessionIdRequest, umbrellaLoginManager)
-    }
-    caught.getMessage should include("Host not found in HTTP Request")
   }
 
   it should "throw BpTokenParsingError if fails to parse OAuth2 AAD Token in the response" in {

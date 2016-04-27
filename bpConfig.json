@@ -69,28 +69,21 @@
   ],
   "serviceIdentifiers": [
     {
-      "hosts": ["http://localhost:9091"],
+      "hosts": ["http://localhost:8081"],
       "path": "/serv",
       "name": "one"
     },
     {
-      "hosts": ["http://localhost:9091"],
+      "hosts": ["http://localhost:8081"],
       "path": "/top",
       "rewritePath": "/internal/top",
       "name": "two"
     },
     {
-      "hosts": ["http://localhost:9091"],
+      "hosts": ["http://localhost:8081"],
       "path": "/z",
       "protected": false,
       "name": "login"
-    },
-    {
-      "hosts": ["http://localhost:9091"],
-      "path": "/logout",
-      "rewritePath": "/signout",
-      "protected": false,
-      "name": "logout"
     }
   ],
   "customerIdentifiers": [

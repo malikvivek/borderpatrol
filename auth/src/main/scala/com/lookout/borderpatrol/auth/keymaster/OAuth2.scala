@@ -1,26 +1,28 @@
-package com.lookout.borderpatrol.auth
+package com.lookout.borderpatrol.auth.keymaster
 
-import java.net.URL
 import java.security.PublicKey
 import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 import javax.xml.bind.DatatypeConverter
 
-import com.twitter.logging.{Logger, Level}
+import com.lookout.borderpatrol.auth._
+import com.lookout.borderpatrol.auth.keymaster.LoginManagers.OAuth2LoginManager
+import com.twitter.logging.Logger
 import io.circe._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.Encoder
-import com.lookout.borderpatrol.{OAuth2LoginManager, Binder}
+import com.lookout.borderpatrol.Binder
 import com.lookout.borderpatrol.sessionx._
 import com.nimbusds.jose.JWSVerifier
 import com.nimbusds.jose.crypto.{ECDSAVerifier, RSASSAVerifier}
 import com.nimbusds.jose.util.X509CertUtils
 import com.nimbusds.jwt.{PlainJWT, SignedJWT, JWTClaimsSet}
-import com.twitter.finagle.http.{Status, Response, Request}
+import com.twitter.finagle.http.{Status, Request}
 import com.twitter.util.Future
 
 import scala.util.{Failure, Success, Try}
 import scala.xml.{NodeSeq, Elem}
+
 
 object OAuth2 {
 
@@ -148,11 +150,11 @@ object OAuth2 {
           case Status.Ok =>
             OAuth2.derive[AadToken](res.contentString).fold[Future[AadToken]](
               err => Future.exception(BpTokenParsingError(
-                s"in the Access Token response from OAuth2 Server: ${req.customerId.loginManager.name}")),
+                s"in the Access Token response from OAuth2 Server: ${loginManager.name}")),
               t => Future.value(t)
             )
           case _ => Future.exception(BpIdentityProviderError(res.status,
-            s"Failed to receive the token from OAuth2 Server: ${req.customerId.loginManager.name}"))
+            s"Failed to receive the token from OAuth2 Server: ${loginManager.name}"))
         })
         idClaimSet <- wrapFuture({() => PlainJWT.parse(aadToken.idToken).getJWTClaimsSet}, BpTokenParsingError.apply)
         accessClaimSet <- getClaimsSet(loginManager, aadToken.accessToken)
