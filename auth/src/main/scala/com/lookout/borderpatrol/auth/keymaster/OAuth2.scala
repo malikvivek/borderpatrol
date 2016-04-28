@@ -5,12 +5,8 @@ import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 import javax.xml.bind.DatatypeConverter
 
 import com.lookout.borderpatrol.auth._
-import com.lookout.borderpatrol.auth.keymaster.LoginManagers.OAuth2LoginManager
+import com.lookout.borderpatrol.auth.keymaster.LoginManagers.OAuth2LoginManagerMixin
 import com.twitter.logging.Logger
-import io.circe._
-import io.circe.generic.auto._
-import io.circe.syntax._
-import io.circe.Encoder
 import com.lookout.borderpatrol.Binder
 import com.lookout.borderpatrol.sessionx._
 import com.nimbusds.jose.JWSVerifier
@@ -19,13 +15,16 @@ import com.nimbusds.jose.util.X509CertUtils
 import com.nimbusds.jwt.{PlainJWT, SignedJWT, JWTClaimsSet}
 import com.twitter.finagle.http.{Status, Request}
 import com.twitter.util.Future
+import io.circe._
+import io.circe.generic.auto._
+import io.circe.syntax._
+import io.circe.Encoder
 
 import scala.util.{Failure, Success, Try}
 import scala.xml.{NodeSeq, Elem}
 
 
 object OAuth2 {
-
   import io.circe.generic.semiauto._
   import cats.data.Xor
 
@@ -73,7 +72,7 @@ object OAuth2 {
         node.attributes.exists(_.value.text == "fed:SecurityTokenServiceType"))) \\ "X509Certificate"
     }
 
-    private[this] def downloadAadCerts(loginManager: OAuth2LoginManager, thumbprint: String): Future[String] = {
+    private[this] def downloadAadCerts(loginManager: OAuth2LoginManagerMixin, thumbprint: String): Future[String] = {
       //  Fetch the response
       Binder.connect(loginManager.certificateEndpoint,
         Request(loginManager.certificateEndpoint.path.toString)).flatMap(res => res.status match {
@@ -120,7 +119,7 @@ object OAuth2 {
      * @param tokenStr
      * @return
      */
-    private[this] def getClaimsSet(loginManager: OAuth2LoginManager, tokenStr: String): Future[JWTClaimsSet] = {
+    private[this] def getClaimsSet(loginManager: OAuth2LoginManagerMixin, tokenStr: String): Future[JWTClaimsSet] = {
       for {
         signedJWT <- wrapFuture({ () => SignedJWT.parse(tokenStr) }, BpTokenParsingError.apply)
         thumbprint <- wrapFuture({() => signedJWT.getHeader.getX509CertThumbprint }, BpTokenParsingError.apply)
@@ -143,22 +142,23 @@ object OAuth2 {
      * @param req
      * @return
      */
-    def codeToClaimsSet(req: BorderRequest, loginManager: OAuth2LoginManager): Future[JWTClaimsSet] = {
+    def codeToClaimsSet(req: BorderRequest, loginManager: OAuth2LoginManagerMixin):
+      Future[(JWTClaimsSet, JWTClaimsSet)] = {
       for {
         aadToken <- loginManager.codeToToken(req.req).flatMap(res => res.status match {
           //  Parse for Tokens if Status.Ok
           case Status.Ok =>
             OAuth2.derive[AadToken](res.contentString).fold[Future[AadToken]](
               err => Future.exception(BpTokenParsingError(
-                s"in the Access Token response from OAuth2 Server: ${loginManager.name}")),
+                s"in the Access Token response from OAuth2 Server: '${loginManager.name}'")),
               t => Future.value(t)
             )
           case _ => Future.exception(BpIdentityProviderError(res.status,
-            s"Failed to receive the token from OAuth2 Server: ${loginManager.name}"))
+            s"Failed to receive the token from OAuth2 Server: '${loginManager.name}'"))
         })
         idClaimSet <- wrapFuture({() => PlainJWT.parse(aadToken.idToken).getJWTClaimsSet}, BpTokenParsingError.apply)
         accessClaimSet <- getClaimsSet(loginManager, aadToken.accessToken)
-      } yield accessClaimSet
+      } yield (accessClaimSet, idClaimSet)
     }
   }
 }

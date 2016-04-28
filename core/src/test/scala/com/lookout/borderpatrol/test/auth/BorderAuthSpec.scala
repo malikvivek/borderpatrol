@@ -374,7 +374,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   it should "succeed and convert the BpBorderError exception into error Response" in {
     val testService = Service.mk[Request, Response] { req =>
-      Future.exception(new BpNotFoundRequest("Some identity provider error"))
+      Future.exception(BpNotFoundRequest("Some identity provider error"))
     }
 
     // Execute

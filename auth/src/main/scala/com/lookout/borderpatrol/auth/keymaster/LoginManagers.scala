@@ -10,43 +10,31 @@ import com.twitter.util.Future
 
 
 object LoginManagers {
+  private[this] val log = Logger.get(getClass.getPackage.getName)
 
   /**
-   * Internal authentication, that merely redirects user to internal service that does the authentication
+   * BasicAuthLoginManagerMixin
    *
-   * @param name name of the login manager
-   * @param guid
-   * @param loginConfirm path owned by borderpatrol. The interal login form POSTs here
-   * @param authorizePath path of the internal login form
-   * @param identityEndpoint endpoint that does identity provisioning for the cloud
-   * @param accessEndpoint endpoint that does access issuing for the cloud
+   * A mixin to incorporate basic authentication functionality
    */
-  case class BasicLoginManager(name: String, tyfe: String, guid: String, loginConfirm: Path, authorizePath: Path,
-                               identityEndpoint: Endpoint, accessEndpoint: Endpoint)
-      extends LoginManager {
+  trait BasicAuthLoginManagerMixin {
+    val authorizePath: Path
     def redirectLocation(req: Request): String = authorizePath.toString
   }
 
   /**
-   * OAuth code framework, that redirects user to OAuth2 server.
+   * OAuth2LoginManagerMixin
    *
-   * @param name name of the login manager
-   * @param guid
-   * @param loginConfirm path owned by borderpatrol. The OAuth2 server posts the oAuth2 code on this path
-   * @param identityEndpoint endpoint that does identity provisioning for the cloud
-   * @param accessEndpoint endpoint that does access issuing for the cloud
-   * @param authorizeEndpoint External endpoint of the OAuth2 service where client is redirected for authentication
-   * @param tokenEndpoint External endpoint of the OAuth2 server to convert OAuth2 code to OAuth2 token
-   * @param certificateEndpoint External endpoint of the OAuth2 server to fetch certificate to verify token signature
-   * @param clientId Id used for communicating with OAuth2 server
-   * @param clientSecret Secret used for communicating with OAuth2 server
+   * A mixin to incorporate OAuth2 authentication functionality
    */
-  case class OAuth2LoginManager(name: String, tyfe: String, guid: String, loginConfirm: Path,
-                                identityEndpoint: Endpoint, accessEndpoint: Endpoint,
-                                authorizeEndpoint: Endpoint, tokenEndpoint: Endpoint, certificateEndpoint: Endpoint,
-                                clientId: String, clientSecret: String)
-      extends LoginManager {
-    private[this] val log = Logger.get(getClass.getPackage.getName)
+  trait OAuth2LoginManagerMixin {
+    val name: String
+    val loginConfirm: Path
+    val authorizeEndpoint: Endpoint
+    val tokenEndpoint: Endpoint
+    val certificateEndpoint: Endpoint
+    val clientId: String
+    val clientSecret: String
 
     def redirectLocation(req: Request): String = {
       val hostStr = req.host.getOrElse(throw new Exception(s"Host not found in HTTP $req"))
@@ -73,4 +61,38 @@ object LoginManagers {
       Binder.connect(tokenEndpoint, request)
     }
   }
+
+  /**
+   * Internal authentication, that merely redirects user to internal service that does the authentication
+   *
+   * @param name name of the login manager
+   * @param guid
+   * @param loginConfirm path owned by borderpatrol. The interal login form POSTs here
+   * @param authorizePath path of the internal login form
+   * @param identityEndpoint endpoint that does identity provisioning for the cloud
+   * @param accessEndpoint endpoint that does access issuing for the cloud
+   */
+  case class BasicLoginManager(name: String, tyfe: String, guid: String, loginConfirm: Path, authorizePath: Path,
+                               identityEndpoint: Endpoint, accessEndpoint: Endpoint)
+      extends LoginManager with BasicAuthLoginManagerMixin
+
+  /**
+   * OAuth code framework, that redirects user to OAuth2 server.
+   *
+   * @param name name of the login manager
+   * @param guid
+   * @param loginConfirm path owned by borderpatrol. The OAuth2 server posts the oAuth2 code on this path
+   * @param identityEndpoint endpoint that does identity provisioning for the cloud
+   * @param accessEndpoint endpoint that does access issuing for the cloud
+   * @param authorizeEndpoint External endpoint of the OAuth2 service where client is redirected for authentication
+   * @param tokenEndpoint External endpoint of the OAuth2 server to convert OAuth2 code to OAuth2 token
+   * @param certificateEndpoint External endpoint of the OAuth2 server to fetch certificate to verify token signature
+   * @param clientId Id used for communicating with OAuth2 server
+   * @param clientSecret Secret used for communicating with OAuth2 server
+   */
+  case class OAuth2LoginManager(name: String, tyfe: String, guid: String, loginConfirm: Path,
+                                identityEndpoint: Endpoint, accessEndpoint: Endpoint,
+                                authorizeEndpoint: Endpoint, tokenEndpoint: Endpoint, certificateEndpoint: Endpoint,
+                                clientId: String, clientSecret: String)
+      extends LoginManager with OAuth2LoginManagerMixin
 }

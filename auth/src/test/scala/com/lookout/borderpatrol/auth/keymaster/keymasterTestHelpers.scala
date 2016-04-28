@@ -13,9 +13,9 @@ object keymasterTestHelpers {
 
   // Endpoints
   val ulmAuthorizeEndpoint = Endpoint("ulmAuthorizeEndpoint", Path("/authorize"), Set(new URL("http://example.com")))
-  val ulmTokenEndpoint = Endpoint("ulmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:4567")))
+  val ulmTokenEndpoint = Endpoint("ulmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:5678")))
   val ulmCertificateEndpoint = Endpoint("ulmCertificateEndpoint", Path("/certificate"),
-    Set(new URL("http://localhost:4567")))
+    Set(new URL("http://localhost:5678")))
   val rlmAuthorizeEndpoint = Endpoint("rlmAuthorizeEndpoint", Path("/authorize"),
     Set(new URL("http://localhost:9999")))
   val rlmTokenEndpoint = Endpoint("rlmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:9999")))
@@ -26,8 +26,8 @@ object keymasterTestHelpers {
     rlmAuthorizeEndpoint, rlmTokenEndpoint, rlmCertificateEndpoint)
 
   // Login Managers
-  val checkpointLoginManager = BasicLoginManager("checkpointLoginManager", "keymaster.basic", "cp-guid", Path("/loginConfirm"),
-    Path("/check"), keymasterIdEndpoint, keymasterAccessEndpoint)
+  val checkpointLoginManager = BasicLoginManager("checkpointLoginManager", "keymaster.basic", "cp-guid",
+    Path("/loginConfirm"), Path("/check"), keymasterIdEndpoint, keymasterAccessEndpoint)
   val umbrellaLoginManager = OAuth2LoginManager("ulmLoginManager", "keymaster.oauth2", "ulm-guid", Path("/signin"),
     keymasterIdEndpoint, keymasterAccessEndpoint,
     ulmAuthorizeEndpoint, ulmTokenEndpoint, ulmCertificateEndpoint,

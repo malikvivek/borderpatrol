@@ -42,7 +42,6 @@ import com.twitter.finagle.http.service.RoutingService
 import com.twitter.finagle.Service
 import com.twitter.util.Future
 import io.finch.response.ResponseBuilder
-
 import scala.util.{Failure, Success, Try}
 
 
@@ -55,8 +54,8 @@ object service {
   def identityProviderChainMap(sessionStore: SessionStore)(
     implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
   Map[String, Service[BorderRequest, Response]] = Map(
-    "keymaster.basic" -> keymasterIdentityProviderChain(sessionStore),
-    "keymaster.oauth2" -> keymasterIdentityProviderChain(sessionStore)
+    "keymaster.basic" -> keymasterBasicServiceChain(sessionStore),
+    "keymaster.oauth2" -> keymasterOAuth2ServiceChain(sessionStore)
   )
 
   /**
@@ -239,7 +238,7 @@ object service {
       case Success(a) => a
       case Failure(e) =>
         // Workaround, when testing with other configurations
-        Service.mk[Request, Response] { _ => Response().toFuture }
+        Service.mk[Request, Response] { _ => Response(Status.Ok).toFuture }
     }
   }
 }
