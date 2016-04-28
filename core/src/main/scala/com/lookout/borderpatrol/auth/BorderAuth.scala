@@ -111,7 +111,7 @@ case class CustomerIdFilter(matcher: ServiceMatcher)(implicit statsReceiver: Sta
     for {
       custIdOpt <- Future.value(req.host.flatMap(matcher.customerId))
       resp <- custIdOpt match {
-        case None => Future.exception(new BpNotFoundRequest("Failed to find CustomerIdentifier for " +
+        case None => Future.exception(BpNotFoundRequest("Failed to find CustomerIdentifier for " +
           s"Request(${req.method}, ${req.host.fold("null-hostname")(h => s"$h${req.path}")})"))
         case Some(cid) =>
           log.debug(s"Processing: Request(${req.method}, ${req.host.get}${req.path} " +

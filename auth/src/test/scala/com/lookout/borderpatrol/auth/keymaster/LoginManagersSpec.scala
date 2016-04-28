@@ -38,7 +38,7 @@ class LoginManagersSpec extends BorderPatrolSuite {
 
   it should "succeed to fetch oAuth2 token for code from server" in {
     val server = com.twitter.finagle.Http.serve(
-      "localhost:4567",
+      "localhost:5678",
       RoutingService.byPath {
         case p1 if p1 contains "token" => Service.mk[Request, Response] { req =>
           req.getParam("code") should be("XYZ123")

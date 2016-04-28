@@ -8,7 +8,7 @@ import javax.security.auth.x500.X500Principal
 import javax.xml.bind.DatatypeConverter
 
 import com.lookout.borderpatrol.auth._
-import com.lookout.borderpatrol.{Binder, BpCommunicationError}
+import com.lookout.borderpatrol.Binder
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
 import com.lookout.borderpatrol.util.Combinators.tap
@@ -143,7 +143,7 @@ class OAuth2Spec extends BorderPatrolSuite {
 
     //Launch a server for fetching token from a code
     val server = com.twitter.finagle.Http.serve(
-      "localhost:4567",
+      "localhost:5678",
       RoutingService.byPath {
         case p1 if p1 contains "token" => Service.mk[Request, Response] { req =>
           assert(req.getParam("code") == "XYZ123")
@@ -185,8 +185,8 @@ class OAuth2Spec extends BorderPatrolSuite {
       val output = new OAuth2CodeVerify().codeToClaimsSet(sessionIdRequest, umbrellaLoginManager)
 
       // Validate
-      Await.result(output).getSubject should be("abc123")
-      Await.result(output).getStringClaim("upn") should be("test@example.com")
+      Await.result(output)._1.getSubject should be("abc123")
+      Await.result(output)._1.getStringClaim("upn") should be("test@example.com")
     } finally {
       server.close()
     }
@@ -196,7 +196,7 @@ class OAuth2Spec extends BorderPatrolSuite {
 
     //Launch a server for fetching token from a code
     val server = com.twitter.finagle.Http.serve(
-      "localhost:4567",
+      "localhost:5678",
       RoutingService.byPath {
         case p1 if p1 contains "token" => Service.mk[Request, Response] { req =>
           assert(req.getParam("code") == "XYZ123")
@@ -238,8 +238,8 @@ class OAuth2Spec extends BorderPatrolSuite {
       val output = new OAuth2CodeVerify().codeToClaimsSet(sessionIdRequest, umbrellaLoginManager)
 
       // Validate
-      Await.result(output).getSubject should be("abc123")
-      Await.result(output).getStringClaim("upn") should be("test@example.com")
+      Await.result(output)._1.getSubject should be("abc123")
+      Await.result(output)._1.getStringClaim("upn") should be("test@example.com")
     } finally {
       server.close()
     }
@@ -249,7 +249,7 @@ class OAuth2Spec extends BorderPatrolSuite {
 
     //Launch a server for fetching token from a code
     val server = com.twitter.finagle.Http.serve(
-      "localhost:4567",
+      "localhost:5678",
       RoutingService.byPath {
         case p1 if p1 contains "token" => Service.mk[Request, Response] { req =>
           assert(req.getParam("code") == "XYZ123")
@@ -282,8 +282,8 @@ class OAuth2Spec extends BorderPatrolSuite {
       val output = oAuth2CodeVerify.codeToClaimsSet(sessionIdRequest, umbrellaLoginManager)
 
       // Validate
-      Await.result(output).getSubject should be("abc123")
-      Await.result(output).getStringClaim("upn") should be("test@example.com")
+      Await.result(output)._1.getSubject should be("abc123")
+      Await.result(output)._1.getStringClaim("upn") should be("test@example.com")
     } finally {
       server.close()
     }
@@ -291,7 +291,7 @@ class OAuth2Spec extends BorderPatrolSuite {
 
   it should "throw BpTokenParsingError if fails to parse OAuth2 AAD Token in the response" in {
     val server = com.twitter.finagle.Http.serve(
-      "localhost:4567", Service.mk[Request, Response] { req =>
+      "localhost:5678", Service.mk[Request, Response] { req =>
         assert(req.getParam("code") == "XYZ123")
         tap(Response(Status.Ok))(res => {
           res.contentString = """{"key":"value"}"""
@@ -315,7 +315,7 @@ class OAuth2Spec extends BorderPatrolSuite {
       val caught = the[BpTokenParsingError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should include ("in the Access Token response from OAuth2 Server: ulm")
+      caught.getMessage should include ("in the Access Token response from OAuth2 Server: ")
     } finally {
       server.close()
     }
@@ -323,7 +323,7 @@ class OAuth2Spec extends BorderPatrolSuite {
 
   it should "throw a BpIdentityProviderError if OAuth2 Server returns an failure response for code to token conversion" in {
     val server = com.twitter.finagle.Http.serve(
-      "localhost:4567", Service.mk[Request, Response] { req =>
+      "localhost:5678", Service.mk[Request, Response] { req =>
         assert(req.getParam("code") == "XYZ123")
         Response(Status.NotAcceptable).toFuture
       })
@@ -344,7 +344,7 @@ class OAuth2Spec extends BorderPatrolSuite {
       val caught = the[BpIdentityProviderError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should include ("Failed to receive the token from OAuth2 Server: ulm")
+      caught.getMessage should include ("Failed to receive the token from OAuth2 Server: ")
       caught.status should be(Status.NotAcceptable)
     } finally {
       server.close()
@@ -355,7 +355,7 @@ class OAuth2Spec extends BorderPatrolSuite {
     val idToken = "stuff" //"""{"key":"value"}"""
     val aadToken = AadToken(testRsaAccessToken.serialize(), idToken)
     val server = com.twitter.finagle.Http.serve(
-      "localhost:4567", Service.mk[Request, Response] { req =>
+      "localhost:5678", Service.mk[Request, Response] { req =>
         assert(req.getParam("code") == "XYZ123")
         tap(Response(Status.Ok))(res => {
           res.contentString = AadTokenEncoder(aadToken).toString()
@@ -389,7 +389,7 @@ class OAuth2Spec extends BorderPatrolSuite {
     val accessToken = new PlainJWT(new JWTClaimsSet.Builder().subject("SomethingAccess").build)
     val aadToken = AadToken(accessToken.serialize(), testRsaIdToken.serialize())
     val server = com.twitter.finagle.Http.serve(
-      "localhost:4567", Service.mk[Request, Response] { req =>
+      "localhost:5678", Service.mk[Request, Response] { req =>
         assert(req.getParam("code") == "XYZ123")
         tap(Response(Status.Ok))(res => {
           res.contentString = AadTokenEncoder(aadToken).toString()
@@ -427,7 +427,7 @@ class OAuth2Spec extends BorderPatrolSuite {
     accessToken.sign(testRsaSigner)
     val aadToken = AadToken(accessToken.serialize(), testRsaIdToken.serialize())
     val server = com.twitter.finagle.Http.serve(
-      "localhost:4567", Service.mk[Request, Response] { req =>
+      "localhost:5678", Service.mk[Request, Response] { req =>
         assert(req.getParam("code") == "XYZ123")
         tap(Response(Status.Ok))(res => {
           res.contentString = AadTokenEncoder(aadToken).toString()
@@ -461,7 +461,7 @@ class OAuth2Spec extends BorderPatrolSuite {
 
     //Launch a server for fetching token from a code
     val server = com.twitter.finagle.Http.serve(
-      "localhost:4567",
+      "localhost:5678",
       RoutingService.byPath {
         case p1 if p1 contains "token" => Service.mk[Request, Response] { req =>
           assert(req.getParam("code") == "XYZ123")
@@ -515,7 +515,7 @@ class OAuth2Spec extends BorderPatrolSuite {
 
     //Launch a server for fetching token from a code
     val server = com.twitter.finagle.Http.serve(
-      "localhost:4567",
+      "localhost:5678",
       RoutingService.byPath {
         case p1 if p1 contains "token" => Service.mk[Request, Response] { req =>
           assert(req.getParam("code") == "XYZ123")
@@ -568,7 +568,7 @@ class OAuth2Spec extends BorderPatrolSuite {
 
     //Launch a server for fetching token from a code
     val server = com.twitter.finagle.Http.serve(
-      "localhost:4567",
+      "localhost:5678",
       RoutingService.byPath {
         case p1 if p1 contains "token" => Service.mk[Request, Response] { req =>
           assert(req.getParam("code") == "XYZ123")
