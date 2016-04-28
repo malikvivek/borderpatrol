@@ -21,7 +21,7 @@ object tokenmasterTestHelpers {
   val rlmTokenEndpoint = Endpoint("rlmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:9999")))
   val rlmCertificateEndpoint = Endpoint("rlmCertificateEndpoint", Path("/certificate"),
     Set(new URL("http://localhost:9999")))
-  val endpoints = Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint,
+  val endpointsk = Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint,
     ulmAuthorizeEndpoint, ulmTokenEndpoint, ulmCertificateEndpoint,
     rlmAuthorizeEndpoint, rlmTokenEndpoint, rlmCertificateEndpoint)
 

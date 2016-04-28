@@ -1,7 +1,5 @@
 package com.lookout.borderpatrol
 
-import java.net.URL
-
 import com.twitter.finagle.http.{Request, Status}
 import com.twitter.util._
 import io.circe.Encoder

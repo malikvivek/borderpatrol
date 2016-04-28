@@ -39,18 +39,18 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
   val serviceTokens = ServiceTokens().add("service1", ServiceToken("SomeServiceTokenData1"))
   val tokens = Tokens(MasterToken("masterT"), serviceTokens)
   val tokens2 = tokens.add("one", serviceToken2)
-    val accessToken = new PlainJWT(new JWTClaimsSet.Builder().subject("SomeAccessToken")
-      .claim("upn", "test1@example.com")
-      .claim("tid", "tid-tid-tid-tid")
-      .build)
- 
-    val groups = new java.util.ArrayList[String]()
-    groups.add("group1")
-    groups.add("group2")
-    val idToken = new PlainJWT(new JWTClaimsSet.Builder().subject("SomeIdToken")
-      .claim("upn", "test2@example.com")
-      .claim("groups", groups)
-      .build)
+  val accessToken = new PlainJWT(new JWTClaimsSet.Builder().subject("SomeAccessToken")
+    .claim("upn", "test1@example.com")
+    .claim("tid", "tid-tid-tid-tid")
+    .build)
+
+  val groups = new java.util.ArrayList[String]()
+  groups.add("group1")
+  groups.add("group2")
+  val idToken = new PlainJWT(new JWTClaimsSet.Builder().subject("SomeIdToken")
+    .claim("upn", "test2@example.com")
+    .claim("groups", groups)
+    .build)
 
   // Method to decode SessionData from the sessionId
   def getTokensFromSessionId(sid: SignedId): Future[Tokens] =
@@ -60,6 +60,27 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
       case Id(tokens) => tokens
       case EmptyIdentity => null
     }
+
+  behavior of "OAuth2StateMixin"
+
+  it should "be able to retrieve claims from tokens or throw exceptions" in {
+    val borderRequest = BorderRequest(req("enterprise", "/login"), cust1, one, sessionid.untagged)
+
+    val mixin = new OAuth2StateMixin {
+      val accessClaimSet: JWTClaimsSet = accessToken.getJWTClaimsSet
+      val idClaimSet: JWTClaimsSet = idToken.getJWTClaimsSet
+      val req: BorderRequest = borderRequest
+    }
+
+    // Validate
+    mixin.aStringClaim("sub") should be("SomeAccessToken")
+    mixin.iStringClaim("sub") should be("SomeIdToken")
+    mixin.iStringListClaim("groups") should be(List("group1","group2"))
+    val caught = the [BpBadRequest] thrownBy {
+      mixin.aStringListClaim("bad")
+    }
+    caught.msg should include("Failed to find list 'bad' in the Access Token in the Request")
+  }
 
   behavior of "TokenmasterPostLoginFilter"
 

@@ -78,7 +78,7 @@ object Tokenmaster {
 
     def aStringListClaim(claim: String): List[String] = wrapOps[List[String]](
       { () => accessClaimSet.getStringListClaim(claim).asScala.toList},
-      s"Failed to find '$claim' in the Access Token in the Request",
+      s"Failed to find list '$claim' in the Access Token in the Request",
       BpBadRequest.apply)
 
     def iStringClaim(claim: String): String = wrapOps[String]({ () => idClaimSet.getStringClaim(claim)},
@@ -87,7 +87,7 @@ object Tokenmaster {
 
     def iStringListClaim(claim: String): List[String] = wrapOps[List[String]](
       { () => idClaimSet.getStringListClaim(claim).asScala.toList},
-      s"Failed to find '$claim' in the Id Token in the Request",
+      s"Failed to find list '$claim' in the Id Token in the Request",
       BpBadRequest.apply)
 
     private[this] def authPayload(grants: Set[String]): String =
@@ -213,8 +213,7 @@ object Tokenmaster {
 
     def apply(req: BorderRequest): Future[Response] = {
       statRequestSends.incr()
-      val basicHelper = BasicHelper(req)
-      Binder.connect(req.customerId.loginManager.identityEndpoint, basicHelper.authRequest(Set.empty))
+      BasicHelper(req).authenticate(Set.empty)
     }
   }
 
@@ -236,8 +235,7 @@ object Tokenmaster {
       for {
         (accessClaimSet, idClaimSet) <- oAuth2CodeVerify.codeToClaimsSet(req,
           req.customerId.loginManager.as[OAuth2LoginManager])
-        oAuth2Helper <- OAuth2Helper(accessClaimSet, idClaimSet, req).toFuture
-        resp <- Binder.connect(req.customerId.loginManager.identityEndpoint, oAuth2Helper.authRequest(Set.empty))
+        resp <- OAuth2Helper(accessClaimSet, idClaimSet, req).authenticate(Set.empty)
       } yield resp
     }
   }
