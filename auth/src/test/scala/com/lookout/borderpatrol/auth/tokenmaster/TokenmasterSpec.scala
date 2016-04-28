@@ -1,7 +1,7 @@
-package com.lookout.borderpatrol.auth.keymaster
+package com.lookout.borderpatrol.auth.tokenmaster
 
 import com.lookout.borderpatrol.Binder
-import com.lookout.borderpatrol.auth.keymaster.Keymaster._
+import com.lookout.borderpatrol.auth.tokenmaster.Tokenmaster._
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.errors.{BpBadRequest, BpForbiddenRequest}
 import com.lookout.borderpatrol.sessionx.SessionStores.MemcachedStore
@@ -19,9 +19,9 @@ import org.scalatest.mock.MockitoSugar
 import org.mockito.Mockito._
 
 
-class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
+class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
   import coreTestHelpers.{secretStore => store, _}
-  import keymasterTestHelpers._
+  import tokenmasterTestHelpers._
   import Tokens._
   import OAuth2._
 
@@ -61,11 +61,11 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       case EmptyIdentity => null
     }
 
-  behavior of "KeymasterPostLoginFilter"
+  behavior of "TokenmasterPostLoginFilter"
 
-  it should "succeed and saves tokens for internal auth, sends redirect with tokens returned by keymaster IDP" in {
+  it should "succeed and saves tokens for internal auth, sends redirect with tokens returned by tokenmaster IDP" in {
     val testService = Service.mk[BorderRequest, IdentifyResponse[Tokens]] {
-      req => Future(KeymasterIdentifyRes(tokens)) }
+      req => Future(TokenmasterIdentifyRes(tokens)) }
 
     // Allocate and Session
     val sessionId = sessionid.untagged
@@ -78,7 +78,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     sessionStore.update[Request](Session(sessionId, origReq))
 
     // Execute
-    val output = (KeymasterPostLoginFilter(sessionStore) andThen testService)(
+    val output = (TokenmasterPostLoginFilter(sessionStore) andThen testService)(
       BorderRequest(loginRequest, cust1, one, sessionId))
 
     // Validate
@@ -94,7 +94,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
 
   it should "succeed and saves tokens for internal auth, sends json response for redirect" in {
     val testService = Service.mk[BorderRequest, IdentifyResponse[Tokens]] {
-      req => Future(KeymasterIdentifyRes(tokens)) }
+      req => Future(TokenmasterIdentifyRes(tokens)) }
 
     // Allocate and Session
     val sessionId = sessionid.untagged
@@ -108,7 +108,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     sessionStore.update[Request](Session(sessionId, origReq))
 
     // Execute
-    val output = (KeymasterPostLoginFilter(sessionStore) andThen testService)(
+    val output = (TokenmasterPostLoginFilter(sessionStore) andThen testService)(
       BorderRequest(loginRequest, cust1, one, sessionId))
 
     // Validate
@@ -125,7 +125,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
 
   it should "throw BpOriginalRequestNotFound if it fails find the original request from sessionStore" in {
     val testService = Service.mk[BorderRequest, IdentifyResponse[Tokens]] {
-      req => Future(KeymasterIdentifyRes(tokens)) }
+      req => Future(TokenmasterIdentifyRes(tokens)) }
 
     // Allocate and Session
     val sessionId = sessionid.untagged
@@ -134,7 +134,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val loginRequest = req("enterprise", "/login", ("username" -> "foo"), ("password" -> "bar"))
 
     // Execute
-    val output = (KeymasterPostLoginFilter(sessionStore) andThen testService)(
+    val output = (TokenmasterPostLoginFilter(sessionStore) andThen testService)(
       BorderRequest(loginRequest, cust1, one, sessionId))
 
     // Validate
@@ -146,7 +146,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
 
   it should "propagate the Exception thrown by Session lookup operation" in {
     val testService = Service.mk[BorderRequest, IdentifyResponse[Tokens]] {
-      req => Future(KeymasterIdentifyRes(tokens)) }
+      req => Future(TokenmasterIdentifyRes(tokens)) }
 
     //  Mock SessionStore client
     case object FailingMockClient extends memcached.MockClient {
@@ -165,7 +165,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val loginRequest = req("enterprise", "/login", ("username" -> "foo"), ("password" -> "bar"))
 
     // Execute
-    val output = (KeymasterPostLoginFilter(mockSessionStore) andThen testService)(
+    val output = (TokenmasterPostLoginFilter(mockSessionStore) andThen testService)(
       BorderRequest(loginRequest, cust1, one, sessionId))
 
     // Validate
@@ -177,7 +177,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
 
   it should "propagate the Exception thrown by Session update operation" in {
     val testService = Service.mk[BorderRequest, IdentifyResponse[Tokens]] {
-      req => Future(KeymasterIdentifyRes(tokens)) }
+      req => Future(TokenmasterIdentifyRes(tokens)) }
 
     //  Mock SessionStore client
     case object FailingMockClient extends memcached.MockClient {
@@ -196,7 +196,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val loginRequest = req("enterprise", "/login", ("username" -> "foo"), ("password" -> "bar"))
 
     // Execute
-    val output = (KeymasterPostLoginFilter(mockSessionStore) andThen testService)(
+    val output = (TokenmasterPostLoginFilter(mockSessionStore) andThen testService)(
       BorderRequest(loginRequest, cust1, one, sessionId))
 
     // Validate
@@ -206,9 +206,9 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     caught.getMessage should equal ("Session.update failed")
   }
 
-  behavior of "KeymasterProcessResponse"
+  behavior of "TokenmasterProcessResponse"
 
-  it should "succeed and return IdentityResponse with tokens received from upstream Keymaster Service" in {
+  it should "succeed and return IdentityResponse with tokens received from upstream Tokenmaster Service" in {
     val testService = Service.mk[BorderRequest, Response] { req =>
       tap(Response(Status.Ok))(res => {
         res.contentString = TokensEncoder(tokens).toString()
@@ -222,14 +222,14 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val loginRequest = req("umbrella.k", "/loginConfirm", "username" -> "foo", "password" -> "bar")
 
     // Execute
-    val output = (KeymasterProcessResponse() andThen testService)(
+    val output = (TokenmasterProcessResponse() andThen testService)(
       BorderRequest(loginRequest, cust1, one, sessionId))
 
     // Validate
     Await.result(output).identity should be(Id(tokens))
   }
 
-  it should "throw BpForbiddenRequest if Keymaster returns the Forbidden Status code" in {
+  it should "throw BpForbiddenRequest if Tokenmaster returns the Forbidden Status code" in {
     val testService = Service.mk[BorderRequest, Response] { _ => Response(Status.Forbidden).toFuture}
 
     // Allocate and Session
@@ -240,7 +240,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
 
 
     // Execute
-    val output = (KeymasterProcessResponse() andThen testService)(
+    val output = (TokenmasterProcessResponse() andThen testService)(
       BorderRequest(loginRequest, cust2, two, sessionId))
 
     // Validate
@@ -251,7 +251,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     caught.status should be(Status.Forbidden)
   }
 
-  it should "propagate the error status from Keymaster service in the BpIdentityProviderError exception" in {
+  it should "propagate the error status from Tokenmaster service in the BpIdentityProviderError exception" in {
     val testService = Service.mk[BorderRequest, Response] { _ => Response(Status.NotAcceptable).toFuture}
 
     // Allocate and Session
@@ -262,7 +262,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
 
 
     // Execute
-    val output = (KeymasterProcessResponse() andThen testService)(
+    val output = (TokenmasterProcessResponse() andThen testService)(
       BorderRequest(loginRequest, cust2, two, sessionId))
 
     // Validate
@@ -273,7 +273,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     caught.status should be(Status.InternalServerError)
   }
 
-  it should "propagate the failure parsing the resp from Keymaster service as an BpTokenParsingError exception" in {
+  it should "propagate the failure parsing the resp from Tokenmaster service as an BpTokenParsingError exception" in {
     val testService = Service.mk[BorderRequest, Response] { _ =>
       tap(Response(Status.Ok))(res => {
         res.contentString = """{"key":"data"}"""
@@ -288,7 +288,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     val loginRequest = req("umbrella.k", "/loginConfirm", "username" -> "foo", "password" -> "bar")
 
     // Execute
-    val output = (KeymasterProcessResponse() andThen testService)(
+    val output = (TokenmasterProcessResponse() andThen testService)(
       BorderRequest(loginRequest, cust2, two, sessionId))
 
     // Validate
@@ -298,7 +298,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     caught.getMessage should include("Failed to parse token with: ")
   }
 
-  behavior of "KeymasterBasicAuth"
+  behavior of "TokenmasterBasicAuth"
 
   it should "succeed to authenticate and return response with tokens" in {
     val server = com.twitter.finagle.Http.serve(
@@ -318,7 +318,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       val loginRequest = req("umbrella.k", "/loginConfirm", ("username" -> "test@example.com"), ("password" -> "bar"))
 
       // Execute
-      val output = KeymasterBasicAuth().apply(BorderRequest(loginRequest, cust1k, one, sessionId))
+      val output = TokenmasterBasicAuth().apply(BorderRequest(loginRequest, cust1k, one, sessionId))
 
       // Validate
       Await.result(output).status should be(Status.Ok)
@@ -337,7 +337,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     // Execute
     // Validate
     val caught = the[BpBadRequest] thrownBy {
-      val output = KeymasterBasicAuth().apply(BorderRequest(loginRequest, cust1, one, sessionId))
+      val output = TokenmasterBasicAuth().apply(BorderRequest(loginRequest, cust1, one, sessionId))
     }
     caught.getMessage should include("Failed to find username and/or password in the Request")
   }
@@ -352,12 +352,12 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     // Execute
     // Validate
     val caught = the[BpBadRequest] thrownBy {
-      val output = KeymasterBasicAuth().apply(BorderRequest(loginRequest, cust1, one, sessionId))
+      val output = TokenmasterBasicAuth().apply(BorderRequest(loginRequest, cust1, one, sessionId))
     }
     caught.getMessage should include("Failed to find username and/or password in the Request")
   }
 
-  behavior of "KeymasterOAuth2Auth"
+  behavior of "TokenmasterOAuth2Auth"
 
   it should "succeed to retrieve tokens for the given access and id tokens" in {
     val server = com.twitter.finagle.Http.serve(
@@ -390,7 +390,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
         Future.value((accessToken.getJWTClaimsSet, idToken.getJWTClaimsSet)))
 
       // Execute
-      val output = KeymasterOAuth2Auth(mockVerify).apply(borderRequest)
+      val output = TokenmasterOAuth2Auth(mockVerify).apply(borderRequest)
 
       // Validate
       Await.result(output).status should be(Status.Ok)
@@ -420,7 +420,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       Future.value((accessToken.getJWTClaimsSet, idToken.getJWTClaimsSet)))
 
     // Execute
-    val output = KeymasterOAuth2Auth(mockVerify).apply(borderRequest)
+    val output = TokenmasterOAuth2Auth(mockVerify).apply(borderRequest)
 
     // Validate
     val caught = the[BpBadRequest] thrownBy {
@@ -429,24 +429,24 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     caught.msg should include("Failed to find 'sub' in the Access Token in the Request")
   }
 
-  behavior of "KeymasterAccessIssuer"
+  behavior of "TokenmasterAccessIssuer"
 
   it should "succeed, return service token found in the ServiceTokens cache" in {
     val sessionId = sessionid.untagged
 
     // Execute
-    val output = KeymasterAccessIssuer(sessionStore).apply(
-      KeymasterAccessReq(Id(tokens2), cust1k, one, sessionId))
+    val output = TokenmasterAccessIssuer(sessionStore).apply(
+      TokenmasterAccessReq(Id(tokens2), cust1k, one, sessionId))
 
     // Validate
     Await.result(output).access.access should be (serviceToken2)
   }
 
-  it should "succeed, save in SessionStore and return the ServiceToken received from the Keymaster Service" in {
+  it should "succeed, save in SessionStore and return the ServiceToken received from the Tokenmaster Service" in {
     val server = com.twitter.finagle.Http.serve(
       "localhost:5678",
       RoutingService.byPath {
-        case p1 if p1 contains keymasterAccessEndpoint.path.toString => Service.mk[Request, Response] { req =>
+        case p1 if p1 contains tokenmasterAccessEndpoint.path.toString => Service.mk[Request, Response] { req =>
           assert(req.path == cust1k.loginManager.accessEndpoint.path.toString)
           tap(Response(Status.Ok))(res => {
             res.contentString = TokensEncoder(tokens2).toString()
@@ -462,8 +462,8 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       sessionStore.update[Tokens](Session(sessionId, tokens))
 
       // Execute
-      val output = KeymasterAccessIssuer(sessionStore).apply(
-        KeymasterAccessReq(Id(tokens), cust1k, one, sessionId))
+      val output = TokenmasterAccessIssuer(sessionStore).apply(
+        TokenmasterAccessReq(Id(tokens), cust1k, one, sessionId))
 
       // Validate
       Await.result(output).access.access should be(serviceToken2)
@@ -474,11 +474,11 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     }
   }
 
-  it should "propagate the error Status code returned by the Keymaster service, as the BpAccessIssuerError exception" in {
+  it should "propagate the error Status code returned by the Tokenmaster service, as the BpAccessIssuerError exception" in {
     val server = com.twitter.finagle.Http.serve(
       "localhost:5678",
       RoutingService.byPath {
-        case p1 if p1 contains keymasterAccessEndpoint.path.toString => Service.mk[Request, Response] { req =>
+        case p1 if p1 contains tokenmasterAccessEndpoint.path.toString => Service.mk[Request, Response] { req =>
           Response(Status.NotFound).toFuture
         }
         case _ =>
@@ -489,8 +489,8 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       val sessionId = sessionid.untagged
 
       // Execute
-      val output = KeymasterAccessIssuer(sessionStore).apply(
-        KeymasterAccessReq(Id(tokens), cust1k, one, sessionId))
+      val output = TokenmasterAccessIssuer(sessionStore).apply(
+        TokenmasterAccessReq(Id(tokens), cust1k, one, sessionId))
 
       // Validate
       val caught = the[BpAccessIssuerError] thrownBy {
@@ -504,11 +504,11 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     }
   }
 
-  it should "propagate the failure to parse resp content from Keymaster service, as BpAccessIssuerError exception" in {
+  it should "propagate the failure to parse resp content from Tokenmaster service, as BpAccessIssuerError exception" in {
     val server = com.twitter.finagle.Http.serve(
       "localhost:5678",
       RoutingService.byPath {
-        case p1 if p1 contains keymasterAccessEndpoint.path.toString => Service.mk[Request, Response] { req =>
+        case p1 if p1 contains tokenmasterAccessEndpoint.path.toString => Service.mk[Request, Response] { req =>
           tap(Response(Status.Ok))(res => {
             res.contentString = "invalid string"
             res.contentType = "application/json"
@@ -522,24 +522,24 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       val sessionId = sessionid.untagged
 
       // Execute
-      val output = KeymasterAccessIssuer(sessionStore).apply(
-        KeymasterAccessReq(Id(tokens), cust1k, one, sessionId))
+      val output = TokenmasterAccessIssuer(sessionStore).apply(
+        TokenmasterAccessReq(Id(tokens), cust1k, one, sessionId))
 
       // Validate
       val caught = the[BpTokenParsingError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should include("Failed to parse token with: in Keymaster Access Response")
+      caught.getMessage should include("Failed to parse token with: in Tokenmaster Access Response")
     } finally {
       server.close()
     }
   }
 
-  it should "throw a BpForbiddenRequest when it fails to find the ServiceToken in the Keymaster response" in {
+  it should "throw a BpForbiddenRequest when it fails to find the ServiceToken in the Tokenmaster response" in {
     val server = com.twitter.finagle.Http.serve(
       "localhost:5678",
       RoutingService.byPath {
-        case p1 if p1 contains keymasterAccessEndpoint.path.toString => Service.mk[Request, Response] { req =>
+        case p1 if p1 contains tokenmasterAccessEndpoint.path.toString => Service.mk[Request, Response] { req =>
           tap(Response(Status.Ok))(res => {
             res.contentString = TokensEncoder(tokens).toString()
             res.contentType = "application/json"
@@ -553,8 +553,8 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       val sessionId = sessionid.untagged
 
       // Execute
-      val output = KeymasterAccessIssuer(sessionStore).apply(
-        KeymasterAccessReq(Id(tokens), cust1k, one, sessionId))
+      val output = TokenmasterAccessIssuer(sessionStore).apply(
+        TokenmasterAccessReq(Id(tokens), cust1k, one, sessionId))
 
       // Validate
       val caught = the[BpForbiddenRequest] thrownBy {
@@ -571,7 +571,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
 
   it should "succeed and include service token in the request and invoke the REST API of upstream service" in {
     val accessService = Service.mk[AccessRequest[Tokens], AccessResponse[ServiceToken]] {
-      request => KeymasterAccessRes(Access(serviceToken2)).toFuture
+      request => TokenmasterAccessRes(Access(serviceToken2)).toFuture
     }
     val server = com.twitter.finagle.Http.serve(
       "localhost:5678",
@@ -604,7 +604,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
 
   it should "propagate the failure status code returned by upstream service" in {
     val accessService = Service.mk[AccessRequest[Tokens], AccessResponse[ServiceToken]] {
-      _ => KeymasterAccessRes(Access(serviceToken2)).toFuture
+      _ => TokenmasterAccessRes(Access(serviceToken2)).toFuture
     }
     val server = com.twitter.finagle.Http.serve(
       "localhost:5678",
@@ -673,7 +673,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     }
   }
 
-  behavior of "keymasterBasicServiceChain"
+  behavior of "tokenmasterBasicServiceChain"
 
   it should "succeed to retrieve tokens from this service chain" in {
     val server = com.twitter.finagle.Http.serve(
@@ -701,7 +701,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       sessionStore.update[Request](Session(sessionId, origReq))
 
       // Execute
-      val output = keymasterBasicServiceChain(sessionStore).apply(
+      val output = tokenmasterBasicServiceChain(sessionStore).apply(
         BorderRequest(loginRequest, cust1k, one, sessionId))
 
       // Validate
@@ -714,13 +714,13 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
     }
   }
 
-  behavior of "keymasterAccessIssuerChain"
+  behavior of "tokenmasterAccessIssuerChain"
 
   it should "succeed and invoke the GET on accessManager" in {
     val server = com.twitter.finagle.Http.serve(
       "localhost:5678",
       RoutingService.byPath {
-        case p1 if p1 contains keymasterAccessEndpoint.path.toString => Service.mk[Request, Response] { req =>
+        case p1 if p1 contains tokenmasterAccessEndpoint.path.toString => Service.mk[Request, Response] { req =>
           tap(Response(Status.Ok)) { res =>
             res.contentString = TokensEncoder(tokens2).toString()
             res.contentType = "application/json"
@@ -739,7 +739,7 @@ class KeymasterSpec extends BorderPatrolSuite with MockitoSugar {
       sessionStore.update[Tokens](Session(sessionId, tokens))
 
       // Execute
-      val output = keymasterAccessIssuerChain(sessionStore).apply(
+      val output = tokenmasterAccessIssuerChain(sessionStore).apply(
         BorderRequest(origReq, cust1k, one, sessionId))
 
       // Validate

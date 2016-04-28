@@ -1,4 +1,4 @@
-package com.lookout.borderpatrol.auth.keymaster
+package com.lookout.borderpatrol.auth.tokenmaster
 
 import com.lookout.borderpatrol.sessionx.{BpSessionDataError, SessionDataEncoder}
 import com.twitter.io.Buf
@@ -9,7 +9,7 @@ import scala.util.{Try, Success, Failure}
 
 
 /**
- * A Token is an abstraction for the opaque string value for the JSON map that Keymaster returns
+ * A Token is an abstraction for the opaque string value for the JSON map that Tokenmaster returns
  */
 sealed trait Token
 
@@ -43,7 +43,7 @@ case class ServiceTokens(services: Map[String, ServiceToken] = Map.empty[String,
 
 /**
  * This is the primary interface for accessing tokens
- * The incoming format from Keymaster is like this:
+ * The incoming format from Tokenmaster is like this:
  * {
  *  "auth_service" : "MMM",
  *  "service_tokens" : { "service_a": "AAA", "service_b": "BBB" }

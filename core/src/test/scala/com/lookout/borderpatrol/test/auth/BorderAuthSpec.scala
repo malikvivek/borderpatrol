@@ -458,7 +458,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   it should "send the request w/ authenticated SessionId to follow-on service" in {
     val identityProvider = Service.mk[BorderRequest, Response] { _ => fail("Must not invoke identity service")}
-    val identityProviderMap = Map("keymaster.basic" -> identityProvider)
+    val identityProviderMap = Map("tokenmaster.basic" -> identityProvider)
     val testService = Service.mk[SessionIdRequest, Response] { _ =>
       Response(Status.NotAcceptable).toFuture
     }
@@ -481,7 +481,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   it should "redirect the request w/ unauth SessionId for protected service to login page" in {
     val identityProvider = Service.mk[BorderRequest, Response] { _ => fail("Must not invoke identity service")}
-    val identityProviderMap = Map("keymaster.basic" -> identityProvider)
+    val identityProviderMap = Map("tokenmaster.basic" -> identityProvider)
     val testService = Service.mk[SessionIdRequest, Response] { _ => fail("Must not invoke this service")}
 
     // Allocate and Session
@@ -504,7 +504,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   it should "respond to the request w/ unauth SessionId for protected service with json response" in {
     val identityProvider = Service.mk[BorderRequest, Response] { _ => fail("Must not invoke identity service")}
-    val identityProviderMap = Map("keymaster.basic" -> identityProvider)
+    val identityProviderMap = Map("tokenmaster.basic" -> identityProvider)
     val testService = Service.mk[SessionIdRequest, Response] { _ => fail("Must not invoke this service")}
 
     // Allocate and Session
@@ -553,7 +553,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   it should "redirect the request w/ unauth SessionId to unprotected service to follow-on service" in {
     val identityProvider = Service.mk[BorderRequest, Response] { _ => fail("Must not invoke identity service")}
-    val identityProviderMap = Map("keymaster.basic" -> identityProvider)
+    val identityProviderMap = Map("tokenmaster.basic" -> identityProvider)
     val testService = Service.mk[SessionIdRequest, Response] { _ => Response(Status.NotAcceptable).toFuture}
 
     // Allocate and Session
@@ -572,7 +572,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   it should "redirect the request w/ unauth SessionId to unknown path to login page" in {
     val identityProvider = Service.mk[BorderRequest, Response] { _ => fail("Must not invoke identity service")}
-    val identityProviderMap = Map("keymaster.basic" -> identityProvider)
+    val identityProviderMap = Map("tokenmaster.basic" -> identityProvider)
     val testService = Service.mk[SessionIdRequest, Response] { _ => fail("Must not invoke this service")}
 
     // Allocate and Session
@@ -595,7 +595,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   it should "redirect the request w/o SessionId for protected service to login page" in {
     val identityProvider = Service.mk[BorderRequest, Response] { _ => fail("Must not invoke identity service")}
-    val identityProviderMap = Map("keymaster.basic" -> identityProvider)
+    val identityProviderMap = Map("tokenmaster.basic" -> identityProvider)
     val testService = Service.mk[SessionIdRequest, Response] { _ => fail("Must not invoke this service")}
 
     // Login request
@@ -617,7 +617,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   it should "redirect the request w/o SessionId for unprotected service to follow-on service" in {
     val identityProvider = Service.mk[BorderRequest, Response] { _ => fail("Must not invoke identity service")}
-    val identityProviderMap = Map("keymaster.basic" -> identityProvider)
+    val identityProviderMap = Map("tokenmaster.basic" -> identityProvider)
     val testService = Service.mk[SessionIdRequest, Response] { _ => Response(Status.NotAcceptable).toFuture}
 
     // Login request
@@ -633,7 +633,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   it should "redirect the request w/o SessionId for unknown service to login page" in {
     val identityProvider = Service.mk[BorderRequest, Response] { _ => fail("Must not invoke identity service")}
-    val identityProviderMap = Map("keymaster.basic" -> identityProvider)
+    val identityProviderMap = Map("tokenmaster.basic" -> identityProvider)
     val testService = Service.mk[SessionIdRequest, Response] { _ => fail("Must not invoke this service")}
 
     // Login request
@@ -676,7 +676,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   it should "propagate the Exception thrown while storing the Session using SessionStore.update" in {
     val identityProvider = Service.mk[BorderRequest, Response] { _ => fail("Must not invoke identity service")}
-    val identityProviderMap = Map("keymaster.basic" -> identityProvider)
+    val identityProviderMap = Map("tokenmaster.basic" -> identityProvider)
     val testService = Service.mk[SessionIdRequest, Response] { _ => fail("Must not invoke this service")}
 
     // Mock sessionStore

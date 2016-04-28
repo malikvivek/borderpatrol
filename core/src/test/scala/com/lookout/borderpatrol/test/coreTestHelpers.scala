@@ -58,8 +58,8 @@ object coreTestHelpers {
   val bpPort: Int = 8080
 
   //  endpoints
-  val keymasterIdEndpoint = Endpoint("keymasterIdEndpoint", Path("/identityProvider"), urls)
-  val keymasterAccessEndpoint = Endpoint("keymasterAccessEndpoint", Path("/accessIssuer"), urls)
+  val tokenmasterIdEndpoint = Endpoint("tokenmasterIdEndpoint", Path("/identityProvider"), urls)
+  val tokenmasterAccessEndpoint = Endpoint("tokenmasterAccessEndpoint", Path("/accessIssuer"), urls)
 
   // Login Managers
   case object test1LoginManager extends LoginManager {
@@ -67,8 +67,8 @@ object coreTestHelpers {
     val tyfe: String = "test1.type"
     val guid: String = "test1.guid"
     val loginConfirm: Path = Path("/test1/confirm")
-    val identityEndpoint: Endpoint = keymasterIdEndpoint
-    val accessEndpoint: Endpoint = keymasterAccessEndpoint
+    val identityEndpoint: Endpoint = tokenmasterIdEndpoint
+    val accessEndpoint: Endpoint = tokenmasterAccessEndpoint
     def redirectLocation(req: Request): String = "/test1/redirect"
   }
   case object test2LoginManager extends LoginManager {
@@ -76,8 +76,8 @@ object coreTestHelpers {
     val tyfe: String = "test2.type"
     val guid: String = "test2.guid"
     val loginConfirm: Path = Path("/test2/confirm")
-    val identityEndpoint: Endpoint = keymasterIdEndpoint
-    val accessEndpoint: Endpoint = keymasterAccessEndpoint
+    val identityEndpoint: Endpoint = tokenmasterIdEndpoint
+    val accessEndpoint: Endpoint = tokenmasterAccessEndpoint
     def redirectLocation(req: Request): String = "/test2/redirect"
   }
   val loginManagers = Set(test1LoginManager.asInstanceOf[LoginManager],

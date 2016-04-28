@@ -1,11 +1,11 @@
-package com.lookout.borderpatrol.auth.keymaster
+package com.lookout.borderpatrol.auth.tokenmaster
 
 import java.security.PublicKey
 import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 import javax.xml.bind.DatatypeConverter
 
 import com.lookout.borderpatrol.auth._
-import com.lookout.borderpatrol.auth.keymaster.LoginManagers.OAuth2LoginManagerMixin
+import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.OAuth2LoginManagerMixin
 import com.twitter.logging.Logger
 import com.lookout.borderpatrol.Binder
 import com.lookout.borderpatrol.sessionx._

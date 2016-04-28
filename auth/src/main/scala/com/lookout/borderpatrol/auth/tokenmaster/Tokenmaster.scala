@@ -1,7 +1,7 @@
-package com.lookout.borderpatrol.auth.keymaster
+package com.lookout.borderpatrol.auth.tokenmaster
 
 import com.lookout.borderpatrol.{Binder, ServiceIdentifier, CustomerIdentifier}
-import com.lookout.borderpatrol.auth.keymaster.LoginManagers._
+import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers._
 import com.lookout.borderpatrol.errors.{BpForbiddenRequest, BpBadRequest}
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.lookout.borderpatrol.sessionx._
@@ -16,16 +16,16 @@ import com.twitter.util.Future
 import scala.collection.JavaConverters._
 
 
-object Keymaster {
+object Tokenmaster {
   import Tokens._
   import OAuth2._
 
-  case class KeymasterIdentifyRes(tokens: Tokens) extends IdentifyResponse[Tokens] {
+  case class TokenmasterIdentifyRes(tokens: Tokens) extends IdentifyResponse[Tokens] {
     val identity = Identity(tokens)
   }
-  case class KeymasterAccessReq(identity: Id[Tokens], customerId: CustomerIdentifier,
+  case class TokenmasterAccessReq(identity: Id[Tokens], customerId: CustomerIdentifier,
                                 serviceId: ServiceIdentifier, sessionId: SignedId) extends AccessRequest[Tokens]
-  case class KeymasterAccessRes(access: Access[ServiceToken]) extends AccessResponse[ServiceToken]
+  case class TokenmasterAccessRes(access: Access[ServiceToken]) extends AccessResponse[ServiceToken]
 
   /**
    * BasicAuthStateMixin
@@ -108,7 +108,7 @@ object Keymaster {
   }
 
   /**
-   * KeymasterPostLoginFilter
+   * TokenmasterPostLoginFilter
    *
    * - does all work done after successful login
    * - deletes unauthenticated session
@@ -119,11 +119,11 @@ object Keymaster {
    * @param secretStoreApi (implicit) secret store
    * @param statsReceiver (implicit) stats receiver
    */
-  case class KeymasterPostLoginFilter(store: SessionStore)
+  case class TokenmasterPostLoginFilter(store: SessionStore)
                                      (implicit secretStoreApi: SecretStoreApi, statsReceiver: StatsReceiver)
     extends Filter[BorderRequest, Response, BorderRequest, IdentifyResponse[Tokens]] {
     private[this] val log = Logger.get(getClass.getPackage.getName)
-    private[this] val statSessionAuthenticated = statsReceiver.counter("keymaster.idp.authenticated")
+    private[this] val statSessionAuthenticated = statsReceiver.counter("tokenmaster.idp.authenticated")
 
     /**
      * Grab the original request from the session store, otherwise just send them to the default location of '/'
@@ -153,20 +153,20 @@ object Keymaster {
   }
 
   /**
-   * KeymasterProcessResponse
+   * TokenmasterProcessResponse
    *
-   * - processes the authenticate response coming from Keymaster identity provider
+   * - processes the authenticate response coming from Tokenmaster identity provider
    * - decodes JSON response into Master and Service token
    *
    * @param statsReceiver (implicit) stats receiver
    */
-  case class KeymasterProcessResponse(implicit statsReceiver: StatsReceiver)
+  case class TokenmasterProcessResponse(implicit statsReceiver: StatsReceiver)
     extends Filter[BorderRequest, IdentifyResponse[Tokens], BorderRequest, Response] {
     private[this] val log = Logger.get(getClass.getPackage.getName)
-    private[this] val statResponseParsingFailed = statsReceiver.counter("keymaster.idp.response.parsing.failed")
-    private[this] val statResponseSuccess = statsReceiver.counter("keymaster.idp.response.success")
-    private[this] val statResponseFailed = statsReceiver.counter("keymaster.idp.response.failed")
-    private[this] val statResponseDenied = statsReceiver.counter("keymaster.idp.denied")
+    private[this] val statResponseParsingFailed = statsReceiver.counter("tokenmaster.idp.response.parsing.failed")
+    private[this] val statResponseSuccess = statsReceiver.counter("tokenmaster.idp.response.success")
+    private[this] val statResponseFailed = statsReceiver.counter("tokenmaster.idp.response.failed")
+    private[this] val statResponseDenied = statsReceiver.counter("tokenmaster.idp.denied")
 
     /**
      * Sends credentials, if authenticated successfully will return a MasterToken otherwise a Future.exception
@@ -179,11 +179,11 @@ object Keymaster {
             err => {
               statResponseParsingFailed.incr
               Future.exception(BpTokenParsingError(
-                s"Failed to parse the Keymaster Identity Response with: ${err.getMessage}"))
+                s"Failed to parse the Tokenmaster Identity Response with: ${err.getMessage}"))
             },
             t => {
               statResponseSuccess.incr
-              Future.value(KeymasterIdentifyRes(t))
+              Future.value(TokenmasterIdentifyRes(t))
             }
           )
         case Status.Forbidden => {
@@ -200,14 +200,14 @@ object Keymaster {
   }
 
   /**
-   * KeymasterBasicAuth
+   * TokenmasterBasicAuth
    *
-   * - performs basic authentication, sends username and password to Keymaster
+   * - performs basic authentication, sends username and password to Tokenmaster
    *
    * @param statsReceiver (implicit) stats receiver
    */
-  case class KeymasterBasicAuth(implicit statsReceiver: StatsReceiver) extends Service[BorderRequest, Response] {
-    private[this] val statRequestSends = statsReceiver.counter("keymaster.idp.basic.request.sends")
+  case class TokenmasterBasicAuth(implicit statsReceiver: StatsReceiver) extends Service[BorderRequest, Response] {
+    private[this] val statRequestSends = statsReceiver.counter("tokenmaster.idp.basic.request.sends")
 
     case class BasicHelper(req: BorderRequest) extends BasicAuthStateMixin
 
@@ -219,14 +219,14 @@ object Keymaster {
   }
 
   /**
-   * KeymasterOAuth2Auth
+   * TokenmasterOAuth2Auth
    *
-   * - performs oAuth2 authentication, sends token credentials to Keymaster
+   * - performs oAuth2 authentication, sends token credentials to Tokenmaster
    *
    * @param oAuth2CodeVerify oAuth2 companion object to obtain token and verify them
    * @param statsReceiver (implicit) stats receiver
    */
-  case class KeymasterOAuth2Auth(oAuth2CodeVerify: OAuth2CodeVerify)(implicit statsReceiver: StatsReceiver)
+  case class TokenmasterOAuth2Auth(oAuth2CodeVerify: OAuth2CodeVerify)(implicit statsReceiver: StatsReceiver)
     extends Service[BorderRequest, Response] {
 
     case class OAuth2Helper(accessClaimSet: JWTClaimsSet, idClaimSet: JWTClaimsSet, req: BorderRequest)
@@ -246,44 +246,44 @@ object Keymaster {
    * A chain that performs the following:
    * - Basic auth (no provisioning & grants)
    */
-  def keymasterBasicServiceChain(store: SessionStore)
+  def tokenmasterBasicServiceChain(store: SessionStore)
                                 (implicit secretStoreApi: SecretStoreApi,
                                  statsReceiver: StatsReceiver): Service[BorderRequest, Response] =
-    KeymasterPostLoginFilter(store) andThen
-      KeymasterProcessResponse() andThen
-      KeymasterBasicAuth()
+    TokenmasterPostLoginFilter(store) andThen
+      TokenmasterProcessResponse() andThen
+      TokenmasterBasicAuth()
 
   /**
    * A chain that performs the following:
    * - OAuth2 auth (no provisioning & grants)
    */
-  def keymasterOAuth2ServiceChain(store: SessionStore)
+  def tokenmasterOAuth2ServiceChain(store: SessionStore)
                                  (implicit secretStoreApi: SecretStoreApi,
                                   statsReceiver: StatsReceiver): Service[BorderRequest, Response] =
-    KeymasterPostLoginFilter(store) andThen
-      KeymasterProcessResponse() andThen
-      KeymasterOAuth2Auth(new OAuth2CodeVerify)
+    TokenmasterPostLoginFilter(store) andThen
+      TokenmasterProcessResponse() andThen
+      TokenmasterOAuth2Auth(new OAuth2CodeVerify)
 
   /**
-   * KeymasterAccessIssuer
+   * TokenmasterAccessIssuer
    *
    * - The access issuer will use the MasterToken to gain access to service tokens
    *
    * @param statsReceiver (implicit) stats receiver
    */
-  case class KeymasterAccessIssuer(store: SessionStore)(implicit statsReceiver: StatsReceiver)
+  case class TokenmasterAccessIssuer(store: SessionStore)(implicit statsReceiver: StatsReceiver)
     extends AccessIssuer[Tokens, ServiceToken] {
     private[this] val log = Logger.get(getClass.getPackage.getName)
-    private[this] val statRequestSends = statsReceiver.counter("keymaster.ai.request.sends")
+    private[this] val statRequestSends = statsReceiver.counter("tokenmaster.ai.request.sends")
     private[this] val statsResponseParsingFailed =
-      statsReceiver.counter("keymaster.ai.response.parsing.failed")
+      statsReceiver.counter("tokenmaster.ai.response.parsing.failed")
     private[this] val statsResponseSuccess =
-      statsReceiver.counter("keymaster.ai.response.success")
+      statsReceiver.counter("tokenmaster.ai.response.success")
     private[this] val statAccessDenied =
-      statsReceiver.counter("keymaster.ai.access.denied")
+      statsReceiver.counter("tokenmaster.ai.access.denied")
     private[this] val statsResponseFailed =
-      statsReceiver.counter("keymaster.ai.response.failed")
-    private[this] val statCacheHits = statsReceiver.counter("keymaster.ai.cache.hits")
+      statsReceiver.counter("tokenmaster.ai.response.failed")
+    private[this] val statCacheHits = statsReceiver.counter("tokenmaster.ai.cache.hits")
 
     def api(accessRequest: AccessRequest[Tokens]): Request =
       tap(Request(Method.Post, accessRequest.customerId.loginManager.accessEndpoint.path.toString)) { req =>
@@ -300,14 +300,14 @@ object Keymaster {
       //  Check if ServiceToken is already available for Service
       req.identity.id.service(req.serviceId.name).fold[Future[ServiceToken]]({
         statRequestSends.incr()
-        //  Fetch ServiceToken from the Keymaster
+        //  Fetch ServiceToken from the Tokenmaster
         Binder.connect(req.customerId.loginManager.accessEndpoint, api(req)).flatMap(res => res.status match {
           //  Parse for Tokens if Status.Ok
           case Status.Ok =>
             Tokens.derive[Tokens](res.contentString).fold[Future[ServiceToken]](
               err => {
                 statsResponseParsingFailed.incr()
-                Future.exception(BpTokenParsingError(s"in Keymaster Access Response with: ${err.getMessage}"))
+                Future.exception(BpTokenParsingError(s"in Tokenmaster Access Response with: ${err.getMessage}"))
               },
               tokens => {
                 statsResponseSuccess.incr()
@@ -329,19 +329,19 @@ object Keymaster {
       })(t => {
         statCacheHits.incr()
         Future.value(t)
-      }).map(t => KeymasterAccessRes(Access(t)))
+      }).map(t => TokenmasterAccessRes(Access(t)))
     }
   }
 
 
   /**
-   * Keymaster Access Issuer service Chain
+   * Tokenmaster Access Issuer service Chain
    */
-  def keymasterAccessIssuerChain(store: SessionStore)
+  def tokenmasterAccessIssuerChain(store: SessionStore)
                                 (implicit secretStoreApi: SecretStoreApi,
                                  statsReceiver: StatsReceiver): Service[BorderRequest, Response] =
     RewriteFilter() andThen
       IdentityFilter[Tokens](store) andThen
       AccessFilter[Tokens, ServiceToken]() andThen
-      KeymasterAccessIssuer(store)
+      TokenmasterAccessIssuer(store)
 }

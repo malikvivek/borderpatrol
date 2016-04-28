@@ -1,4 +1,4 @@
-package com.lookout.borderpatrol.auth.keymaster
+package com.lookout.borderpatrol.auth.tokenmaster
 
 import java.math.BigInteger
 import java.security.{PublicKey, KeyPairGenerator, KeyPair}
@@ -26,7 +26,7 @@ import org.bouncycastle.x509.X509V1CertificateGenerator
 class OAuth2Spec extends BorderPatrolSuite {
   import coreTestHelpers._
   import OAuth2._
-  import keymaster.keymasterTestHelpers._
+  import tokenmaster.tokenmasterTestHelpers._
 
   override def afterEach(): Unit = {
     try {

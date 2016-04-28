@@ -2,8 +2,8 @@ package com.lookout.borderpatrol.server
 
 import java.net.URL
 
-import com.lookout.borderpatrol.auth.keymaster._
-import com.lookout.borderpatrol.auth.keymaster.LoginManagers._
+import com.lookout.borderpatrol.auth.tokenmaster._
+import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers._
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
 import com.lookout.borderpatrol._
@@ -18,7 +18,7 @@ import io.circe.syntax._
 
 class ConfigSpec extends BorderPatrolSuite {
   import coreTestHelpers._
-  import keymasterTestHelpers._
+  import tokenmasterTestHelpers._
   import Config._
 
   override def afterEach(): Unit = {
@@ -120,7 +120,7 @@ class ConfigSpec extends BorderPatrolSuite {
         case Xor.Left(b) => Endpoint("failed", Path("f"), urls)
       }
     }
-    encodeDecode(keymasterIdEndpoint) should be (keymasterIdEndpoint)
+    encodeDecode(tokenmasterIdEndpoint) should be (tokenmasterIdEndpoint)
   }
 
   it should "uphold encoding/decoding LoginManager" in {
@@ -158,23 +158,23 @@ class ConfigSpec extends BorderPatrolSuite {
   it should "succeed a BpConfigError exception if identityEndpoint that is used in LoginManager is missing" in {
     val partialContents = Set(checkpointLoginManager).asJson
     val caught = the [Exception] thrownBy {
-      decodeLms(partialContents, Set(keymasterAccessEndpoint))
+      decodeLms(partialContents, Set(tokenmasterAccessEndpoint))
     }
-    caught.getMessage should include ("identityEndpoint 'keymasterIdEndpoint' not found")
+    caught.getMessage should include ("identityEndpoint 'tokenmasterIdEndpoint' not found")
   }
 
   it should "raise a BpConfigError exception if accessEndpoint that is used in LoginManager is missing" in {
     val partialContents = Set(checkpointLoginManager).asJson
     val caught = the [Exception] thrownBy {
-      decodeLms(partialContents, Set(keymasterIdEndpoint))
+      decodeLms(partialContents, Set(tokenmasterIdEndpoint))
     }
-    caught.getMessage should include ("accessEndpoint 'keymasterAccessEndpoint' not found")
+    caught.getMessage should include ("accessEndpoint 'tokenmasterAccessEndpoint' not found")
   }
 
   it should "succeed a BpConfigError exception if authorizeEndpoint that is used in LoginManager is missing" in {
     val partialContents = Set(umbrellaLoginManager).asJson
     val caught = the [Exception] thrownBy {
-      decodeLms(partialContents, Set(keymasterIdEndpoint, keymasterAccessEndpoint, ulmTokenEndpoint,
+      decodeLms(partialContents, Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint, ulmTokenEndpoint,
         ulmCertificateEndpoint))
     }
     caught.getMessage should include ("authorizeEndpoint 'ulmAuthorizeEndpoint' not found")
@@ -183,7 +183,7 @@ class ConfigSpec extends BorderPatrolSuite {
   it should "succeed a BpConfigError exception if tokenEndpoint that is used in LoginManager is missing" in {
     val partialContents = Set(umbrellaLoginManager).asJson
     val caught = the [Exception] thrownBy {
-      decodeLms(partialContents, Set(keymasterIdEndpoint, keymasterAccessEndpoint, ulmAuthorizeEndpoint,
+      decodeLms(partialContents, Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint, ulmAuthorizeEndpoint,
         ulmCertificateEndpoint))
     }
     caught.getMessage should include ("tokenEndpoint 'ulmTokenEndpoint' not found")
@@ -192,7 +192,7 @@ class ConfigSpec extends BorderPatrolSuite {
   it should "succeed a BpConfigError exception if certificateEndpoint that is used in LoginManager is missing" in {
     val partialContents = Set(umbrellaLoginManager).asJson
     val caught = the [Exception] thrownBy {
-      decodeLms(partialContents, Set(keymasterIdEndpoint, keymasterAccessEndpoint, ulmAuthorizeEndpoint,
+      decodeLms(partialContents, Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint, ulmAuthorizeEndpoint,
         ulmTokenEndpoint))
     }
     caught.getMessage should include ("certificateEndpoint 'ulmCertificateEndpoint' not found")
@@ -200,14 +200,14 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a BpConfigError exception if duplicate are configured in endpoints config" in {
     val output = validateEndpointConfig("endpoints",
-      endpoints + Endpoint("keymasterIdEndpoint", Path("/some"), urls))
+      endpoints + Endpoint("tokenmasterIdEndpoint", Path("/some"), urls))
     output should contain ("Duplicate entries for key (name) are found in the field: endpoints")
   }
 
   it should "raise a BpConfigError exception if duplicates are configured in loginManagers config" in {
     val output = validateLoginManagerConfig("loginManagers", loginManagersk +
-      BasicLoginManager("checkpointLoginManager", "keymaster-basic", "some-guid", Path("/some"), Path("/some"),
-        keymasterIdEndpoint, keymasterAccessEndpoint))
+      BasicLoginManager("checkpointLoginManager", "tokenmaster-basic", "some-guid", Path("/some"), Path("/some"),
+        tokenmasterIdEndpoint, tokenmasterAccessEndpoint))
     output should contain ("Duplicate entries for key (name) are found in the field: loginManagers")
   }
 
