@@ -26,7 +26,7 @@ case class HealthCheckService(registry: HealthCheckRegistry, version: String)
         else
           resp.status = Status.InternalServerError
 
-        resp.contentType = "application/Json"
+        resp.setContentTypeJson()
         resp.contentString = Json.fromFields(Seq(
           ("status", resp.status.code.asJson),
           ("dependencies", results.asJson),

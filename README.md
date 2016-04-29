@@ -44,9 +44,9 @@ identity provisioning (i.e. identity endpoint), access issuing (i.e. access endp
 endpoint that does identity provisioning), token issuing (i.e. issues token for oauth2 code), etc.
  * Identity Endpoint:
    * If external authentication (e.g. OAuth2) is used, then identity endpoint provisions the user in Cloud.
-   * Currently, there are 2 identity provider service chains available for `keymaster.basic` and `keymaster.oauth2`.
-   * The `keymaster.basic` chain simply sends the user credentials to an identity endpoint in the Cloud.
-   * The `keymaster.oauth2` chain redirects the user to authorization endpoint, with instructions to return the oauth2
+   * Currently, there are 2 identity provider service chains available for `tokenmaster.basic` and `tokenmaster.oauth2`.
+   * The `tokenmaster.basic` chain simply sends the user credentials to an identity endpoint in the Cloud.
+   * The `tokenmaster.oauth2` chain redirects the user to authorization endpoint, with instructions to return the oauth2
 code after authentication. The user authenticates with oauth2 server and oauth2 server returns oauth2 code (via browser
 redirect) to Border Patrol. The BorderPatrol user token endpoint to convert oauth2 code into access token. The Border
 Patrol fetches certificate from certificate endpoint and verifies the access token. The Border Patrol uses triple of
@@ -54,7 +54,7 @@ subject, login manager name and subdomain to authenticate the user to identity e
    * The identity endpoint responds with a Master Token. The Master Token is cached in the Session.
    * The implementation is modular and new service chains can easily be added
  * Access Endpoint:
-   * `keymaster.basic` and `keymaster.oauth2` use the same access service chain. It sends service name and
+   * `tokenmaster.basic` and `tokenmaster.oauth2` use the same access service chain. It sends service name and
 Master Token to the access endpoint in the Cloud. That responds with a Service Token.
    * The Service Token is cached in the Session.
    * The implementation is modular and new service chains can easily be added
@@ -125,10 +125,10 @@ for the given CustomerIdentifier.
    * `accessEndpoint`: Access endpoint used by this Login Manager
    * `loginConfirm`: The path at which `Internal` login form or external authenticator posts the login
 credentials
-   * `type`: The type of proto used. Currently supported types are `keymaster.basic` and `keymaster.oauth2`
-     * `keymaster.basic` specific config:
+   * `type`: The type of proto used. Currently supported types are `tokenmaster.basic` and `tokenmaster.oauth2`
+     * `tokenmaster.basic` specific config:
        * `authorizePath`: A path to request login form
-     * `keymaster.oauth2` specific config:
+     * `tokenmaster.oauth2` specific config:
        * `authorizeEndpoint`: An endpoint to request an authorization code for access to a resource
        * `tokenEndpoint`: An endpoint to request access token using authorization code
        * `certificateEndpoint`: An endpoint to fetch certificate to verify token signature

@@ -1,13 +1,13 @@
-package com.lookout.borderpatrol.auth.keymaster
+package com.lookout.borderpatrol.auth.tokenmaster
 
 import java.net.URL
 
 import com.lookout.borderpatrol._
-import com.lookout.borderpatrol.auth.keymaster.LoginManagers._
+import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers._
 import com.twitter.finagle.http.path.Path
 
 
-object keymasterTestHelpers {
+object tokenmasterTestHelpers {
   import test.coreTestHelpers._
   import OAuth2._
 
@@ -21,19 +21,19 @@ object keymasterTestHelpers {
   val rlmTokenEndpoint = Endpoint("rlmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:9999")))
   val rlmCertificateEndpoint = Endpoint("rlmCertificateEndpoint", Path("/certificate"),
     Set(new URL("http://localhost:9999")))
-  val endpoints = Set(keymasterIdEndpoint, keymasterAccessEndpoint,
+  val endpointsk = Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint,
     ulmAuthorizeEndpoint, ulmTokenEndpoint, ulmCertificateEndpoint,
     rlmAuthorizeEndpoint, rlmTokenEndpoint, rlmCertificateEndpoint)
 
   // Login Managers
-  val checkpointLoginManager = BasicLoginManager("checkpointLoginManager", "keymaster.basic", "cp-guid",
-    Path("/loginConfirm"), Path("/check"), keymasterIdEndpoint, keymasterAccessEndpoint)
-  val umbrellaLoginManager = OAuth2LoginManager("ulmLoginManager", "keymaster.oauth2", "ulm-guid", Path("/signin"),
-    keymasterIdEndpoint, keymasterAccessEndpoint,
+  val checkpointLoginManager = BasicLoginManager("checkpointLoginManager", "tokenmaster.basic", "cp-guid",
+    Path("/loginConfirm"), Path("/check"), tokenmasterIdEndpoint, tokenmasterAccessEndpoint)
+  val umbrellaLoginManager = OAuth2LoginManager("ulmLoginManager", "tokenmaster.oauth2", "ulm-guid", Path("/signin"),
+    tokenmasterIdEndpoint, tokenmasterAccessEndpoint,
     ulmAuthorizeEndpoint, ulmTokenEndpoint, ulmCertificateEndpoint,
     "clientId", "clientSecret")
-  val rainyLoginManager = OAuth2LoginManager("rlmProtoManager", "keymaster.oauth2", "rlm-guid", Path("/signblew"),
-    keymasterIdEndpoint, keymasterAccessEndpoint,
+  val rainyLoginManager = OAuth2LoginManager("rlmProtoManager", "tokenmaster.oauth2", "rlm-guid", Path("/signblew"),
+    tokenmasterIdEndpoint, tokenmasterAccessEndpoint,
     rlmAuthorizeEndpoint, rlmTokenEndpoint, rlmCertificateEndpoint,
     "clientId", "clientSecret")
   val loginManagersk = Set(checkpointLoginManager.asInstanceOf[LoginManager],

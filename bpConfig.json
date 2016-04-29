@@ -13,17 +13,17 @@
   },
   "endpoints": [
     {
-      "name": "keymaster-identity-example",
+      "name": "tokenmaster-identity-example",
       "hosts": ["http://localhost:8081"],
       "path": "/identityProvider"
     },
     {
-      "name": "keymaster-access-example",
+      "name": "tokenmaster-access-example",
       "hosts": ["http://localhost:8081"],
       "path": "/accessIssuer"
     },
     {
-      "name": "keymaster-health-check-example",
+      "name": "tokenmaster-health-check-example",
       "hosts": ["http://localhost:8081"],
       "path": "/health"
     },
@@ -46,20 +46,20 @@
   "loginManagers": [
     {
       "name": "internal",
-      "type": "keymaster.basic",
+      "type": "tokenmaster.basic",
       "guid": "1111-1111-11111111",
       "loginConfirm": "/z/login",
       "authorizePath": "/z",
-      "identityEndpoint": "keymaster-identity-example",
-      "accessEndpoint": "keymaster-access-example"
+      "identityEndpoint": "tokenmaster-identity-example",
+      "accessEndpoint": "tokenmaster-access-example"
     },
     {
       "name": "external",
-      "type": "keymaster.oauth2",
+      "type": "tokenmaster.oauth2",
       "guid": "1111-1111-22222222",
       "loginConfirm": "/signin",
-      "identityEndpoint": "keymaster-identity-example",
-      "accessEndpoint": "keymaster-access-example",
+      "identityEndpoint": "tokenmaster-identity-example",
+      "accessEndpoint": "tokenmaster-access-example",
       "authorizeEndpoint": "aad-authorize-example",
       "tokenEndpoint": "aad-token-example",
       "certificateEndpoint": "aad-certificate-example",
@@ -101,6 +101,6 @@
     }
   ],
   "healthCheckEndpoints": [
-    "keymaster-health-check-example"
+    "tokenmaster-health-check-example"
   ]
 }

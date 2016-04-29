@@ -1,4 +1,4 @@
-package com.lookout.borderpatrol.auth.keymaster
+package com.lookout.borderpatrol.auth.tokenmaster
 
 import com.lookout.borderpatrol.{Binder, Endpoint, LoginManager}
 import com.lookout.borderpatrol.util.Helpers

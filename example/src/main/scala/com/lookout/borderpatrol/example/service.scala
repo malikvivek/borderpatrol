@@ -25,12 +25,12 @@ package com.lookout.borderpatrol.example
 
 import java.net.URL
 
-import com.lookout.borderpatrol.auth.keymaster.LoginManagers.{OAuth2LoginManager, BasicLoginManager}
+import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.{OAuth2LoginManager, BasicLoginManager}
 import com.lookout.borderpatrol.{HealthCheckRegistry, ServiceMatcher}
 import com.lookout.borderpatrol.auth._
-import com.lookout.borderpatrol.auth.keymaster.Keymaster._
-import com.lookout.borderpatrol.auth.keymaster._
-import com.lookout.borderpatrol.auth.keymaster.Tokens._
+import com.lookout.borderpatrol.auth.tokenmaster.Tokenmaster._
+import com.lookout.borderpatrol.auth.tokenmaster._
+import com.lookout.borderpatrol.auth.tokenmaster.Tokens._
 import com.lookout.borderpatrol.server.{HealthCheckService, Config}
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.util.Combinators._
@@ -49,25 +49,25 @@ object service {
   /**
    * Get IdentityProvider map of name -> Service chain
    *
-   * As of now, we only support `keymaster` as an Identity Provider
+   * As of now, we only support `tokenmaster` as an Identity Provider
    */
   def identityProviderChainMap(sessionStore: SessionStore)(
     implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
   Map[String, Service[BorderRequest, Response]] = Map(
-    "keymaster.basic" -> keymasterBasicServiceChain(sessionStore),
-    "keymaster.oauth2" -> keymasterOAuth2ServiceChain(sessionStore)
+    "tokenmaster.basic" -> tokenmasterBasicServiceChain(sessionStore),
+    "tokenmaster.oauth2" -> tokenmasterOAuth2ServiceChain(sessionStore)
   )
 
   /**
    * Get AccessIssuer map of name -> Service chain
    *
-   * As of now, we only support `keymaster` as an Access Issuer
+   * As of now, we only support `tokenmaster` as an Access Issuer
    */
   def accessIssuerChainMap(sessionStore: SessionStore)(
     implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
   Map[String, Service[BorderRequest, Response]] = Map(
-    "keymaster.basic" -> keymasterAccessIssuerChain(sessionStore),
-    "keymaster.oauth2" -> keymasterAccessIssuerChain(sessionStore)
+    "tokenmaster.basic" -> tokenmasterAccessIssuerChain(sessionStore),
+    "tokenmaster.oauth2" -> tokenmasterAccessIssuerChain(sessionStore)
   )
 
   /**
@@ -106,8 +106,8 @@ object service {
     }
   }
 
-  //  Mock Keymaster identityEndpoint
-  val mockKeymasterIdentityService = new Service[Request, Response] {
+  //  Mock Tokenmaster identityEndpoint
+  val mockTokenmasterIdentityService = new Service[Request, Response] {
 
     val userMap: Map[String, String] = Map(
       ("test1@example.com" -> "password1")
@@ -128,8 +128,8 @@ object service {
     }
   }
 
-  //  Mock Keymaster AccessIssuer
-  val mockKeymasterAccessIssuerService = new Service[Request, Response] {
+  //  Mock Tokenmaster AccessIssuer
+  val mockTokenmasterAccessIssuerService = new Service[Request, Response] {
     def apply(request: Request): Future[Response] = {
       val serviceName = request.getParam("services")
       val tokens = Tokens(MasterToken("masterT"), ServiceTokens().add(
@@ -212,14 +212,14 @@ object service {
       val internalLm = config.findLoginManager("internal").asInstanceOf[BasicLoginManager]
       val externalLm = config.findLoginManager("external").asInstanceOf[OAuth2LoginManager]
       val externalPostPath = Path("aadPostPath")
-      val keymasterIdEndpoint = config.findEndpoint("keymaster-identity-example")
-      val keymasterAccessEndpoint = config.findEndpoint("keymaster-access-example")
+      val tokenmasterIdEndpoint = config.findEndpoint("tokenmaster-identity-example")
+      val tokenmasterAccessEndpoint = config.findEndpoint("tokenmaster-access-example")
       val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
 
       RoutingService.byPathObject {
         /** Cloud's own identity & access service */
-        case keymasterAccessEndpoint.path => mockKeymasterAccessIssuerService
-        case keymasterIdEndpoint.path => mockKeymasterIdentityService
+        case tokenmasterAccessEndpoint.path => mockTokenmasterAccessIssuerService
+        case tokenmasterIdEndpoint.path => mockTokenmasterIdentityService
 
         /** Mocking internal authentication */
         case path if path.startsWith(internalLm.authorizePath) => mockLoginService(internalLm.loginConfirm)

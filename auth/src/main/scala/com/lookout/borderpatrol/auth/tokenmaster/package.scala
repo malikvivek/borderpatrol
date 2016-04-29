@@ -5,7 +5,7 @@ import com.twitter.util.Future
 import scala.util.{Failure, Success, Try}
 
 
-package object keymaster {
+package object tokenmaster {
 
   def wrapFuture[A](f: () => A, onFailure: String => Throwable): Future[A] =
     Try(f()) match {

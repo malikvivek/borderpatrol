@@ -1,4 +1,4 @@
-package com.lookout.borderpatrol.auth.keymaster
+package com.lookout.borderpatrol.auth.tokenmaster
 
 import cats.data.Xor
 import com.lookout.borderpatrol.sessionx._

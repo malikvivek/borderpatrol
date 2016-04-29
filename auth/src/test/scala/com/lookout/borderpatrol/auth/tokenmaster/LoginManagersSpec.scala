@@ -1,4 +1,4 @@
-package com.lookout.borderpatrol.auth.keymaster
+package com.lookout.borderpatrol.auth.tokenmaster
 
 import com.lookout.borderpatrol.BpCommunicationError
 import com.lookout.borderpatrol.sessionx._
@@ -12,7 +12,7 @@ import com.twitter.util.Await
 class LoginManagersSpec extends BorderPatrolSuite {
 
   import coreTestHelpers._
-  import keymasterTestHelpers._
+  import tokenmasterTestHelpers._
 
   behavior of "BasicLoginManager"
 

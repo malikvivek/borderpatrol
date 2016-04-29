@@ -3,7 +3,7 @@ package com.lookout.borderpatrol.server
 import java.net.URL
 
 import com.lookout.borderpatrol._
-import com.lookout.borderpatrol.auth.keymaster.LoginManagers._
+import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers._
 import com.lookout.borderpatrol.sessionx.SecretStores._
 import com.lookout.borderpatrol.sessionx.SessionStores._
 import com.lookout.borderpatrol.sessionx._
@@ -108,8 +108,8 @@ object Config {
   }
   def decodeLoginManager(eps: Map[String, Endpoint]): Decoder[LoginManager] = Decoder.instance { c =>
     c.downField("type").as[String].flatMap {
-      case "keymaster.basic" => decodeBasicLoginManager(eps).apply(c)
-      case "keymaster.oauth2" => decodeOAuth2LoginManager(eps).apply(c)
+      case "tokenmaster.basic" => decodeBasicLoginManager(eps).apply(c)
+      case "tokenmaster.oauth2" => decodeOAuth2LoginManager(eps).apply(c)
     }
   }
   def decodeBasicLoginManager(eps: Map[String, Endpoint]): Decoder[BasicLoginManager] = Decoder.instance { c =>
