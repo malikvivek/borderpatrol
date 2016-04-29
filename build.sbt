@@ -1,7 +1,7 @@
 import sbtunidoc.Plugin.UnidocKeys._
 import scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages
 
-lazy val Version = "0.2.3-SNAPSHOT"
+lazy val Version = "0.2.4-SNAPSHOT"
 
 lazy val buildSettings = Seq(
   organization := "com.lookout",
@@ -150,9 +150,8 @@ lazy val core = project
 lazy val test = project
   .settings(moduleName := "borderpatrol-test")
   .settings(allSettings)
-  .settings(noPublish)
   .settings(libraryDependencies ++= testDependencies)
-  .dependsOn(core)
+  .dependsOn(core, auth)
 
 lazy val example = project
   .settings(resolvers += Resolver.sonatypeRepo("snapshots"))
