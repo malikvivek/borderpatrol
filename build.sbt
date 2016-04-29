@@ -1,7 +1,7 @@
 import sbtunidoc.Plugin.UnidocKeys._
 import scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages
 
-lazy val Version = "0.2.3-SNAPSHOT"
+lazy val Version = "0.2.4-SNAPSHOT"
 
 lazy val buildSettings = Seq(
   organization := "com.lookout",
@@ -69,7 +69,6 @@ lazy val publishSettings =
       licenses := Seq("MIT" -> url("http://opensource.org/licenses/MIT")),
       publishTo := Some("Artifactory Realm" at "http://oss.jfrog.org/artifactory/oss-snapshot-local"),
       bintrayReleaseOnPublish := false,
-      publishArtifact in Test := true,
       // Only setting the credentials file if it exists (#52)
       credentials := List(Path.userHome / ".bintray" / ".artifactory").filter(_.exists).map(Credentials(_))
     )
@@ -88,7 +87,7 @@ lazy val publishSettings =
        * http://stackoverflow.com/questions/31704818/releasing-and-publishing-from-sbt-bintray
        */
       publishMavenStyle := true,
-      publishArtifact in Test := true,
+      publishArtifact in Test := false,
       resolvers += Resolver.bintrayRepo("maheshkelkar", "maven")
     )
 
@@ -150,9 +149,8 @@ lazy val core = project
 lazy val test = project
   .settings(moduleName := "borderpatrol-test")
   .settings(allSettings)
-  .settings(noPublish)
   .settings(libraryDependencies ++= testDependencies)
-  .dependsOn(core)
+  .dependsOn(core, auth)
 
 lazy val example = project
   .settings(resolvers += Resolver.sonatypeRepo("snapshots"))
