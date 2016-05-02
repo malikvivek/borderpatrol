@@ -76,10 +76,6 @@ object Config {
    * Note that Decoder for LoginManager does not work standalone, it can be only used
    * while decoding the entire Config due to dependency issues
    */
-  implicit val encodeLoginManager: Encoder[LoginManager] = Encoder.instance {
-    case blm: BasicLoginManager => blm.asJson
-    case olm: OAuth2LoginManager => olm.asJson
-  }
   implicit val encodeBasicLoginManager: Encoder[BasicLoginManager] = Encoder.instance { blm =>
     Json.fromFields(Seq(
       ("name", blm.name.asJson),
@@ -105,12 +101,6 @@ object Config {
       ("clientId", olm.clientId.asJson),
       ("clientSecret", olm.clientSecret.asJson)
     ))
-  }
-  def decodeLoginManager(eps: Map[String, Endpoint]): Decoder[LoginManager] = Decoder.instance { c =>
-    c.downField("type").as[String].flatMap {
-      case "tokenmaster.basic" => decodeBasicLoginManager(eps).apply(c)
-      case "tokenmaster.oauth2" => decodeOAuth2LoginManager(eps).apply(c)
-    }
   }
   def decodeBasicLoginManager(eps: Map[String, Endpoint]): Decoder[BasicLoginManager] = Decoder.instance { c =>
     for {

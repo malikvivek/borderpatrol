@@ -1,11 +1,13 @@
 package com.lookout.borderpatrol.example
 
 import com.lookout.borderpatrol._
+import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.{OAuth2LoginManager, BasicLoginManager}
 import com.lookout.borderpatrol.example.ServerConfig.StatsdExporterConfig
 import com.lookout.borderpatrol.server.{BpConfigError, Config}
 import com.lookout.borderpatrol.sessionx._
 import com.twitter.app.App
 import cats.data.Xor
+import com.twitter.finagle.http.path.Path
 import com.twitter.logging.Logger
 import io.circe.{Encoder, _}
 import io.circe.jawn._
@@ -40,6 +42,24 @@ object ServerConfig {
   val defaultConfigFile = "bpConfig.json"
   private[this] val log = Logger.get(getClass.getPackage.getName)
   case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String)
+
+  /**
+   * Encoder/Decoder for LoginManager
+   *
+   * Note that Decoder for LoginManager does not work standalone, it can be only used
+   * while decoding the entire Config due to dependency issues
+   */
+  implicit val encodeLoginManager: Encoder[LoginManager] = Encoder.instance {
+    case blm: BasicLoginManager => blm.asJson
+    case olm: OAuth2LoginManager => olm.asJson
+  }
+  def decodeLoginManager(eps: Map[String, Endpoint]): Decoder[LoginManager] = Decoder.instance { c =>
+    c.downField("type").as[String].flatMap {
+      case "tokenmaster.basic" => decodeBasicLoginManager(eps).apply(c)
+      case "tokenmaster.oauth2" => decodeOAuth2LoginManager(eps).apply(c)
+      case other => Xor.left(DecodingFailure(s"Login manager type: $other not found", c.history))
+    }
+  }
 
   /**
    * Decoder for ServerConfig (Using circe default encoder for encoding)
