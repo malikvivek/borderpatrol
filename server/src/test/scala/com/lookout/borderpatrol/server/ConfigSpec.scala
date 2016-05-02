@@ -51,20 +51,18 @@ class ConfigSpec extends BorderPatrolSuite {
       case Xor.Left(b) => throw new Exception(b.getMessage)
     }
   }
-  def decodeLms(json: Json, eps: Set[Endpoint]) : Set[LoginManager] = {
-    Decoder.decodeCanBuildFrom[LoginManager, Set](decodeLoginManager(eps.map(ep => ep.name -> ep).toMap),
-      implicitly).decodeJson(json) match {
+  def decodeBasicLm(json: Json, eps: Set[Endpoint]) : LoginManager = {
+    decodeBasicLoginManager(eps.map(ep => ep.name -> ep).toMap).decodeJson(json) match {
       case Xor.Right(a) => a
       case Xor.Left(b) => throw new Exception(b.getMessage)
     }
   }
-  def decodeLm(json: Json, eps: Set[Endpoint]) : LoginManager = {
-    decodeLoginManager(eps.map(ep => ep.name -> ep).toMap).decodeJson(json) match {
+  def decodeOAuth2Lm(json: Json, eps: Set[Endpoint]) : LoginManager = {
+    decodeOAuth2LoginManager(eps.map(ep => ep.name -> ep).toMap).decodeJson(json) match {
       case Xor.Right(a) => a
       case Xor.Left(b) => throw new Exception(b.getMessage)
     }
   }
-
   def validateConsulStore(a: ConsulSecretStore, b: ConsulSecretStore): Unit = {
     a.consulUrls should be(b.consulUrls)
     a.key should be(b.key)
@@ -138,9 +136,16 @@ class ConfigSpec extends BorderPatrolSuite {
   }
 
   it should "uphold encoding/decoding LoginManager" in {
-    decodeLm(checkpointLoginManager.asJson, endpointsk) should be (checkpointLoginManager)
-    decodeLm(umbrellaLoginManager.asJson, endpointsk) should be (umbrellaLoginManager)
-    decodeLms(loginManagersk.asJson, endpointsk) should be (loginManagersk)
+    decodeBasicLm(checkpointLoginManager.asJson, endpointsk) should be (checkpointLoginManager)
+    decodeOAuth2Lm(umbrellaLoginManager.asJson, endpointsk) should be (umbrellaLoginManager)
+    val caught1 = the [Exception] thrownBy {
+      decodeBasicLm(umbrellaLoginManager.asJson, endpointsk)
+    }
+    caught1.getMessage should include regex ("Attempt to decode value on failed.*authorizePath")
+    val caught2 = the [Exception] thrownBy {
+      decodeOAuth2Lm(checkpointLoginManager.asJson, endpointsk)
+    }
+    caught2.getMessage should include regex ("Attempt to decode value on failed.*authorizeEndpoint")
   }
 
   it should "raise a BpConfigError exception due to missing LoginManager in CustomerIdentifier config" in {
@@ -170,43 +175,43 @@ class ConfigSpec extends BorderPatrolSuite {
   }
 
   it should "raise a BpConfigError exception if identityEndpoint that is used in LoginManager is missing" in {
-    val partialContents = Set(checkpointLoginManager).asJson
+    val partialContents = checkpointLoginManager.asJson
     val caught = the [Exception] thrownBy {
-      decodeLms(partialContents, Set(tokenmasterAccessEndpoint))
+      decodeBasicLm(partialContents, Set(tokenmasterAccessEndpoint))
     }
     caught.getMessage should include ("identityEndpoint 'tokenmasterIdEndpoint' not found")
   }
 
   it should "raise a BpConfigError exception if accessEndpoint that is used in LoginManager is missing" in {
-    val partialContents = Set(checkpointLoginManager).asJson
+    val partialContents = checkpointLoginManager.asJson
     val caught = the [Exception] thrownBy {
-      decodeLms(partialContents, Set(tokenmasterIdEndpoint))
+      decodeBasicLm(partialContents, Set(tokenmasterIdEndpoint))
     }
     caught.getMessage should include ("accessEndpoint 'tokenmasterAccessEndpoint' not found")
   }
 
   it should "raise a BpConfigError exception if authorizeEndpoint that is used in LoginManager is missing" in {
-    val partialContents = Set(umbrellaLoginManager).asJson
+    val partialContents = umbrellaLoginManager.asJson
     val caught = the [Exception] thrownBy {
-      decodeLms(partialContents, Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint, ulmTokenEndpoint,
+      decodeOAuth2Lm(partialContents, Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint, ulmTokenEndpoint,
         ulmCertificateEndpoint))
     }
     caught.getMessage should include ("authorizeEndpoint 'ulmAuthorizeEndpoint' not found")
   }
 
   it should "raise a BpConfigError exception if tokenEndpoint that is used in LoginManager is missing" in {
-    val partialContents = Set(umbrellaLoginManager).asJson
+    val partialContents = umbrellaLoginManager.asJson
     val caught = the [Exception] thrownBy {
-      decodeLms(partialContents, Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint, ulmAuthorizeEndpoint,
+      decodeOAuth2Lm(partialContents, Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint, ulmAuthorizeEndpoint,
         ulmCertificateEndpoint))
     }
     caught.getMessage should include ("tokenEndpoint 'ulmTokenEndpoint' not found")
   }
 
   it should "raise a BpConfigError exception if certificateEndpoint that is used in LoginManager is missing" in {
-    val partialContents = Set(umbrellaLoginManager).asJson
+    val partialContents = umbrellaLoginManager.asJson
     val caught = the [Exception] thrownBy {
-      decodeLms(partialContents, Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint, ulmAuthorizeEndpoint,
+      decodeOAuth2Lm(partialContents, Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint, ulmAuthorizeEndpoint,
         ulmTokenEndpoint))
     }
     caught.getMessage should include ("certificateEndpoint 'ulmCertificateEndpoint' not found")
