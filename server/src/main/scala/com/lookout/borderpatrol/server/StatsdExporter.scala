@@ -89,12 +89,12 @@ case class StatsdExporter(registry: Metrics, timer: Timer, prefix: String = "", 
 
     histos.foreach { case (name, snapshot) =>
       send(format(Seq(prefix, name, "count"), format(snapshot.count), "g"))
-      send(format(Seq(prefix, name, "avg"), format(snapshot.avg), "t"))
-      send(format(Seq(prefix, name, "min"), format(snapshot.min), "t"))
-      send(format(Seq(prefix, name, "max"), format(snapshot.max), "t"))
-      send(format(Seq(prefix, name, "stddev"), format(snapshot.stddev), "t"))
+      send(format(Seq(prefix, name, "avg"), format(snapshot.avg), "g"))
+      send(format(Seq(prefix, name, "min"), format(snapshot.min), "g"))
+      send(format(Seq(prefix, name, "max"), format(snapshot.max), "g"))
+      send(format(Seq(prefix, name, "stddev"), format(snapshot.stddev), "g"))
       snapshot.percentiles.foreach(p =>
-        send(format(Seq(prefix, name, labelPercentile(p.getQuantile)), format(p.getValue), "t")))
+        send(format(Seq(prefix, name, labelPercentile(p.getQuantile)), format(p.getValue), "g")))
     }
 
     /** Flush the data buffer in the end */

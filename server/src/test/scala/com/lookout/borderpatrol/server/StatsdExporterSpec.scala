@@ -50,7 +50,7 @@ class StatsdExporterSpec extends BorderPatrolSuite {
     exporter1.report()
     val stats = receiveAllStats(Set.empty[String])
     try {
-      stats.filter(repo => repo.contains("ut.counter1:1|c")).nonEmpty should be (true)
+      stats.exists(repo => repo.contains("ut.counter1:1|c")) should be (true)
     } finally {
       exporter1.timer.stop()
     }
@@ -69,7 +69,7 @@ class StatsdExporterSpec extends BorderPatrolSuite {
     Thread.sleep(100)
     val stats = receiveAllStats(Set.empty[String])
     try {
-      stats.filter(repo => repo.contains("ut.gauge1:10|g")).nonEmpty should be (true)
+      stats.exists(repo => repo.contains("ut.gauge1:10|g")) should be (true)
     } finally {
       exporter2.timer.stop()
     }
@@ -83,17 +83,17 @@ class StatsdExporterSpec extends BorderPatrolSuite {
     exporter3.report()
     val stats = receiveAllStats(Set.empty[String])
     try {
-      stats.filter(repo => repo.contains("ut.histo.count:0|g")).nonEmpty should be (true)
-      stats.filter(repo => repo.contains("ut.histo.avg:0.00|t")).nonEmpty should be (true)
-      stats.filter(repo => repo.contains("ut.histo.min:0|t")).nonEmpty should be (true)
-      stats.filter(repo => repo.contains("ut.histo.max:0|t")).nonEmpty should be (true)
-      stats.filter(repo => repo.contains("ut.histo.stddev:0.00|t")).nonEmpty should be (true)
-      stats.filter(repo => repo.contains("ut.histo.p50:0|t")).nonEmpty should be (true)
-      stats.filter(repo => repo.contains("ut.histo.p90:0|t")).nonEmpty should be (true)
-      stats.filter(repo => repo.contains("ut.histo.p95:0|t")).nonEmpty should be (true)
-      stats.filter(repo => repo.contains("ut.histo.p99:0|t")).nonEmpty should be (true)
-      stats.filter(repo => repo.contains("ut.histo.p999:0|t")).nonEmpty should be (true)
-      stats.filter(repo => repo.contains("ut.histo.p9999:0|t")).nonEmpty should be (true)
+      stats.exists(repo => repo.contains("ut.histo.count:0|g")) should be (true)
+      stats.exists(repo => repo.contains("ut.histo.avg:0.00|g")) should be (true)
+      stats.exists(repo => repo.contains("ut.histo.min:0|g")) should be (true)
+      stats.exists(repo => repo.contains("ut.histo.max:0|g")) should be (true)
+      stats.exists(repo => repo.contains("ut.histo.stddev:0.00|g")) should be (true)
+      stats.exists(repo => repo.contains("ut.histo.p50:0|g")) should be (true)
+      stats.exists(repo => repo.contains("ut.histo.p90:0|g")) should be (true)
+      stats.exists(repo => repo.contains("ut.histo.p95:0|g")) should be (true)
+      stats.exists(repo => repo.contains("ut.histo.p99:0|g")) should be (true)
+      stats.exists(repo => repo.contains("ut.histo.p999:0|g")) should be (true)
+      stats.exists(repo => repo.contains("ut.histo.p9999:0|g")) should be (true)
     } finally {
       exporter3.timer.stop()
     }

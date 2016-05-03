@@ -196,7 +196,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
         statLoginRedirects.incr()
         BorderAuth.formatRedirectResponse(req.req, Status.Unauthorized, location, Some(sessionId),
           s"Redirecting the ${req.req} for Untagged Session: ${sessionId.toLogIdString} " +
-            s"to login service, location: ${location}")
+            s"to login service, location: ${location.split('?').headOption}")
       }
   }
 
@@ -387,7 +387,8 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(
         val location = req.customerId.loginManager.redirectLocation(req.req)
         BorderAuth.formatRedirectResponse(req.req, Status.Unauthorized, location, Some(session.id),
           s"Failed to find Session: ${req.sessionId.toLogIdString} for: ${req.req}, " +
-            s"allocating a new session: ${session.id.toLogIdString}, redirecting to location: ${location}")
+            s"allocating a new session: ${session.id.toLogIdString}, " +
+            s"redirecting to location: ${location.split('?').headOption}")
       }
     }
   }
