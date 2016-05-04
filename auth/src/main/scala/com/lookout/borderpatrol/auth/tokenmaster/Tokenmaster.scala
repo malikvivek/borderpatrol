@@ -147,7 +147,7 @@ object Tokenmaster {
         BorderAuth.formatRedirectResponse(req.req, Status.Ok, originReq.uri, Some(session.id),
           s"Session: ${req.sessionId.toLogIdString}} is authenticated, " +
             s"allocated new Session: ${session.id.toLogIdString} and redirecting to " +
-            s"location: ${originReq.uri}")
+            s"location: ${originReq.path}")
       }
     }
   }
