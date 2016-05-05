@@ -1,6 +1,7 @@
 package com.lookout.borderpatrol.auth
 
-import com.lookout.borderpatrol.{Binder, BpCoreError, BpNotFoundRequest, CustomerIdentifier, ServiceIdentifier, ServiceMatcher}
+import com.lookout.borderpatrol.{Binder, BpCoreError, BpNotFoundRequest}
+import com.lookout.borderpatrol.{CustomerIdentifier, ServiceIdentifier, ServiceMatcher}
 import com.lookout.borderpatrol.util.Combinators._
 import com.lookout.borderpatrol.util.Helpers
 import com.lookout.borderpatrol.sessionx._
