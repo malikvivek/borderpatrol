@@ -78,7 +78,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the[BpTokenAccessError] thrownBy {
       mixin.aStringListClaim("bad")
     }
-    caught.msg should include("Failed to find list 'bad' in the Access Token in the Request")
+    caught.msg should include("Failed to find string list claim 'bad' in the Access Token in the Request")
   }
 
   behavior of "TokenmasterPostLoginFilter"
@@ -459,7 +459,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     }
   }
 
-  it should "throw BpTokenError if it fails to find subject in the access token" in {
+  it should "throw BpTokenAccessError if it fails to find subject in the access token" in {
     val accessToken = new PlainJWT(new JWTClaimsSet.Builder()
       .claim("upn", "test1@example.com")
       .claim("tid", "tid-tid-tid-tid")
@@ -486,7 +486,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the[BpTokenAccessError] thrownBy {
       Await.result(output).status should be(Status.Ok)
     }
-    caught.msg should include("Failed to find 'sub' in the Access Token in the Request")
+    caught.msg should include("Failed to find string claim 'sub' in the Access Token in the Request")
   }
 
   behavior of "TokenmasterAccessIssuer"

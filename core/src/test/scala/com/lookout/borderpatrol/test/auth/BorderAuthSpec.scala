@@ -102,8 +102,8 @@ class BorderAuthSpec extends BorderPatrolSuite {
     //  test service
     val testService = Service.mk[SessionIdRequest, Response] {
       req => {
-        assert(req.serviceIdOpt.contains(one))
-        assert(req.sessionIdOpt.contains(sessionId))
+        assert(req.serviceIdOpt == Some(one))
+        assert(req.sessionIdOpt == Some(sessionId))
         Future.value(Response(Status.Ok))
       }
     }
@@ -129,7 +129,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val testService = Service.mk[SessionIdRequest, Response] {
       req => {
         assert(req.serviceIdOpt.isEmpty)
-        assert(req.sessionIdOpt.contains(sessionId))
+        assert(req.sessionIdOpt == Some(sessionId))
         Future.value(Response(Status.Ok))
       }
     }
@@ -149,7 +149,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     //  test service
     val testService = Service.mk[SessionIdRequest, Response] {
       req => {
-        assert(req.serviceIdOpt.contains(one))
+        assert(req.serviceIdOpt == Some(one))
         assert(req.sessionIdOpt.isEmpty)
         Future.value(Response(Status.Ok))
       }

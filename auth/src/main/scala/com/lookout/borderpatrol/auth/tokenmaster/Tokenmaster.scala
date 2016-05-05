@@ -73,21 +73,21 @@ object Tokenmaster {
     val req: BorderRequest
 
     def aStringClaim(claim: String): String = wrapOps[String]({ () => accessClaimSet.getStringClaim(claim)},
-      s"Failed to find '$claim' in the Access Token in the Request",
+      s"Failed to find string claim '$claim' in the Access Token in the Request",
       BpTokenAccessError.apply)
 
     def aStringListClaim(claim: String): List[String] = wrapOps[List[String]](
       { () => accessClaimSet.getStringListClaim(claim).asScala.toList},
-      s"Failed to find list '$claim' in the Access Token in the Request",
+      s"Failed to find string list claim '$claim' in the Access Token in the Request",
       BpTokenAccessError.apply)
 
     def iStringClaim(claim: String): String = wrapOps[String]({ () => idClaimSet.getStringClaim(claim)},
-      s"Failed to find '$claim' in the Id Token in the Request",
+      s"Failed to find string claim '$claim' in the Id Token in the Request",
       BpTokenAccessError.apply)
 
     def iStringListClaim(claim: String): List[String] = wrapOps[List[String]](
       { () => idClaimSet.getStringListClaim(claim).asScala.toList},
-      s"Failed to find list '$claim' in the Id Token in the Request",
+      s"Failed to find string list claim '$claim' in the Id Token in the Request",
       BpTokenAccessError.apply)
 
     private[this] def authPayload(grants: Set[String]): String =
