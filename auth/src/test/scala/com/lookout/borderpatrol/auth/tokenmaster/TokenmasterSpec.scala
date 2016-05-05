@@ -73,12 +73,24 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
 
     // Validate
     mixin.aStringClaim("sub") should be("SomeAccessToken")
+    val caught1 = the[BpTokenAccessError] thrownBy {
+      mixin.aStringClaim("bad")
+    }
+    caught1.msg should include("Failed to find string claim 'bad' in the Access Token in the Request")
     mixin.iStringClaim("sub") should be("SomeIdToken")
-    mixin.iStringListClaim("groups") should be(List("group1","group2"))
-    val caught = the[BpTokenAccessError] thrownBy {
+    val caught2 = the[BpTokenAccessError] thrownBy {
+      mixin.iStringClaim("bad")
+    }
+    caught2.msg should include("Failed to find string claim 'bad' in the Id Token in the Request")
+    val caught3 = the[BpTokenAccessError] thrownBy {
       mixin.aStringListClaim("bad")
     }
-    caught.msg should include("Failed to find string list claim 'bad' in the Access Token in the Request")
+    caught3.msg should include("Failed to find string list claim 'bad' in the Access Token in the Request")
+    mixin.iStringListClaim("groups") should be(List("group1","group2"))
+    val caught4 = the[BpTokenAccessError] thrownBy {
+      mixin.iStringListClaim("bad")
+    }
+    caught4.msg should include("Failed to find string list claim 'bad' in the Id Token in the Request")
   }
 
   behavior of "TokenmasterPostLoginFilter"

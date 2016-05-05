@@ -306,16 +306,16 @@ class BorderAuthSpec extends BorderPatrolSuite {
     Await.result(output).status should be(Status.Ok)
   }
 
-  it should "succeed and convert the BpAccessIssuerError exception into error Response" in {
+  it should "succeed and convert the BpUnauthorizedRequest exception into error Response" in {
     val testService = Service.mk[Request, Response] { req =>
-      Future.exception(BpAccessIssuerError("No access allowed to service"))
+      Future.exception(BpUnauthorizedRequest("some unauthorized error"))
     }
 
     // Execute
     val output = (ExceptionFilter() andThen testService)(req("enterprise", "/ent"))
 
     // Validate
-    Await.result(output).status should be(Status.InternalServerError)
+    Await.result(output).status should be(Status.Unauthorized)
     Await.result(output).contentType should be(Some("text/plain"))
     Await.result(output).contentString should be("Oops, something went wrong, please try your action again")
   }

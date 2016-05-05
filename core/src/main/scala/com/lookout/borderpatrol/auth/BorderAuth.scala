@@ -473,10 +473,6 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
     case error: BpUserError => warningAndResponse(req, error.getMessage, error.status)
     case error: BpCoreError => warningAndResponse(req, error.getMessage, error.status)
     case error: Throwable => warningAndResponse(req, error.getMessage, Status.InternalServerError)
-//    case error: BpIdentityProviderError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
-//    case error: BpSessionError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
-//    case error: BpAuthError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
-//    case error: Exception => warningAndResponse(req, error.getMessage, Status.InternalServerError)
   }
 
   def apply(req: Request, service: Service[Request, Response]): Future[Response] = {
