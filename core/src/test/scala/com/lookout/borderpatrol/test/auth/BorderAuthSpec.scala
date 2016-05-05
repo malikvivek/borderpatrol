@@ -1,8 +1,7 @@
 package com.lookout.borderpatrol.test.auth
 
-import com.lookout.borderpatrol.BpCommunicationError
+import com.lookout.borderpatrol.{BpCommunicationError, BpNotFoundRequest}
 import com.lookout.borderpatrol.auth._
-import com.lookout.borderpatrol.errors.BpNotFoundRequest
 import com.lookout.borderpatrol.sessionx.SessionStores.MemcachedStore
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
@@ -22,10 +21,10 @@ class BorderAuthSpec extends BorderPatrolSuite {
   def getRequestFromSessionId(sid: SignedId): Future[Request] =
     (for {
       sessionMaybe <- sessionStore.get[Request](sid)
-    } yield sessionMaybe.fold[Identity[Request]](EmptyIdentity)(s => Id(s.data))).map(i => i match {
+    } yield sessionMaybe.fold[Identity[Request]](EmptyIdentity)(s => Id(s.data))).map {
       case Id(req) => req
       case EmptyIdentity => null
-    })
+    }
 
   // Method to decode SessionData from the sessionId in Response
   def sessionDataFromResponse(resp: Response): Future[Request] =
@@ -37,7 +36,8 @@ class BorderAuthSpec extends BorderPatrolSuite {
   //  Test Services
   val serviceFilterTestService = Service.mk[CustomerIdRequest, Response] { req => Future.value(Response(Status.Ok))}
   val sessionIdFilterTestService = Service.mk[SessionIdRequest, Response] { req => Future.value(Response(Status.Ok))}
-  val identityFilterTestService = Service.mk[AccessIdRequest[Request], Response] { req => Future.value(Response(Status.Ok))}
+  val identityFilterTestService =
+    Service.mk[AccessIdRequest[Request], Response] { req => Future.value(Response(Status.Ok))}
   val workingService = Service.mk[BorderRequest, Response] { req => Response(Status.Ok).toFuture}
   val workingMap = Map("test1.type" -> workingService, "test2.type" -> workingService)
 
@@ -128,7 +128,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     //  test service
     val testService = Service.mk[SessionIdRequest, Response] {
       req => {
-        assert(req.serviceIdOpt == None)
+        assert(req.serviceIdOpt.isEmpty)
         assert(req.sessionIdOpt == Some(sessionId))
         Future.value(Response(Status.Ok))
       }
@@ -150,7 +150,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val testService = Service.mk[SessionIdRequest, Response] {
       req => {
         assert(req.serviceIdOpt == Some(one))
-        assert(req.sessionIdOpt == None)
+        assert(req.sessionIdOpt.isEmpty)
         Future.value(Response(Status.Ok))
       }
     }
@@ -306,17 +306,18 @@ class BorderAuthSpec extends BorderPatrolSuite {
     Await.result(output).status should be(Status.Ok)
   }
 
-  it should "succeed and convert the BpAccessIssuerError exception into error Response" in {
+  it should "succeed and convert the BpUnauthorizedRequest exception into error Response" in {
     val testService = Service.mk[Request, Response] { req =>
-      Future.exception(BpAccessIssuerError(Status.NotAcceptable, "No access allowed to service"))
+      Future.exception(BpUnauthorizedRequest("some unauthorized error"))
     }
 
     // Execute
     val output = (ExceptionFilter() andThen testService)(req("enterprise", "/ent"))
 
     // Validate
-    Await.result(output).status should be(Status.NotAcceptable)
+    Await.result(output).status should be(Status.Unauthorized)
     Await.result(output).contentType should be(Some("text/plain"))
+    Await.result(output).contentString should be("Oops, something went wrong, please try your action again")
   }
 
   it should "succeed and convert the BpSessionStoreError exception into error Response" in {
@@ -329,11 +330,12 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
     // Validate
     Await.result(output).status should be(Status.InternalServerError)
+    Await.result(output).contentString should be("Oops, something went wrong, please try your action again")
   }
 
   it should "succeed and convert the BpAccessIssuerError exception into JSON error Response" in {
     val testService = Service.mk[Request, Response] { req =>
-      Future.exception(BpAccessIssuerError(Status.NotAcceptable, "Some access issuer error"))
+      throw BpIdentityProviderError("Some access issuer error")
     }
 
     // Login POST request
@@ -344,23 +346,25 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val output = (ExceptionFilter() andThen testService)(request)
 
     // Validate
-    Await.result(output).status should be(Status.NotAcceptable)
+    Await.result(output).status should be(Status.InternalServerError)
     Await.result(output).contentType should be(Some("application/json"))
+    Await.result(output).contentString should include("Oops, something went wrong, please try your action again")
+
   }
 
   it should "succeed and convert the BpIdentityProviderError exception into error Response" in {
     val testService = Service.mk[Request, Response] { req =>
-      Future.exception(BpIdentityProviderError(Status.NotAcceptable, "Some identity provider error"))
+      Future.exception(BpIdentityProviderError("Some identity provider error"))
     }
 
     // Execute
     val output = (ExceptionFilter() andThen testService)(req("enterprise", "/ent"))
 
     // Validate
-    Await.result(output).status should be(Status.NotAcceptable)
+    Await.result(output).status should be(Status.InternalServerError)
   }
 
-  it should "succeed and convert the BpCoreError exception into error Response" in {
+  it should "succeed and convert the BpCommunicationError exception into error Response" in {
     val testService = Service.mk[Request, Response] { req =>
       Future.exception(BpCommunicationError("Some identity provider error"))
     }
@@ -372,7 +376,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     Await.result(output).status should be(Status.InternalServerError)
   }
 
-  it should "succeed and convert the BpBorderError exception into error Response" in {
+  it should "succeed and convert the BpNotFoundRequest exception into error Response" in {
     val testService = Service.mk[Request, Response] { req =>
       Future.exception(BpNotFoundRequest("Some identity provider error"))
     }
@@ -386,7 +390,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   it should "succeed and convert the Runtime exception into error Response" in {
     val testService = Service.mk[Request, Response] { req =>
-      Future.exception(new RuntimeException("some weird exception"))
+      throw new RuntimeException("some weird exception")
     }
 
     // Execute

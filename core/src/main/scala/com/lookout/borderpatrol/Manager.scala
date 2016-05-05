@@ -25,5 +25,5 @@ trait LoginManager {
   val loginConfirm: Path
   val identityEndpoint: Endpoint
   val accessEndpoint: Endpoint
-  def redirectLocation(req: Request): String
+  def redirectLocation(req: Request, params: Tuple2[String, String]*): String
 }

@@ -321,7 +321,7 @@ class OAuth2Spec extends BorderPatrolSuite {
     }
   }
 
-  it should "throw a BpIdentityProviderError if OAuth2 Server returns an failure response for code to token conversion" in {
+  it should "throw a BpIdentityProviderError if OAuth2 Server returns a failure resp for code to token conversion" in {
     val server = com.twitter.finagle.Http.serve(
       "localhost:5678", Service.mk[Request, Response] { req =>
         assert(req.getParam("code") == "XYZ123")
@@ -341,11 +341,10 @@ class OAuth2Spec extends BorderPatrolSuite {
       val output = new OAuth2CodeVerify().codeToClaimsSet(sessionIdRequest, umbrellaLoginManager)
 
       // Validate
-      val caught = the[BpIdentityProviderError] thrownBy {
+      val caught = the[BpTokenRetrievalError] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should include ("Failed to receive the token from OAuth2 Server: ")
-      caught.status should be(Status.NotAcceptable)
+      caught.getMessage should include("Failed to receive the token from OAuth2 Server: ")
     } finally {
       server.close()
     }

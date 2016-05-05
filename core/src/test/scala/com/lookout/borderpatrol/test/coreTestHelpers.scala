@@ -6,11 +6,9 @@ import com.lookout.borderpatrol._
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.sessionx.SecretStores.InMemorySecretStore
 import com.twitter.finagle.http.path.Path
-import com.twitter.finagle.http.{RequestBuilder, Response, Request}
+import com.twitter.finagle.http.{RequestBuilder, Request}
 import com.twitter.finagle.stats.NullStatsReceiver
 import com.twitter.io.Buf
-import com.twitter.util._
-import com.twitter.finagle.Service
 import com.twitter.bijection.Injection
 import com.twitter.util.{Await, Time}
 
@@ -69,7 +67,7 @@ object coreTestHelpers {
     val loginConfirm: Path = Path("/test1/confirm")
     val identityEndpoint: Endpoint = tokenmasterIdEndpoint
     val accessEndpoint: Endpoint = tokenmasterAccessEndpoint
-    def redirectLocation(req: Request): String = "/test1/redirect"
+    def redirectLocation(req: Request, params: Tuple2[String, String]*): String = "/test1/redirect"
   }
   case object test2LoginManager extends LoginManager {
     val name: String = "test2LoginManager"
@@ -78,7 +76,7 @@ object coreTestHelpers {
     val loginConfirm: Path = Path("/test2/confirm")
     val identityEndpoint: Endpoint = tokenmasterIdEndpoint
     val accessEndpoint: Endpoint = tokenmasterAccessEndpoint
-    def redirectLocation(req: Request): String = "/test2/redirect"
+    def redirectLocation(req: Request, params: Tuple2[String, String]*): String = "/test2/redirect"
   }
   val loginManagers = Set(test1LoginManager.asInstanceOf[LoginManager],
     test2LoginManager.asInstanceOf[LoginManager])

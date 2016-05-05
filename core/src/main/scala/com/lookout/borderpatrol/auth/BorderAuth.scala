@@ -1,22 +1,21 @@
 package com.lookout.borderpatrol.auth
 
-import com.lookout.borderpatrol.{ServiceMatcher, ServiceIdentifier, CustomerIdentifier}
-import com.lookout.borderpatrol.{Binder, BpCoreError}
+import com.lookout.borderpatrol.{Binder, BpCoreError, BpNotFoundRequest}
+import com.lookout.borderpatrol.{CustomerIdentifier, ServiceIdentifier, ServiceMatcher}
 import com.lookout.borderpatrol.util.Combinators._
-import com.lookout.borderpatrol.errors.{BpBorderError, BpNotFoundRequest}
 import com.lookout.borderpatrol.util.Helpers
 import com.lookout.borderpatrol.sessionx._
-import com.twitter.finagle.http.path.{Root, Path}
+import com.twitter.finagle.http.path.{Path, Root}
 import com.twitter.finagle.http._
 import com.twitter.finagle.stats.StatsReceiver
-import com.twitter.finagle.{SimpleFilter, Service, Filter}
+import com.twitter.finagle.{Filter, Service, SimpleFilter}
 import com.twitter.logging.Logger
 import com.twitter.util.Future
 import io.circe.Json
 import io.circe.syntax._
 import org.jboss.netty.handler.codec.http.QueryStringDecoder
 
-import scala.util.{Try, Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 
 /**
@@ -88,12 +87,14 @@ object BorderAuth {
           res.status = status
           res.contentString = Json.fromFields(Seq(
             ("msg_source", "borderpatrol".asJson),
+            ("description", "Logged out successfully".asJson),
             ("redirect_url", location.asJson))).toString()
           res.setContentTypeJson()
         case _ =>
           res.status = Status.Found
           res.location = location
           res.contentType = "text/plain"
+          res.contentString = "Logged out successfully"
       }})
   }
 }
@@ -168,11 +169,11 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
   private[this] val statIdentityProvider = statsReceiver.counter("req.identity.provider.forwards")
 
   def sendToIdentityProvider(req: BorderRequest): Future[Response] = {
-    log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
+    log.debug(s"Send: Request(${req.req.method} ${req.req.path}) for Session: ${req.sessionId.toLogIdString} " +
       s"to identity provider chain for service: ${req.serviceId.name}")
     identityProviderMap.get(req.customerId.loginManager.tyfe) match {
       case Some(ip) => statIdentityProvider.incr(); ip(req)
-      case None => Future.exception(BpIdentityProviderError(Status.NotFound,
+      case None => Future.exception(BpIdentityProviderError(
         s"Failed to find IdentityProvider Service Chain for loginManager type: ${req.customerId.loginManager.tyfe}"))
     }
   }
@@ -257,11 +258,11 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
   private[this] val statAccessIssuer = statsReceiver.counter("req.access.issuer.forwards")
 
   def sendToAccessIssuer(req: BorderRequest): Future[Response] = {
-    log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
+    log.debug(s"Send: Request(${req.req.method} ${req.req.path}) for Session: ${req.sessionId.toLogIdString} " +
       s"to access issuer chain for service: ${req.serviceId.name}")
     accessIssuerMap.get(req.customerId.loginManager.tyfe) match {
       case Some(ip) => statAccessIssuer.incr(); ip(req)
-      case None => Future.exception(BpAccessIssuerError(Status.NotFound,
+      case None => Future.exception(BpAccessIssuerError(
         s"Failed to find AccessIssuer Service Chain for loginManager type: ${req.customerId.loginManager.tyfe}"))
     }
   }
@@ -306,7 +307,7 @@ case class SendToUnprotectedService(store: SessionStore)
 
   def sendToUnprotectedService(req: BorderRequest): Future[Response] = {
     statRequestSends.incr
-    log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
+    log.debug(s"Send: Request(${req.req.method} ${req.req.path}) for Session: ${req.sessionId.toLogIdString} " +
       s"to the unprotected upstream service: ${req.serviceId.name}")
     /* Route through a Rewrite filter */
     unprotectedServiceChain(req)
@@ -454,10 +455,13 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
       expectsJson(req) match {
         case true =>
           res.contentString = Json.fromFields(Seq(
-            ("msg_source", "borderpatrol".asJson))).toString()
+            ("msg_source", "borderpatrol".asJson),
+            ("description", "Oops, something went wrong, please try your action again".asJson)
+          )).toString()
           res.contentType = "application/json"
         case _ =>
           res.contentType = "text/plain"
+          res.contentString = "Oops, something went wrong, please try your action again"
       }
     })
   }
@@ -466,13 +470,9 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
    * Tells the service how to handle certain types of servable errors (i.e. PetstoreError)
    */
   def errorHandler(req: Request): PartialFunction[Throwable, Response] = {
-    case error: BpAccessIssuerError => warningAndResponse(req, error.getMessage, error.status)
-    case error: BpIdentityProviderError => warningAndResponse(req, error.getMessage, error.status)
-    case error: BpBorderError => warningAndResponse(req, error.getMessage, error.status)
-    case error: BpCoreError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
-    case error: BpSessionError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
-    case error: BpAuthError => warningAndResponse(req, error.getMessage, Status.InternalServerError)
-    case error: Exception => warningAndResponse(req, error.getMessage, Status.InternalServerError)
+    case error: BpUserError => warningAndResponse(req, error.getMessage, error.status)
+    case error: BpCoreError => warningAndResponse(req, error.getMessage, error.status)
+    case error: Throwable => warningAndResponse(req, error.getMessage, Status.InternalServerError)
   }
 
   def apply(req: Request, service: Service[Request, Response]): Future[Response] = {

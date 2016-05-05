@@ -1,8 +1,6 @@
 package com.lookout
 
 import com.twitter.util.Future
-import org.jboss.netty.handler.codec.http.HttpHeaders
-import com.twitter.finagle.http
 
 /**
  * This is the root package of borderpatrol-core which provides a functional approach to web sessions and
@@ -54,28 +52,4 @@ package object borderpatrol {
     def as[A](implicit f: String => A): A =
       f(s)
   }
-
-  object errors {
-    class BpBorderError(val status: http.Status, val description: String) extends Exception(description)
-    case class BpNotFoundRequest(msg: String = "") extends BpBorderError(http.Status.NotFound,
-      s"${http.Status.NotFound.reason}: $msg")
-    case class BpBadRequest(msg: String = "") extends BpBorderError(http.Status.BadRequest,
-      s"${http.Status.BadRequest.reason}: $msg")
-    case class BpForbiddenRequest(msg: String = "") extends BpBorderError(http.Status.Forbidden,
-      s"${http.Status.Forbidden.reason}: $msg")
-  }
-
-  object request {
-
-    trait RequestBase {
-      val request: http.Request
-      val auth: Option[String] = request.headerMap.get(HttpHeaders.Names.AUTHORIZATION)
-    }
-
-    case class AuthRequest[A](request: http.Request) extends RequestBase
-
-    case class AuthResourceRequest[A](request: http.Request) extends RequestBase
-
-  }
-
 }

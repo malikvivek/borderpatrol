@@ -1,8 +1,7 @@
 package com.lookout.borderpatrol.auth.tokenmaster
 
-import com.lookout.borderpatrol.{Binder, ServiceIdentifier, CustomerIdentifier}
+import com.lookout.borderpatrol.{Binder, CustomerIdentifier, ServiceIdentifier}
 import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers._
-import com.lookout.borderpatrol.errors.{BpForbiddenRequest, BpBadRequest}
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.auth._
@@ -12,7 +11,8 @@ import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.finagle.{Filter, Service}
 import com.twitter.finagle.http._
 import com.twitter.logging.Logger
-import com.twitter.util.Future
+import com.twitter.util.{Future, Return, Throw}
+
 import scala.collection.JavaConverters._
 
 
@@ -42,7 +42,7 @@ object Tokenmaster {
         p <- Helpers.scrubQueryParams(req.req.params, "password")
       } yield (u, p)) match {
         case Some(c) => c
-        case None => throw BpBadRequest("Failed to find username and/or password in the Request")
+        case None => throw BpUnauthorizedRequest("Failed to find username and/or password in the Request")
       }
     }
 
@@ -73,22 +73,22 @@ object Tokenmaster {
     val req: BorderRequest
 
     def aStringClaim(claim: String): String = wrapOps[String]({ () => accessClaimSet.getStringClaim(claim)},
-      s"Failed to find '$claim' in the Access Token in the Request",
-      BpBadRequest.apply)
+      s"Failed to find string claim '$claim' in the Access Token in the Request",
+      BpTokenAccessError.apply)
 
     def aStringListClaim(claim: String): List[String] = wrapOps[List[String]](
       { () => accessClaimSet.getStringListClaim(claim).asScala.toList},
-      s"Failed to find list '$claim' in the Access Token in the Request",
-      BpBadRequest.apply)
+      s"Failed to find string list claim '$claim' in the Access Token in the Request",
+      BpTokenAccessError.apply)
 
     def iStringClaim(claim: String): String = wrapOps[String]({ () => idClaimSet.getStringClaim(claim)},
-      s"Failed to find '$claim' in the Id Token in the Request",
-      BpBadRequest.apply)
+      s"Failed to find string claim '$claim' in the Id Token in the Request",
+      BpTokenAccessError.apply)
 
     def iStringListClaim(claim: String): List[String] = wrapOps[List[String]](
       { () => idClaimSet.getStringListClaim(claim).asScala.toList},
-      s"Failed to find list '$claim' in the Id Token in the Request",
-      BpBadRequest.apply)
+      s"Failed to find string list claim '$claim' in the Id Token in the Request",
+      BpTokenAccessError.apply)
 
     private[this] def authPayload(grants: Set[String]): String =
       Request.queryString(("s", req.serviceId.name), ("external_id", aStringClaim("sub")),
@@ -136,7 +136,7 @@ object Tokenmaster {
 
     def apply(req: BorderRequest,
               service: Service[BorderRequest, IdentifyResponse[Tokens]]): Future[Response] = {
-      for {
+      (for {
         tokenResponse <- service(req)
         session <- Session(tokenResponse.identity.id, AuthenticatedTag)
         _ <- store.update[Tokens](session)
@@ -148,6 +148,16 @@ object Tokenmaster {
           s"Session: ${req.sessionId.toLogIdString}} is authenticated, " +
             s"allocated new Session: ${session.id.toLogIdString} and redirecting to " +
             s"location: ${originReq.path}")
+      })
+        /** Capture User error here, log it and redirect user back to login page */
+        .liftToTry.flatMap {
+        case Return(resp) => resp.toFuture
+        case Throw(e: BpUserError) =>
+          BorderAuth.formatRedirectResponse(req.req, e.status,
+            req.customerId.loginManager.redirectLocation(req.req,
+              ("msg" -> "Failed to authenticate the user, please check your credentials")), None,
+            e.getMessage + ", redirecting back to login page").toFuture
+        case Throw(e: Throwable) => e.toFutureException
       }
     }
   }
@@ -188,11 +198,11 @@ object Tokenmaster {
           )
         case Status.Forbidden => {
           statResponseDenied.incr
-          Future.exception(BpForbiddenRequest(s"IdentityProvider failed to authenticate user"))
+          Future.exception(BpUnauthorizedRequest(s"IdentityProvider failed to authenticate user"))
         }
         case _ => {
           statResponseFailed.incr
-          Future.exception(BpIdentityProviderError(Status.InternalServerError,
+          Future.exception(BpIdentityProviderError(
             s"IdentityProvider failed to authenticate user, with status: ${res.status}"))
         }
       })
@@ -320,7 +330,7 @@ object Tokenmaster {
             )
           case _ => {
             statsResponseFailed.incr()
-            Future.exception(BpAccessIssuerError(Status.InternalServerError,
+            Future.exception(BpAccessIssuerError(
               s"Failed to permit access to the service: '${req.serviceId.name}', with: ${res.status}"))
           }
         })
