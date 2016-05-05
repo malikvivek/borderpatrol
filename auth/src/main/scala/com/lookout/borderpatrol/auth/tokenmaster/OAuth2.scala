@@ -153,8 +153,8 @@ object OAuth2 {
                 s"in the Access Token response from OAuth2 Server: '${loginManager.name}'")),
               t => Future.value(t)
             )
-          case _ => Future.exception(BpIdentityProviderError(res.status,
-            s"Failed to receive the token from OAuth2 Server: '${loginManager.name}'"))
+          case _ => Future.exception(BpTokenRetrievalError(
+            s"Failed to receive the token from OAuth2 Server: '${loginManager.name}', with: ${res.status}"))
         })
         idClaimSet <- wrapFuture({() => PlainJWT.parse(aadToken.idToken).getJWTClaimsSet}, BpTokenParsingError.apply)
         accessClaimSet <- getClaimsSet(loginManager, aadToken.accessToken)

@@ -8,29 +8,37 @@ import com.twitter.finagle.http.Status
 class BpAuthError(val message: String) extends Exception(s"BPAUTH: $message", null)
 
 /**
- * Token Parsing error
- */
+  * Server side error encountered during identity or access phase
+  */
 case class BpTokenParsingError(msg: String)
     extends BpAuthError(s"Failed to parse token with: $msg")
 
-/**
- * Certificate processing error
- */
 case class BpCertificateError(msg: String)
-    extends BpAuthError(s"Failed to process Certificate with: $msg}")
+  extends BpAuthError(s"Failed to process Certificate with: $msg}")
+
+case class BpIdentityProviderError(msg: String) extends BpAuthError(s"Failed in identity provisioning with: $msg}")
+
+case class BpAccessIssuerError(msg: String) extends BpAuthError(s"Failed in access issuer with: $msg}")
 
 /**
- * Certificate processing error
- */
+  * User initiated error(s) - encoutered during identity or access phase
+  */
+class BpUserError(val status: Status, message: String) extends BpAuthError(message)
+
+case class BpTokenRetrievalError(msg: String)
+  extends BpUserError(Status.BadRequest, s"Failed to retrieve token with: $msg")
+
+case class BpTokenAccessError(msg: String)
+  extends BpUserError(Status.BadRequest, s"Failure while using token with: $msg")
+
 case class BpVerifyTokenError(msg: String)
-  extends BpAuthError(s"Failed to verify the signature on the token: $msg}")
+  extends BpUserError(Status.BadRequest, s"Failed to verify the signature on the token: $msg}")
 
-/**
- * This exception stores the response code
- */
-case class BpIdentityProviderError(status: Status, msg: String) extends BpAuthError(msg)
+case class BpForbiddenRequest(msg: String = "")
+  extends BpUserError(Status.Forbidden, s"${Status.Forbidden.reason}: $msg")
 
-/**
- * This exception stores the response code
- */
-case class BpAccessIssuerError(status: Status, msg: String) extends BpAuthError(msg)
+case class BpUnauthorizedRequest(msg: String = "")
+  extends BpUserError(Status.Unauthorized, s"${Status.Unauthorized.reason}: $msg")
+
+case class BpInvalidRequest(msg: String = "")
+  extends BpUserError(Status.BadRequest, s"${Status.BadRequest.reason}: $msg")

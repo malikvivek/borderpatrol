@@ -3,18 +3,17 @@ package com.lookout.borderpatrol.auth.tokenmaster
 import com.lookout.borderpatrol.Binder
 import com.lookout.borderpatrol.auth.tokenmaster.Tokenmaster._
 import com.lookout.borderpatrol.auth._
-import com.lookout.borderpatrol.errors.{BpBadRequest, BpForbiddenRequest}
 import com.lookout.borderpatrol.sessionx.SessionStores.MemcachedStore
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
 import com.lookout.borderpatrol.util.Combinators.tap
-import com.nimbusds.jwt.{PlainJWT, JWTClaimsSet}
+import com.nimbusds.jwt.{JWTClaimsSet, PlainJWT}
 import com.twitter.finagle.http.service.RoutingService
 import com.twitter.finagle.memcached.GetResult
 import com.twitter.finagle.{Service, memcached}
 import com.twitter.finagle.http._
 import com.twitter.io.Buf
-import com.twitter.util.{Time, Await, Future}
+import com.twitter.util.{Await, Future, Time}
 import org.scalatest.mock.MockitoSugar
 import org.mockito.Mockito._
 
@@ -30,7 +29,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
       super.afterEach() // To be stackable, must call super.afterEach
     }
     finally {
-      Binder.clear
+      Binder.clear()
     }
   }
 
@@ -76,7 +75,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     mixin.aStringClaim("sub") should be("SomeAccessToken")
     mixin.iStringClaim("sub") should be("SomeIdToken")
     mixin.iStringListClaim("groups") should be(List("group1","group2"))
-    val caught = the [BpBadRequest] thrownBy {
+    val caught = the[BpTokenAccessError] thrownBy {
       mixin.aStringListClaim("bad")
     }
     caught.msg should include("Failed to find list 'bad' in the Access Token in the Request")
@@ -144,7 +143,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     Await.result(tokensz) should be(tokens)
   }
 
-  it should "throw BpOriginalRequestNotFound if it fails find the original request from sessionStore" in {
+  it should "throw BpOriginalRequestNotFound if it fails to find the original request from sessionStore" in {
     val testService = Service.mk[BorderRequest, IdentifyResponse[Tokens]] {
       req => Future(TokenmasterIdentifyRes(tokens)) }
 
@@ -152,20 +151,20 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     val sessionId = sessionid.untagged
 
     // Login POST request
-    val loginRequest = req("enterprise", "/login", ("username" -> "foo"), ("password" -> "bar"))
+    val loginRequest = req("enterprise.k", "/login", ("username" -> "foo"), ("password" -> "bar"))
 
     // Execute
     val output = (TokenmasterPostLoginFilter(sessionStore) andThen testService)(
-      BorderRequest(loginRequest, cust1, one, sessionId))
+      BorderRequest(loginRequest, cust1k, one, sessionId))
 
     // Validate
-    val caught = the [BpOriginalRequestNotFound] thrownBy {
+    val caught = the[BpOriginalRequestNotFound] thrownBy {
       Await.result(output)
     }
     caught.msg should include("no request stored for ")
   }
 
-  it should "propagate the Exception thrown by Session lookup operation" in {
+  it should "throw Exception if Session lookup operation throws an exception" in {
     val testService = Service.mk[BorderRequest, IdentifyResponse[Tokens]] {
       req => Future(TokenmasterIdentifyRes(tokens)) }
 
@@ -183,20 +182,20 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     val sessionId = sessionid.untagged
 
     // Login POST request
-    val loginRequest = req("enterprise", "/login", ("username" -> "foo"), ("password" -> "bar"))
+    val loginRequest = req("enterprise.k", "/login", ("username" -> "foo"), ("password" -> "bar"))
 
     // Execute
     val output = (TokenmasterPostLoginFilter(mockSessionStore) andThen testService)(
-      BorderRequest(loginRequest, cust1, one, sessionId))
+      BorderRequest(loginRequest, cust1k, one, sessionId))
 
     // Validate
-    val caught = the [Exception] thrownBy {
+    val caught = the[Exception] thrownBy {
       Await.result(output)
     }
     caught.getMessage should equal ("oopsie")
   }
 
-  it should "propagate the Exception thrown by Session update operation" in {
+  it should "throw Exception if Session update operation throws an exception" in {
     val testService = Service.mk[BorderRequest, IdentifyResponse[Tokens]] {
       req => Future(TokenmasterIdentifyRes(tokens)) }
 
@@ -214,17 +213,58 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     val sessionId = sessionid.untagged
 
     // Login POST request
-    val loginRequest = req("enterprise", "/login", ("username" -> "foo"), ("password" -> "bar"))
+    val loginRequest = req("enterprise.k", "/login", ("username" -> "foo"), ("password" -> "bar"))
 
     // Execute
     val output = (TokenmasterPostLoginFilter(mockSessionStore) andThen testService)(
-      BorderRequest(loginRequest, cust1, one, sessionId))
+      BorderRequest(loginRequest, cust1k, one, sessionId))
 
     // Validate
-    val caught = the [Exception] thrownBy {
+    val caught = the[Exception] thrownBy {
       Await.result(output)
     }
     caught.getMessage should equal ("Session.update failed")
+  }
+
+  it should "redirect user to login page if it service returns future exception of type BpUserError" in {
+    val testService = Service.mk[BorderRequest, IdentifyResponse[Tokens]] {
+      req => Future.exception(new BpUserError(Status.Unauthorized, "test unauthorized error")) }
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login POST request
+    val loginRequest = req("enterprise.k", "/login", ("username" -> "foo"), ("password" -> "bar"))
+
+    // Execute
+    val output = (TokenmasterPostLoginFilter(sessionStore) andThen testService)(
+      BorderRequest(loginRequest, cust1k, one, sessionId))
+
+    // Validate
+    Await.result(output).status should be(Status.Found)
+    Await.result(output).location.get should
+      include("msg=Failed%20to%20authenticate%20the%20user%2C%20please%20check%20your%20credentials")
+  }
+
+  it should "propagate BpIdentityProviderError thrown by service" in {
+    val testService = Service.mk[BorderRequest, IdentifyResponse[Tokens]] {
+      req => Future.exception(BpIdentityProviderError("test unauthorized error")) }
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login POST request
+    val loginRequest = req("enterprise.k", "/login", ("username" -> "foo"), ("password" -> "bar"))
+
+    // Execute
+    val output = (TokenmasterPostLoginFilter(sessionStore) andThen testService)(
+      BorderRequest(loginRequest, cust1k, one, sessionId))
+
+    // Validate
+    val caught = the[BpIdentityProviderError] thrownBy {
+      Await.result(output)
+    }
+    caught.getMessage should include("test unauthorized error")
   }
 
   behavior of "TokenmasterProcessResponse"
@@ -250,7 +290,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     Await.result(output).identity should be(Id(tokens))
   }
 
-  it should "throw BpForbiddenRequest if Tokenmaster returns the Forbidden Status code" in {
+  it should "throw BpUnauthorizedRequest if Tokenmaster returns the Forbidden Status code" in {
     val testService = Service.mk[BorderRequest, Response] { _ => Response(Status.Forbidden).toFuture}
 
     // Allocate and Session
@@ -259,17 +299,16 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     // Login POST request
     val loginRequest = req("sky.k", "/signin", ("code" -> "XYZ123"))
 
-
     // Execute
     val output = (TokenmasterProcessResponse() andThen testService)(
       BorderRequest(loginRequest, cust2, two, sessionId))
 
     // Validate
-    val caught = the[BpForbiddenRequest] thrownBy {
+    val caught = the[BpUnauthorizedRequest] thrownBy {
       Await.result(output)
     }
     caught.getMessage should include("IdentityProvider failed to authenticate user")
-    caught.status should be(Status.Forbidden)
+    caught.status should be(Status.Unauthorized)
   }
 
   it should "propagate the error status from Tokenmaster service in the BpIdentityProviderError exception" in {
@@ -291,7 +330,6 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
       Await.result(output)
     }
     caught.getMessage should include("IdentityProvider failed to authenticate user, with status: ")
-    caught.status should be(Status.InternalServerError)
   }
 
   it should "propagate the failure parsing the resp from Tokenmaster service as an BpTokenParsingError exception" in {
@@ -348,7 +386,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     }
   }
 
-  it should "throw BpBadRequest if username is not present in the Request" in {
+  it should "throw BpUnauthorizedRequest if username is not present in the Request" in {
     // Allocate and Session
     val sessionId = sessionid.untagged
 
@@ -357,13 +395,13 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
 
     // Execute
     // Validate
-    val caught = the[BpBadRequest] thrownBy {
+    val caught = the[BpUnauthorizedRequest] thrownBy {
       val output = TokenmasterBasicAuth().apply(BorderRequest(loginRequest, cust1, one, sessionId))
     }
     caught.getMessage should include("Failed to find username and/or password in the Request")
   }
 
-  it should "throw BpBadRequest if password is not present in the Request" in {
+  it should "throw BpUnauthorizedRequest if password is not present in the Request" in {
     // Allocate and Session
     val sessionId = sessionid.untagged
 
@@ -372,7 +410,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
 
     // Execute
     // Validate
-    val caught = the[BpBadRequest] thrownBy {
+    val caught = the[BpUnauthorizedRequest] thrownBy {
       val output = TokenmasterBasicAuth().apply(BorderRequest(loginRequest, cust1, one, sessionId))
     }
     caught.getMessage should include("Failed to find username and/or password in the Request")
@@ -386,7 +424,8 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
       RoutingService.byPath {
         case p1 if p1 contains "identity" => Service.mk[Request, Response] { req =>
           assert(req.path == cust2k.loginManager.identityEndpoint.path.toString)
-          req.contentString.replaceAll("\\s", "") should be( """s=two&external_id=SomeAccessToken&idp_guid=ulm-guid&ent_guid=cust2-guid""")
+          req.contentString.replaceAll("\\s", "") should
+            be( """s=two&external_id=SomeAccessToken&idp_guid=ulm-guid&ent_guid=cust2-guid""")
           tap(Response(Status.Ok))(res => {
             res.contentString = TokensEncoder(tokens).toString()
             res.contentType = "application/json"
@@ -420,7 +459,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     }
   }
 
-  it should "throw BpBadRequest if it fails to find subject in the access token" in {
+  it should "throw BpTokenError if it fails to find subject in the access token" in {
     val accessToken = new PlainJWT(new JWTClaimsSet.Builder()
       .claim("upn", "test1@example.com")
       .claim("tid", "tid-tid-tid-tid")
@@ -444,7 +483,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     val output = TokenmasterOAuth2Auth(mockVerify).apply(borderRequest)
 
     // Validate
-    val caught = the[BpBadRequest] thrownBy {
+    val caught = the[BpTokenAccessError] thrownBy {
       Await.result(output).status should be(Status.Ok)
     }
     caught.msg should include("Failed to find 'sub' in the Access Token in the Request")
@@ -495,7 +534,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     }
   }
 
-  it should "propagate the error Status code returned by the Tokenmaster service, as the BpAccessIssuerError exception" in {
+  it should "throw BpAccessIssuerError due to error Status returned by the Tokenmaster" in {
     val server = com.twitter.finagle.Http.serve(
       "localhost:5678",
       RoutingService.byPath {
@@ -519,13 +558,12 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
       }
       caught.getMessage should include("Failed to permit access to the service: 'one', with: ")
       caught.getMessage should include(s"${Status.NotFound.code}")
-      caught.status should be(Status.InternalServerError)
     } finally {
       server.close()
     }
   }
 
-  it should "propagate the failure to parse resp content from Tokenmaster service, as BpAccessIssuerError exception" in {
+  it should "throw BpAccessIssuerError due failure to parse resp content from Tokenmaster service" in {
     val server = com.twitter.finagle.Http.serve(
       "localhost:5678",
       RoutingService.byPath {
@@ -581,7 +619,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
       val caught = the[BpForbiddenRequest] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should be("Forbidden: Failed to permit access to the service: 'one'")
+      caught.getMessage should include("Forbidden: Failed to permit access to the service: 'one'")
       caught.status should be(Status.Forbidden)
     } finally {
       server.close()
@@ -714,11 +752,10 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
       val sessionId = sessionid.untagged
 
       // Login manager request
-      val loginRequest = req("umbrella.k", "/loginConfirm",
-        ("username" -> "foo"), ("password" -> "bar"))
+      val loginRequest = req("enterprise.k", "/loginConfirm", ("username" -> "foo"), ("password" -> "bar"))
 
       // Original request
-      val origReq = req("umbrella.k", "/ent", ("fake" -> "drake"))
+      val origReq = req("enterprise.k", "/ent", ("fake" -> "drake"))
       sessionStore.update[Request](Session(sessionId, origReq))
 
       // Execute
@@ -756,12 +793,12 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
       val sessionId = sessionid.untagged
 
       // Original request
-      val origReq = req("umbrella.k", "/ent")
+      val origReq = req("sky.k", "/ent")
       sessionStore.update[Tokens](Session(sessionId, tokens))
 
       // Execute
       val output = tokenmasterAccessIssuerChain(sessionStore).apply(
-        BorderRequest(origReq, cust1k, one, sessionId))
+        BorderRequest(origReq, cust2k, one, sessionId))
 
       // Validate
       Await.result(output).status should be(Status.Ok)

@@ -19,6 +19,8 @@ class LoginManagersSpec extends BorderPatrolSuite {
   it should "return a valid redirect location" in {
     val request = req("enterprise", "ent")
     checkpointLoginManager.redirectLocation(request) should be(checkpointLoginManager.authorizePath.toString)
+    checkpointLoginManager.redirectLocation(request, "foo" -> "bar", "bar" -> "baz") should
+      be(checkpointLoginManager.authorizePath.toString + "?foo=bar&bar=baz")
   }
 
   behavior of "OAuth2LoginManager"
@@ -28,12 +30,17 @@ class LoginManagersSpec extends BorderPatrolSuite {
     request1.headerMap.set("X-Forwarded-Proto", "https")
     val request2 = req("sky", "ulm2")
     val location1 = umbrellaLoginManager.redirectLocation(request1)
-    val location2 = umbrellaLoginManager.redirectLocation(request2)
+    val location2 = umbrellaLoginManager.redirectLocation(request2, "foo" -> "bar", "bar" -> "baz")
     location1 should startWith(umbrellaLoginManager.authorizeEndpoint.hosts.head.toString +
       umbrellaLoginManager.authorizeEndpoint.path.toString)
-    location1 should include("response_type=code&state=foo&prompt=login&client_id=clientId")
+    location1 should include("response_type=code")
+    location1 should include("state=foo")
+    location1 should include("prompt=login")
+    location1 should include("client_id=clientId")
     location1 should include("redirect_uri=https%3A%2F%2Fsky.example.com%2Fsignin")
     location2 should include("redirect_uri=http%3A%2F%2Fsky.example.com%2Fsignin")
+    location2 should include("foo=bar")
+    location2 should include("bar=baz")
   }
 
   it should "succeed to fetch oAuth2 token for code from server" in {

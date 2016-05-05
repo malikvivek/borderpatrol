@@ -1,9 +1,10 @@
 package com.lookout.borderpatrol.auth.tokenmaster
 
+import com.lookout.borderpatrol.auth.BpInvalidRequest
 import com.lookout.borderpatrol.{Binder, Endpoint, LoginManager}
 import com.lookout.borderpatrol.util.Helpers
 import com.lookout.borderpatrol.util.Combinators.tap
-import com.twitter.finagle.http.{Method, Response, Request}
+import com.twitter.finagle.http.{Method, Request, Response}
 import com.twitter.finagle.http.path.Path
 import com.twitter.logging.Logger
 import com.twitter.util.Future
@@ -19,7 +20,8 @@ object LoginManagers {
    */
   trait BasicAuthLoginManagerMixin {
     val authorizePath: Path
-    def redirectLocation(req: Request): String = authorizePath.toString
+    def redirectLocation(req: Request, params: Tuple2[String, String]*): String =
+      Request.queryString(authorizePath.toString, params:_*)
   }
 
   /**
@@ -36,23 +38,24 @@ object LoginManagers {
     val clientId: String
     val clientSecret: String
 
-    def redirectLocation(req: Request): String = {
-      val hostStr = req.host.getOrElse(throw new Exception(s"Host not found in HTTP $req"))
+    def redirectLocation(req: Request, params: Tuple2[String, String]*): String = {
+      val hostStr = req.host.getOrElse(throw BpInvalidRequest(s"Host not found in HTTP $req"))
       val scheme = req.headerMap.getOrElse("X-Forwarded-Proto", "http")
       /* Send URL with query string */
+      val paramsMap = Map(("response_type", "code"), ("state", "foo"), ("prompt", "login"), ("client_id", clientId),
+        ("redirect_uri", s"$scheme://$hostStr$loginConfirm")) ++ params
       authorizeEndpoint.hosts.headOption.fold("")(_.toString) +
-        Request.queryString(authorizeEndpoint.path.toString, ("response_type", "code"), ("state", "foo"),
-          ("prompt", "login"), ("client_id", clientId), ("redirect_uri", s"$scheme://$hostStr$loginConfirm"))
+        Request.queryString(authorizeEndpoint.path.toString, paramsMap)
     }
 
     def codeToToken(req: Request): Future[Response] = {
-      val hostStr = req.host.getOrElse(throw new Exception(s"Host not found in HTTP $req"))
+      val hostStr = req.host.getOrElse(throw BpInvalidRequest(s"Host not found in HTTP $req"))
       val scheme = req.headerMap.getOrElse("X-Forwarded-Proto", "http")
       val request = tap(Request(Method.Post, tokenEndpoint.path.toString))(re => {
         re.contentType = "application/x-www-form-urlencoded"
         re.contentString = Request.queryString(("grant_type", "authorization_code"), ("client_id", clientId),
           ("code", Helpers.scrubQueryParams(req.params, "code")
-            .getOrElse(throw new Exception(s"OAuth2 code not found in HTTP ${req}"))),
+            .getOrElse(throw BpInvalidRequest(s"OAuth2 code not found in HTTP ${req}"))),
           ("redirect_uri", s"$scheme://$hostStr$loginConfirm"),
           ("client_secret", clientSecret), ("resource", "00000002-0000-0000-c000-000000000000"))
           .drop(1) /* Drop '?' */
