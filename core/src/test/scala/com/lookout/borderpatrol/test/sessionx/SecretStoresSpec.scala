@@ -3,7 +3,7 @@ package com.lookout.borderpatrol.test.sessionx
 import java.net.URL
 import javax.xml.bind.DatatypeConverter
 
-import com.lookout.borderpatrol.Binder
+import com.lookout.borderpatrol.Endpoint
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.sessionx.SecretStores._
 import com.lookout.borderpatrol.sessionx.ConsulResponse._
@@ -26,7 +26,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
       super.afterEach() // To be stackable, must call super.afterEach
     }
     finally {
-      Binder.clear
+      Endpoint.clearCache()
     }
   }
 

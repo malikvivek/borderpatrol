@@ -28,7 +28,7 @@ class ConfigSpec extends BorderPatrolSuite {
       super.afterEach() // To be stackable, must call super.afterEach
     }
     finally {
-      Binder.clear
+      Endpoint.clearCache()
     }
   }
 
@@ -52,13 +52,15 @@ class ConfigSpec extends BorderPatrolSuite {
     }
   }
   def decodeBasicLm(json: Json, eps: Set[Endpoint]) : LoginManager = {
-    decodeBasicLoginManager(eps.map(ep => ep.name -> ep).toMap).decodeJson(json) match {
+    val epCfgs = eps.map(EndpointConfig.fromEndpoint(_))
+    decodeBasicLoginManager(epCfgs.map(ep => ep.name -> ep).toMap).decodeJson(json) match {
       case Xor.Right(a) => a
       case Xor.Left(b) => throw new Exception(b.getMessage)
     }
   }
   def decodeOAuth2Lm(json: Json, eps: Set[Endpoint]) : LoginManager = {
-    decodeOAuth2LoginManager(eps.map(ep => ep.name -> ep).toMap).decodeJson(json) match {
+    val epCfgs = eps.map(EndpointConfig.fromEndpoint(_))
+    decodeOAuth2LoginManager(epCfgs.map(ep => ep.name -> ep).toMap).decodeJson(json) match {
       case Xor.Right(a) => a
       case Xor.Left(b) => throw new Exception(b.getMessage)
     }
@@ -77,7 +79,8 @@ class ConfigSpec extends BorderPatrolSuite {
   it should "uphold encoding/decoding SecretStore" in {
     decodeSecretStore.decodeJson(defaultSecretStore.asInstanceOf[SecretStoreApi].asJson).toOption should
       be(Some(defaultSecretStore.asInstanceOf[SecretStoreApi]))
-    val decodedConsulSecretStoreOpt = decodeSecretStore.decodeJson(consulSecretStore.asInstanceOf[SecretStoreApi].asJson).toOption
+    val decodedConsulSecretStoreOpt = decodeSecretStore.decodeJson(
+      consulSecretStore.asInstanceOf[SecretStoreApi].asJson).toOption
     decodedConsulSecretStoreOpt should not be(None)
     validateConsulStore(decodedConsulSecretStoreOpt.get.asInstanceOf[ConsulSecretStore], consulSecretStore)
     decodeSecretStore.decodeJson(Json.obj(("type", "InMemorySecretStore".asJson))).toOption should
@@ -103,7 +106,7 @@ class ConfigSpec extends BorderPatrolSuite {
     def decodeFromJson(json: Json): ServiceIdentifier =
       decode[ServiceIdentifier](json.toString()) match {
         case Xor.Right(a) => a
-        case Xor.Left(b) => ServiceIdentifier("failed", urls, Path("f"), None, false)
+        case Xor.Left(b) => throw new Exception(b.getMessage)
       }
 
     val partialContents = Json.fromFields(Seq(
@@ -125,24 +128,25 @@ class ConfigSpec extends BorderPatrolSuite {
   }
 
   it should "uphold encoding/decoding Endpoint" in {
-    def encodeDecode(m: Endpoint) : Endpoint = {
+    def encodeDecode(m: EndpointConfig) : EndpointConfig = {
       val encoded = m.asJson
-      decode[Endpoint](encoded.toString()) match {
+      decode[EndpointConfig](encoded.toString()) match {
         case Xor.Right(a) => a
-        case Xor.Left(b) => Endpoint("failed", Path("f"), urls)
+        case Xor.Left(b) => throw new Exception(b.getMessage)
       }
     }
-    encodeDecode(tokenmasterIdEndpoint) should be (tokenmasterIdEndpoint)
+    val tmIdEndpointConfig = EndpointConfig.fromEndpoint(tokenmasterIdEndpoint)
+    encodeDecode(tmIdEndpointConfig) should be (tmIdEndpointConfig)
   }
 
   it should "uphold encoding/decoding LoginManager" in {
     decodeBasicLm(checkpointLoginManager.asJson, endpointsk) should be (checkpointLoginManager)
     decodeOAuth2Lm(umbrellaLoginManager.asJson, endpointsk) should be (umbrellaLoginManager)
-    val caught1 = the [Exception] thrownBy {
+    val caught1 = the[Exception] thrownBy {
       decodeBasicLm(umbrellaLoginManager.asJson, endpointsk)
     }
     caught1.getMessage should include regex ("Attempt to decode value on failed.*authorizePath")
-    val caught2 = the [Exception] thrownBy {
+    val caught2 = the[Exception] thrownBy {
       decodeOAuth2Lm(checkpointLoginManager.asJson, endpointsk)
     }
     caught2.getMessage should include regex ("Attempt to decode value on failed.*authorizeEndpoint")
@@ -155,7 +159,7 @@ class ConfigSpec extends BorderPatrolSuite {
         ("defaultServiceIdentifier", "one".asJson),
         ("loginManager", "bad".asJson))))
 
-    val caught = the [Exception] thrownBy {
+    val caught = the[Exception] thrownBy {
       decodeCids(partialContents, sids, loginManagersk)
     }
     caught.getMessage should include ("LoginManager 'bad' not found")
@@ -168,7 +172,7 @@ class ConfigSpec extends BorderPatrolSuite {
         ("defaultServiceIdentifier", "bad".asJson),
         ("loginManager", "checkpoint".asJson))))
 
-    val caught = the [Exception] thrownBy {
+    val caught = the[Exception] thrownBy {
       decodeCids(partialContents, sids, loginManagersk)
     }
     caught.getMessage should include ("ServiceIdentifier 'bad' not found")
@@ -176,7 +180,7 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a BpConfigError exception if identityEndpoint that is used in LoginManager is missing" in {
     val partialContents = checkpointLoginManager.asJson
-    val caught = the [Exception] thrownBy {
+    val caught = the[Exception] thrownBy {
       decodeBasicLm(partialContents, Set(tokenmasterAccessEndpoint))
     }
     caught.getMessage should include ("identityEndpoint 'tokenmasterIdEndpoint' not found")
@@ -184,7 +188,7 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a BpConfigError exception if accessEndpoint that is used in LoginManager is missing" in {
     val partialContents = checkpointLoginManager.asJson
-    val caught = the [Exception] thrownBy {
+    val caught = the[Exception] thrownBy {
       decodeBasicLm(partialContents, Set(tokenmasterIdEndpoint))
     }
     caught.getMessage should include ("accessEndpoint 'tokenmasterAccessEndpoint' not found")
@@ -192,7 +196,7 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a BpConfigError exception if authorizeEndpoint that is used in LoginManager is missing" in {
     val partialContents = umbrellaLoginManager.asJson
-    val caught = the [Exception] thrownBy {
+    val caught = the[Exception] thrownBy {
       decodeOAuth2Lm(partialContents, Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint, ulmTokenEndpoint,
         ulmCertificateEndpoint))
     }
@@ -201,7 +205,7 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a BpConfigError exception if tokenEndpoint that is used in LoginManager is missing" in {
     val partialContents = umbrellaLoginManager.asJson
-    val caught = the [Exception] thrownBy {
+    val caught = the[Exception] thrownBy {
       decodeOAuth2Lm(partialContents, Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint, ulmAuthorizeEndpoint,
         ulmCertificateEndpoint))
     }
@@ -210,7 +214,7 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "raise a BpConfigError exception if certificateEndpoint that is used in LoginManager is missing" in {
     val partialContents = umbrellaLoginManager.asJson
-    val caught = the [Exception] thrownBy {
+    val caught = the[Exception] thrownBy {
       decodeOAuth2Lm(partialContents, Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint, ulmAuthorizeEndpoint,
         ulmTokenEndpoint))
     }
@@ -218,8 +222,9 @@ class ConfigSpec extends BorderPatrolSuite {
   }
 
   it should "return a Set with errors if duplicate are configured in endpoints config" in {
-    val output = validateEndpointConfig("endpoints",
-      endpointsk + Endpoint("tokenmasterIdEndpoint", Path("/some"), urls))
+    val eps = endpointsk + SimpleEndpoint("tokenmasterIdEndpoint", Path("/some"), urls)
+    val epCfgs = eps.map(EndpointConfig.fromEndpoint(_))
+    val output = validateEndpointConfig("endpoints", epCfgs)
     output should contain ("Duplicate entries for key (name) are found in the field: endpoints")
   }
 
@@ -261,29 +266,5 @@ class ConfigSpec extends BorderPatrolSuite {
       "hosts configuration for failed3 in some: https urls have mismatching hostnames")
     validateHostsConfig("some", "failed4", Set()) should contain (
       "hosts configuration for failed4 in some: has unsupported protocol")
-  }
-
-  it should "find managers and loginManagers by name" in {
-    case object TestConfig extends Config {
-      def loginManagers: Set[LoginManager] = loginManagersk
-      def endpoints: Set[Endpoint] = endpointsk
-      def serviceIdentifiers: Set[ServiceIdentifier] = sids
-      def customerIdentifiers: Set[CustomerIdentifier] = cidsk
-      def secretStore: SecretStoreApi = defaultSecretStore
-      def sessionStore: SessionStore = defaultSessionStore
-
-    }
-    TestConfig.findLoginManager("checkpointLoginManager") should be(checkpointLoginManager)
-    TestConfig.findEndpoint("ulmAuthorizeEndpoint") should be(ulmAuthorizeEndpoint)
-    TestConfig.findServiceIdentifier("one") should be(one)
-    the[BpInvalidConfigError] thrownBy {
-      TestConfig.findLoginManager("foo")
-    }
-    the[BpInvalidConfigError] thrownBy {
-      TestConfig.findEndpoint("foo")
-    }
-    the[BpInvalidConfigError] thrownBy {
-      TestConfig.findServiceIdentifier("foo")
-    }
   }
 }

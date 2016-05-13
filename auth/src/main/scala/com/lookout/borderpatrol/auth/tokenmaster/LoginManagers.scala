@@ -1,7 +1,7 @@
 package com.lookout.borderpatrol.auth.tokenmaster
 
 import com.lookout.borderpatrol.auth.BpInvalidRequest
-import com.lookout.borderpatrol.{Binder, Endpoint, LoginManager}
+import com.lookout.borderpatrol.{Endpoint, LoginManager}
 import com.lookout.borderpatrol.util.Helpers
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.twitter.finagle.http.{Method, Request, Response}
@@ -61,7 +61,7 @@ object LoginManagers {
           .drop(1) /* Drop '?' */
       })
       log.debug(s"Sending: Request(GET ${tokenEndpoint.path}) to fetch tokens")
-      Binder.connect(tokenEndpoint, request)
+      tokenEndpoint.send(request)
     }
   }
 

@@ -1,6 +1,6 @@
 package com.lookout.borderpatrol.auth.tokenmaster
 
-import com.lookout.borderpatrol.Binder
+import com.lookout.borderpatrol.Endpoint
 import com.lookout.borderpatrol.auth.tokenmaster.Tokenmaster._
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.sessionx.SessionStores.MemcachedStore
@@ -29,7 +29,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
       super.afterEach() // To be stackable, must call super.afterEach
     }
     finally {
-      Binder.clear()
+      Endpoint.clearCache()
     }
   }
 

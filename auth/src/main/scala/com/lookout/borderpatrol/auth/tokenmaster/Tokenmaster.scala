@@ -1,6 +1,6 @@
 package com.lookout.borderpatrol.auth.tokenmaster
 
-import com.lookout.borderpatrol.{Binder, CustomerIdentifier, ServiceIdentifier}
+import com.lookout.borderpatrol.{CustomerIdentifier, ServiceIdentifier}
 import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers._
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.lookout.borderpatrol.sessionx._
@@ -12,7 +12,6 @@ import com.twitter.finagle.{Filter, Service}
 import com.twitter.finagle.http._
 import com.twitter.logging.Logger
 import com.twitter.util.{Future, Return, Throw}
-
 import scala.collection.JavaConverters._
 
 
@@ -57,7 +56,7 @@ object Tokenmaster {
       }
 
     def authenticate(grants: Set[String]): Future[Response] = {
-      Binder.connect(req.customerId.loginManager.identityEndpoint, authRequest(grants))
+      req.customerId.loginManager.identityEndpoint.send(authRequest(grants))
     }
   }
 
@@ -103,7 +102,7 @@ object Tokenmaster {
     }
 
     def authenticate(grants: Set[String]): Future[Response] = {
-      Binder.connect(req.customerId.loginManager.identityEndpoint, authRequest(grants))
+      req.customerId.loginManager.identityEndpoint.send(authRequest(grants))
     }
   }
 
@@ -309,7 +308,7 @@ object Tokenmaster {
       req.identity.id.service(req.serviceId.name).fold[Future[ServiceToken]]({
         statRequestSends.incr()
         //  Fetch ServiceToken from the Tokenmaster
-        Binder.connect(req.customerId.loginManager.accessEndpoint, api(req)).flatMap(res => res.status match {
+        req.customerId.loginManager.accessEndpoint.send(api(req)).flatMap(res => res.status match {
           //  Parse for Tokens if Status.Ok
           case Status.Ok =>
             Tokens.derive[Tokens](res.contentString).fold[Future[ServiceToken]](

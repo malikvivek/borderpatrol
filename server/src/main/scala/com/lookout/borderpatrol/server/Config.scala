@@ -17,14 +17,22 @@ import io.circe.syntax._
 
 
 /**
+ *  EndpointConfig
+ */
+case class EndpointConfig(name: String, path: Path, hosts: Set[URL]) {
+  def toSimpleEndpoint: Endpoint = SimpleEndpoint(name, path, hosts)
+}
+object EndpointConfig {
+  def fromEndpoint(e: Endpoint): EndpointConfig = EndpointConfig(e.name, e.path, e.hosts)
+}
+
+/**
  * Where you will find the Secret Store and Session Store
  */
 object Config {
-
   val defaultSecretStore = SecretStores.InMemorySecretStore(Secrets(Secret(), Secret()))
   val defaultSessionStore = SessionStores.InMemoryStore
   private[this] val log = Logger.get(getClass.getPackage.getName)
-
   def cond[T](p: => Boolean, v: T) : Set[T] = if (p) Set(v) else Set.empty[T]
 
   // Encoder/Decoder for Path
@@ -102,7 +110,7 @@ object Config {
       ("clientSecret", olm.clientSecret.asJson)
     ))
   }
-  def decodeBasicLoginManager(eps: Map[String, Endpoint]): Decoder[BasicLoginManager] = Decoder.instance { c =>
+  def decodeBasicLoginManager(eps: Map[String, EndpointConfig]): Decoder[BasicLoginManager] = Decoder.instance { c =>
     for {
       name <- c.downField("name").as[String]
       tyfe <- c.downField("type").as[String]
@@ -113,9 +121,10 @@ object Config {
       ie <- Xor.fromOption(eps.get(ieName), DecodingFailure(s"identityEndpoint '$ieName' not found: ", c.history))
       aeName <- c.downField("accessEndpoint").as[String]
       ae <- Xor.fromOption(eps.get(aeName), DecodingFailure(s"accessEndpoint '$aeName' not found: ", c.history))
-    } yield BasicLoginManager(name, tyfe, guid, loginConfirm, authorizePath, ie, ae)
+    } yield BasicLoginManager(name, tyfe, guid, loginConfirm, authorizePath,
+      ie.toSimpleEndpoint, ae.toSimpleEndpoint)
   }
-  def decodeOAuth2LoginManager(eps: Map[String, Endpoint]): Decoder[OAuth2LoginManager] = Decoder.instance { c =>
+  def decodeOAuth2LoginManager(eps: Map[String, EndpointConfig]): Decoder[OAuth2LoginManager] = Decoder.instance { c =>
     for {
       name <- c.downField("name").as[String]
       tyfe <- c.downField("type").as[String]
@@ -134,11 +143,12 @@ object Config {
         DecodingFailure(s"certificateEndpoint '$ceName' not found: ", c.history))
       clientId <- c.downField("clientId").as[String]
       clientSecret <- c.downField("clientSecret").as[String]
-    } yield OAuth2LoginManager(name, tyfe, guid, loginConfirm, ie, ae, au, te, ce,
+    } yield OAuth2LoginManager(name, tyfe, guid, loginConfirm,
+      ie.toSimpleEndpoint, ae.toSimpleEndpoint, au.toSimpleEndpoint, te.toSimpleEndpoint, ce.toSimpleEndpoint,
       clientId, clientSecret)
   }
 
-    // Encoder/Decoder for ServiceIdentifier
+  // Encoder/Decoder for ServiceIdentifier
   implicit val encodeServiceIdentifier: Encoder[ServiceIdentifier] = Encoder.instance { sid =>
     Json.fromFields(Seq(
       ("name", sid.name.asJson),
@@ -185,6 +195,7 @@ object Config {
 
   /**
    * Validate Hosts (i.e. Set of URLs) configuration
+   *
    * @param field
    * @param name
    * @param hosts
@@ -206,6 +217,7 @@ object Config {
 
   /**
    * Validate SecretStore configuration
+   *
    * @param field
    * @param secretStores
    * @return set of all the errors encountered during validation
@@ -219,11 +231,12 @@ object Config {
 
   /**
    * Validate Endpoint configuration
+   *
    * @param field
    * @param endpoints
    * @return set of all the errors encountered during validation
    */
-  def validateEndpointConfig(field: String, endpoints: Set[Endpoint]): Set[String] = {
+  def validateEndpointConfig(field: String, endpoints: Set[EndpointConfig]): Set[String] = {
     // Find if endpoints have duplicate entries
     (cond(endpoints.size > endpoints.map(m => m.name).size,
       s"Duplicate entries for key (name) are found in the field: ${field}") ++
@@ -234,6 +247,7 @@ object Config {
 
   /**
    * Validate Login Manager configurartion
+   *
    * @param field
    * @param loginManagers
    * @return set of all the errors encountered during validation
@@ -246,6 +260,7 @@ object Config {
 
   /**
    * Validate serviceIdentifier configuration
+   *
    * @param field
    * @param sids
    * @return set of all the errors encountered during validation
@@ -266,6 +281,7 @@ object Config {
 
   /**
    * Validate customerIdentifier configuration
+   *
    * @param field
    * @param cids
    * @return set of all the errors encountered during validation
@@ -276,26 +292,3 @@ object Config {
       s"Duplicate entries for key (subdomain) are found in the field: ${field}")
   }
 }
-
-/**
- * Trait
- */
-trait Config {
-
-  def loginManagers: Set[LoginManager]
-  def endpoints: Set[Endpoint]
-  def serviceIdentifiers: Set[ServiceIdentifier]
-  def customerIdentifiers: Set[CustomerIdentifier]
-  def secretStore: SecretStoreApi
-  def sessionStore: SessionStore
-
-  def findEndpoint(n: String): Endpoint = endpoints.find(_.name == n)
-    .getOrElse(throw new BpInvalidConfigError(s"Failed to find endpoint for: $n"))
-
-  def findLoginManager(n: String): LoginManager = loginManagers.find(_.name == n)
-    .getOrElse(throw new BpInvalidConfigError("Failed to find LoginManager for: " + n))
-
-  def findServiceIdentifier(n: String): ServiceIdentifier = serviceIdentifiers.find(_.name == n)
-    .getOrElse(throw new BpInvalidConfigError("Failed to find ServiceIdentifier for: " + n))
-}
-

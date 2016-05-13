@@ -12,18 +12,21 @@ object tokenmasterTestHelpers {
   import OAuth2._
 
   // Endpoints
-  val ulmAuthorizeEndpoint = Endpoint("ulmAuthorizeEndpoint", Path("/authorize"), Set(new URL("http://example.com")))
-  val ulmTokenEndpoint = Endpoint("ulmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:5678")))
-  val ulmCertificateEndpoint = Endpoint("ulmCertificateEndpoint", Path("/certificate"),
+  val ulmAuthorizeEndpoint = SimpleEndpoint("ulmAuthorizeEndpoint", Path("/authorize"), Set(new URL("http://example.com")))
+  val ulmTokenEndpoint = SimpleEndpoint("ulmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:5678")))
+  val ulmCertificateEndpoint = SimpleEndpoint("ulmCertificateEndpoint", Path("/certificate"),
     Set(new URL("http://localhost:5678")))
-  val rlmAuthorizeEndpoint = Endpoint("rlmAuthorizeEndpoint", Path("/authorize"),
+  val rlmAuthorizeEndpoint = SimpleEndpoint("rlmAuthorizeEndpoint", Path("/authorize"),
     Set(new URL("http://localhost:9999")))
-  val rlmTokenEndpoint = Endpoint("rlmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:9999")))
-  val rlmCertificateEndpoint = Endpoint("rlmCertificateEndpoint", Path("/certificate"),
+  val rlmTokenEndpoint = SimpleEndpoint("rlmTokenEndpoint", Path("/token"), Set(new URL("http://localhost:9999")))
+  val rlmCertificateEndpoint = SimpleEndpoint("rlmCertificateEndpoint", Path("/certificate"),
     Set(new URL("http://localhost:9999")))
-  val endpointsk = Set(tokenmasterIdEndpoint, tokenmasterAccessEndpoint,
-    ulmAuthorizeEndpoint, ulmTokenEndpoint, ulmCertificateEndpoint,
-    rlmAuthorizeEndpoint, rlmTokenEndpoint, rlmCertificateEndpoint)
+  val endpointsk = Set(tokenmasterIdEndpoint.asInstanceOf[Endpoint],
+    tokenmasterAccessEndpoint.asInstanceOf[Endpoint],
+    ulmAuthorizeEndpoint.asInstanceOf[Endpoint], ulmTokenEndpoint.asInstanceOf[Endpoint],
+    ulmCertificateEndpoint.asInstanceOf[Endpoint],
+    rlmAuthorizeEndpoint.asInstanceOf[Endpoint], rlmTokenEndpoint.asInstanceOf[Endpoint],
+    rlmCertificateEndpoint.asInstanceOf[Endpoint])
 
   // Login Managers
   val checkpointLoginManager = BasicLoginManager("checkpointLoginManager", "tokenmaster.basic", "cp-guid",

@@ -1,35 +1,51 @@
 package com.lookout.borderpatrol
 
+import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 import com.twitter.finagle.Http.Client
 import com.twitter.finagle.client.StackClient
+import com.twitter.finagle.http.path.Path
 import com.twitter.finagle.param.ProtocolLibrary
 import com.twitter.finagle.service.StatsFilter
 import com.twitter.finagle.{Http, Service}
-import com.twitter.finagle.http.{Response, Request}
+import com.twitter.finagle.http.{Request, Response}
 import com.twitter.logging.Logger
 import com.twitter.util.Future
 import scala.collection.JavaConverters._
 import scala.language.postfixOps
 
 
-object Binder {
+/**
+  * Endpoint defines the remote endpoint that BP uses to perform specific operations
+  */
+trait Endpoint {
+  val name: String
+  val path: Path
+  val hosts: Set[URL]
+  def send(request: Request): Future[Response]
+}
+
+/**
+  * Add "send" interface to Endpoint class
+  */
+object Endpoint {
   private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val cache: collection.concurrent.Map[String, Service[Request, Response]] =
     new ConcurrentHashMap[String, Service[Request, Response]] asScala
 
+  /** Spawn a client */
   private[this] def client(name: String, endpoint: Endpoint): Service[Request, Response] = {
     // If its https, use TLS
-    val https = endpoint.hosts.filter(u => u.getProtocol == "https").nonEmpty
+    val isHttps = endpoint.hosts.exists(u => u.getProtocol == "https")
     val hostname = endpoint.hosts.map(u => u.getHost).mkString
 
     // Find CSV of host & ports
     val hostAndPorts = endpoint.hosts.map(u => u.getAuthority).mkString(",")
 
     // Create a client and configure metrics in microseconds
-    if (https) Http
+    if (isHttps) Http
       .Client(Client.stack, StackClient.defaultParams + ProtocolLibrary("http") +
               StatsFilter.Param(TimeUnit.MICROSECONDS))
       .withTls(hostname).newService(hostAndPorts, name)
@@ -39,6 +55,7 @@ object Binder {
       .newService(hostAndPorts, name)
   }
 
+  /** Get or store client in cache */
   private[this] def getOrCreate(endpoint: Endpoint): Future[Service[Request, Response]] =
     cache.getOrElse(endpoint.name, {
       //  Allocate a new client
@@ -50,6 +67,7 @@ object Binder {
       maybeC.getOrElse(cl)
     }).toFuture
 
+  /** Connect and send the request */
   def connect(endpoint: Endpoint, request: Request): Future[Response] = {
     (for {
       cl <- getOrCreate(endpoint)
@@ -61,7 +79,19 @@ object Binder {
     }
   }
 
+  /** Get client service from cache */
   def get(name: String): Option[Service[Request, Response]] = cache.get(name)
 
-  def clear(): Unit = cache.clear()
+  /** Clear cache */
+  def clearCache(): Unit = cache.clear()
+}
+
+/**
+  * Simple Endpoint representation
+  * @param name name of the endpoint
+  * @param path path at the endpoint
+  * @param hosts endpoint hosts
+  */
+case class SimpleEndpoint(name: String, path: Path, hosts: Set[URL]) extends Endpoint {
+  def send(request: Request): Future[Response] = Endpoint.connect(this, request)
 }

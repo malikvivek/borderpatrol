@@ -73,7 +73,7 @@ object service {
   /**
    * The sole entry point for all service chains
    */
-  def MainServiceChain(implicit config: Config, statsReceiver: StatsReceiver, registry: HealthCheckRegistry,
+  def MainServiceChain(implicit config: ServerConfig, statsReceiver: StatsReceiver, registry: HealthCheckRegistry,
                        secretStore: SecretStoreApi): Service[Request, Response] = {
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
     val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
@@ -206,7 +206,7 @@ object service {
   }
 
   // Mock Routing service
-  def getMockRoutingService(implicit config: Config, statsReceiver: StatsReceiver,
+  def getMockRoutingService(implicit config: ServerConfig, statsReceiver: StatsReceiver,
                             secretStore: SecretStoreApi): Service[Request, Response] = {
     Try {
       val internalLm = config.findLoginManager("internal").asInstanceOf[BasicLoginManager]

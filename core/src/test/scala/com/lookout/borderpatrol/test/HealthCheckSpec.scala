@@ -56,7 +56,7 @@ class HealthCheckSpec extends BorderPatrolSuite {
       super.afterEach() // To be stackable, must call super.afterEach
     }
     finally {
-      Binder.clear
+      Endpoint.clearCache()
     }
   }
 
@@ -103,11 +103,11 @@ class HealthCheckSpec extends BorderPatrolSuite {
     )
     try {
       val goodUrlHealthCheck = UrlHealthCheck("goodUrlHealthCheck",
-        Endpoint("good", Path("/good"), Set(new URL("http://localhost:5679"))))
+        SimpleEndpoint("good", Path("/good"), Set(new URL("http://localhost:5679"))))
       val badUrlHealthCheck = UrlHealthCheck("badUrlHealthCheck",
-        Endpoint("bad", Path("/bad"), Set(new URL("http://localhost:5679"))))
+        SimpleEndpoint("bad", Path("/bad"), Set(new URL("http://localhost:5679"))))
       val uglyUrlHealthCheck = UrlHealthCheck("uglyUrlHealthCheck",
-        Endpoint("ugly", Path("ugly"), Set(new URL("http://localhost:9999"))))
+        SimpleEndpoint("ugly", Path("ugly"), Set(new URL("http://localhost:9999"))))
       val registry = new HealthCheckRegistry()
       registry.register(goodUrlHealthCheck)
       registry.register(badUrlHealthCheck)

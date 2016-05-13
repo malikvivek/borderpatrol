@@ -56,8 +56,8 @@ object coreTestHelpers {
   val bpPort: Int = 8080
 
   //  endpoints
-  val tokenmasterIdEndpoint = Endpoint("tokenmasterIdEndpoint", Path("/identityProvider"), urls)
-  val tokenmasterAccessEndpoint = Endpoint("tokenmasterAccessEndpoint", Path("/accessIssuer"), urls)
+  val tokenmasterIdEndpoint = SimpleEndpoint("tokenmasterIdEndpoint", Path("/identityProvider"), urls)
+  val tokenmasterAccessEndpoint = SimpleEndpoint("tokenmasterAccessEndpoint", Path("/accessIssuer"), urls)
 
   // Login Managers
   case object test1LoginManager extends LoginManager {
