@@ -10,16 +10,15 @@ import io.circe.{Decoder, Json, jawn}
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.generic.semiauto._
-
-import com.lookout.borderpatrol.{Endpoint, HealthCheckStatus, HealthCheck, Binder}
+import com.lookout.borderpatrol.{Endpoint, HealthCheck, HealthCheckStatus, SimpleEndpoint}
 import com.lookout.borderpatrol.util.Combinators._
-import com.twitter.finagle.http.{Method, Status, Request}
-import com.twitter.finagle.util.{HashedWheelTimer, DefaultTimer}
-import com.twitter.logging.{Logger, Level}
+import com.twitter.finagle.http.{Method, Request, Status}
+import com.twitter.finagle.util.{DefaultTimer, HashedWheelTimer}
+import com.twitter.logging.{Level, Logger}
 import com.twitter.util._
 
-import scala.util.{Success, Failure}
-import scalaz.{\/-, -\/}
+import scala.util.{Failure, Success}
+import scalaz.{-\/, \/-}
 
 
 /**
@@ -85,7 +84,7 @@ object SecretStores {
     private[this] val log = Logger.get(getClass.getPackage.getName)
     private[this] val consulBinderName = s"${getClass.getSimpleName}.consulUrl"
     private[this] val consulPath = s"/v1/kv/${key}"
-    private[this] val consulEndpoint = Endpoint(consulBinderName, Path(consulPath), consulUrls)
+    private[this] val consulEndpoint = SimpleEndpoint(consulBinderName, Path(consulPath), consulUrls)
 
     /* Kick off a poll timer */
     timer.schedule(Time.now)(pollSecrets)
@@ -157,7 +156,7 @@ object SecretStores {
      * @param step
      */
     private[this] def getConsulResponse(step: Int): Future[List[ConsulResponse]] =
-      Binder.connect(consulEndpoint, Request(consulEndpoint.path.toString)).flatMap(res =>
+      consulEndpoint.send(Request(consulEndpoint.path.toString)).flatMap(res =>
         res.status match {
           case Status.Ok => jawn.decode[List[ConsulResponse]](res.contentString)
             .fold[Future[List[ConsulResponse]]](
@@ -197,7 +196,7 @@ object SecretStores {
      */
     private[this] def setSecretsOnConsul(step: Int, newSecrets: Secrets, modifyIndex: Int):
         Future[(Option[Secrets], Boolean)] =
-      Binder.connect(consulEndpoint, tap(Request(Method.Put,
+      consulEndpoint.send(tap(Request(Method.Put,
         Request.queryString(consulEndpoint.path.toString, ("cas" -> modifyIndex.toString)))){ req =>
           req.contentString = SecretsEncoder.EncodeJson.encode(newSecrets).toString
           req.contentType = "application/json"

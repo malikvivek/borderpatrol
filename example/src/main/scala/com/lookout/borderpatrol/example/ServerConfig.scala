@@ -1,13 +1,11 @@
 package com.lookout.borderpatrol.example
 
 import com.lookout.borderpatrol._
-import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.{OAuth2LoginManager, BasicLoginManager}
-import com.lookout.borderpatrol.example.ServerConfig.StatsdExporterConfig
-import com.lookout.borderpatrol.server.{BpConfigError, Config}
+import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.{BasicLoginManager, OAuth2LoginManager}
+import com.lookout.borderpatrol.server.{BpConfigError, BpInvalidConfigError, Config, EndpointConfig}
 import com.lookout.borderpatrol.sessionx._
 import com.twitter.app.App
 import cats.data.Xor
-import com.twitter.finagle.http.path.Path
 import com.twitter.logging.Logger
 import io.circe.{Encoder, _}
 import io.circe.jawn._
@@ -16,21 +14,26 @@ import io.circe.syntax._
 import scala.io.Source
 
 
-case class ServerConfig(listeningPortVal: Int,
-                        secretStoreVal: SecretStoreApi,
-                        sessionStoreVal: SessionStore,
-                        statsdExporterConfigVal: StatsdExporterConfig,
-                        healthCheckEndpointsVal: Set[Endpoint],
-                        customerIdentifiersVal: Set[CustomerIdentifier],
-                        serviceIdentifiersVal: Set[ServiceIdentifier],
-                        loginManagersVal: Set[LoginManager],
-                        endpointsVal: Set[Endpoint]) extends Config {
-  def loginManagers: Set[LoginManager] = loginManagersVal
-  def endpoints: Set[Endpoint] = endpointsVal
-  def serviceIdentifiers: Set[ServiceIdentifier] = serviceIdentifiersVal
-  def customerIdentifiers: Set[CustomerIdentifier] = customerIdentifiersVal
-  def secretStore: SecretStoreApi = secretStoreVal
-  def sessionStore: SessionStore = sessionStoreVal
+case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String)
+
+case class ServerConfig(listeningPort: Int,
+                        secretStore: SecretStoreApi,
+                        sessionStore: SessionStore,
+                        statsdExporterConfig: StatsdExporterConfig,
+                        healthCheckEndpointConfigs: Set[EndpointConfig],
+                        customerIdentifiers: Set[CustomerIdentifier],
+                        serviceIdentifiers: Set[ServiceIdentifier],
+                        loginManagers: Set[LoginManager],
+                        endpointConfigs: Set[EndpointConfig]) {
+
+  def findEndpoint(n: String): Endpoint = endpointConfigs.find(_.name == n)
+    .fold(throw new BpInvalidConfigError(s"Failed to find endpoint for: $n"))(_.toSimpleEndpoint)
+
+  def findLoginManager(n: String): LoginManager = loginManagers.find(_.name == n)
+    .getOrElse(throw new BpInvalidConfigError("Failed to find LoginManager for: " + n))
+
+  def findServiceIdentifier(n: String): ServiceIdentifier = serviceIdentifiers.find(_.name == n)
+    .getOrElse(throw new BpInvalidConfigError("Failed to find ServiceIdentifier for: " + n))
 }
 
 /**
@@ -41,7 +44,6 @@ object ServerConfig {
 
   val defaultConfigFile = "bpConfig.json"
   private[this] val log = Logger.get(getClass.getPackage.getName)
-  case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String)
 
   /**
    * Encoder/Decoder for LoginManager
@@ -53,7 +55,7 @@ object ServerConfig {
     case blm: BasicLoginManager => blm.asJson
     case olm: OAuth2LoginManager => olm.asJson
   }
-  def decodeLoginManager(eps: Map[String, Endpoint]): Decoder[LoginManager] = Decoder.instance { c =>
+  def decodeLoginManager(eps: Map[String, EndpointConfig]): Decoder[LoginManager] = Decoder.instance { c =>
     c.downField("type").as[String].flatMap {
       case "tokenmaster.basic" => decodeBasicLoginManager(eps).apply(c)
       case "tokenmaster.oauth2" => decodeOAuth2LoginManager(eps).apply(c)
@@ -66,14 +68,16 @@ object ServerConfig {
    */
   implicit val serverConfigEncoder: Encoder[ServerConfig] = Encoder.instance { serverConfig =>
     Json.fromFields(Seq(
-      ("listeningPort", serverConfig.listeningPortVal.asJson),
-      ("secretStore", serverConfig.secretStoreVal.asJson),
-      ("sessionStore", serverConfig.sessionStoreVal.asJson),
-      ("statsdReporter", serverConfig.statsdExporterConfigVal.asJson),
-      ("endpoints", serverConfig.endpointsVal.asJson),
-      ("loginManagers", serverConfig.loginManagersVal.asJson),
-      ("serviceIdentifiers", serverConfig.serviceIdentifiersVal.asJson),
-      ("customerIdentifiers", serverConfig.customerIdentifiersVal.asJson)))
+      ("listeningPort", serverConfig.listeningPort.asJson),
+      ("secretStore", serverConfig.secretStore.asJson),
+      ("sessionStore", serverConfig.sessionStore.asJson),
+      ("statsdReporter", serverConfig.statsdExporterConfig.asJson),
+      ("endpoints", serverConfig.endpointConfigs.asJson),
+      ("loginManagers", serverConfig.loginManagers.asJson),
+      ("serviceIdentifiers", serverConfig.serviceIdentifiers.asJson),
+      ("customerIdentifiers", serverConfig.customerIdentifiers.asJson),
+      ("customerIdentifiers", serverConfig.customerIdentifiers.asJson)
+    ))
   }
   implicit val serverConfigDecoder: Decoder[ServerConfig] = Decoder.instance { c =>
     for {
@@ -81,7 +85,7 @@ object ServerConfig {
       secretStore <- c.downField("secretStore").as[SecretStoreApi]
       sessionStore <- c.downField("sessionStore").as[SessionStore]
       statsdExporterConfig <- c.downField("statsdReporter").as[StatsdExporterConfig]
-      eps <-c.downField("endpoints").as[Set[Endpoint]]
+      eps <-c.downField("endpoints").as[Set[EndpointConfig]]
       lms <- c.downField("loginManagers").as(Decoder.decodeCanBuildFrom[LoginManager, Set](
         decodeLoginManager(eps.map(ep => ep.name -> ep).toMap), implicitly))
       sids <- c.downField("serviceIdentifiers").as[Set[ServiceIdentifier]]
@@ -90,14 +94,14 @@ object ServerConfig {
         implicitly))
       healthCheckEndpointNames <- c.downField("healthCheckEndpoints").as[Option[Set[String]]].map(
         _.getOrElse(Set.empty))
-      healthCheckEndpoints <- Xor.fromOption(
+      healthCheckEndpointConfigs <- Xor.fromOption(
         {
           val healthCheckEndpointOpts = healthCheckEndpointNames.map(hceName => eps.find(_.name == hceName))
           if (healthCheckEndpointOpts.contains(None)) None else Some(healthCheckEndpointOpts.flatten)
         },
         DecodingFailure(s"Failed to decode endpoint(s) in the healthCheckEndpoints: ", c.history))
     } yield ServerConfig(listeningPort, secretStore, sessionStore, statsdExporterConfig,
-      healthCheckEndpoints, cids, sids, lms, eps)
+      healthCheckEndpointConfigs, cids, sids, lms, eps)
   }
 
   /**
@@ -110,19 +114,19 @@ object ServerConfig {
    */
   def validate(serverConfig: ServerConfig): Set[String] = {
     //  Validate Secret Store config
-    validateSecretStoreConfig("secretStore", serverConfig.secretStoreVal) ++ (
+    validateSecretStoreConfig("secretStore", serverConfig.secretStore) ++ (
 
       //  Validate identityManagers config
-      validateEndpointConfig("endpoints", serverConfig.endpointsVal) ++
+      validateEndpointConfig("endpoints", serverConfig.endpointConfigs) ++
 
       //  Validate loginManagers config
-      validateLoginManagerConfig("loginManagers", serverConfig.loginManagersVal) ++
+      validateLoginManagerConfig("loginManagers", serverConfig.loginManagers) ++
 
       //  Validate serviceIdentifiers config
-      validateServiceIdentifierConfig("serviceIdentifiers", serverConfig.serviceIdentifiersVal) ++
+      validateServiceIdentifierConfig("serviceIdentifiers", serverConfig.serviceIdentifiers) ++
 
       //  Validate customerIdentifiers config
-      validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiersVal))
+      validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers))
   }
 
   /**

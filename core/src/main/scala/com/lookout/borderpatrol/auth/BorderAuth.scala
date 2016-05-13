@@ -1,6 +1,6 @@
 package com.lookout.borderpatrol.auth
 
-import com.lookout.borderpatrol.{Binder, BpCoreError, BpNotFoundRequest}
+import com.lookout.borderpatrol.{BpCommunicationError, BpCoreError, BpNotFoundRequest}
 import com.lookout.borderpatrol.{CustomerIdentifier, ServiceIdentifier, ServiceMatcher}
 import com.lookout.borderpatrol.util.Combinators._
 import com.lookout.borderpatrol.util.Helpers
@@ -10,6 +10,7 @@ import com.twitter.finagle.http._
 import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.finagle.{Filter, Service, SimpleFilter}
 import com.twitter.logging.Logger
+import com.twitter.logging.config.Level
 import com.twitter.util.Future
 import io.circe.Json
 import io.circe.syntax._
@@ -303,7 +304,7 @@ case class SendToUnprotectedService(store: SessionStore)
   private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val statRequestSends = statsReceiver.counter("req.unprotected.upstream.service.forwards")
   private[this] val unprotectedServiceChain = RewriteFilter() andThen Service.mk[BorderRequest, Response] {
-    br => Binder.connect(br.serviceId.endpoint, br.req) }
+    br => br.serviceId.endpoint.send(br.req) }
 
   def sendToUnprotectedService(req: BorderRequest): Future[Response] = {
     statRequestSends.incr
@@ -408,7 +409,7 @@ case class AccessFilter[A, B](implicit statsReceiver: StatsReceiver)
             accessService: Service[AccessRequest[A], AccessResponse[B]]): Future[Response] = {
     for {
       accessResp <- accessService(AccessRequest(req.id, req.customerId, req.serviceId, req.sessionId))
-      resp <- Binder.connect(req.serviceId.endpoint,
+      resp <- req.serviceId.endpoint.send(
         tap(req.req) { r =>
           statRequestSends.incr
           log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
@@ -449,8 +450,8 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
       req.headerMap.get("Accept").exists(_.contains(MediaType.Json))
   }
 
-  private[this] def warningAndResponse(req: Request, msg: String, status: Status): Response = {
-    log.warning(msg)
+  private[this] def logAndResponse(req: Request, msg: String, status: Status, level: Level): Response = {
+    log.log(level, msg)
     tap(Response(status))(res => {
       expectsJson(req) match {
         case true =>
@@ -470,9 +471,10 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
    * Tells the service how to handle certain types of servable errors (i.e. PetstoreError)
    */
   def errorHandler(req: Request): PartialFunction[Throwable, Response] = {
-    case error: BpUserError => warningAndResponse(req, error.getMessage, error.status)
-    case error: BpCoreError => warningAndResponse(req, error.getMessage, error.status)
-    case error: Throwable => warningAndResponse(req, error.getMessage, Status.InternalServerError)
+    case error: BpUserError => logAndResponse(req, error.getMessage, error.status, Level.INFO)
+    case error: BpCommunicationError => logAndResponse(req, error.getMessage, error.status, Level.WARNING)
+    case error: BpCoreError => logAndResponse(req, error.getMessage, error.status, Level.INFO)
+    case error: Throwable => logAndResponse(req, error.getMessage, Status.InternalServerError, Level.WARNING)
   }
 
   def apply(req: Request, service: Service[Request, Response]): Future[Response] = {

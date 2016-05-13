@@ -19,7 +19,7 @@ case class ServiceIdentifier(name: String, hosts: Set[URL], path: Path, rewriteP
                              protekted: Boolean) {
   def isServicePath(p: Path): Boolean =
     p.startsWith(path)
-  lazy val endpoint: Endpoint = Endpoint(name, path, hosts)
+  lazy val endpoint: Endpoint = SimpleEndpoint(name, path, hosts)
 }
 
 /**

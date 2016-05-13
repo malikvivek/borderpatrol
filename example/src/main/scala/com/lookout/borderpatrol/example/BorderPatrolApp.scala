@@ -33,19 +33,19 @@ object BorderPatrolApp extends TwitterServer with ServerConfigMixin {
         healthCheckRegistry.register(memcachedCheck)
       case _ =>
     }
-    serverConfig.healthCheckEndpointsVal .foreach { endpoint =>
-      healthCheckRegistry.register(UrlHealthCheck(endpoint.name, endpoint))
+    serverConfig.healthCheckEndpointConfigs .foreach { endpointConfig =>
+      healthCheckRegistry.register(UrlHealthCheck(endpointConfig.name, endpointConfig.toSimpleEndpoint))
     }
 
     // Create a StatsD exporter
     val statsdReporter = new StatsdExporter(
-      serverConfig.statsdExporterConfigVal.host,
-      serverConfig.statsdExporterConfigVal.durationInSec,
-      serverConfig.statsdExporterConfigVal.prefix)
+      serverConfig.statsdExporterConfig.host,
+      serverConfig.statsdExporterConfig.durationInSec,
+      serverConfig.statsdExporterConfig.prefix)
 
     // Create a server
-    val server1 = Http.serve(s":${serverConfig.listeningPortVal}", MainServiceChain)
-    val server2 = Http.serve(s":${serverConfig.listeningPortVal+1}", getMockRoutingService)
+    val server1 = Http.serve(s":${serverConfig.listeningPort}", MainServiceChain)
+    val server2 = Http.serve(s":${serverConfig.listeningPort+1}", getMockRoutingService)
     Await.all(server1, server2)
   }
 }

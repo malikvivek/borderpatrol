@@ -1,7 +1,7 @@
 import sbtunidoc.Plugin.UnidocKeys._
 import scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages
 
-lazy val Version = "0.2.7-SNAPSHOT"
+lazy val Version = "0.2.8-SNAPSHOT"
 
 lazy val buildSettings = Seq(
   organization := "com.lookout",
@@ -54,7 +54,7 @@ val baseSettings = Seq(
         case Some((2, 11)) => Seq("-Ywarn-unused-import")
         case _ => Seq.empty
       }
-      ),
+  ),
   scalacOptions in (Compile, console) := compilerOptions :+ "-Yrepl-class-based",
   wartremoverWarnings in (Compile, compile) ++= Warts.allBut(Wart.FinalCaseClass, Wart.NoNeedForMonad, Wart.Throw, Wart.Null, Wart.Nothing, Wart.DefaultArguments)
 )

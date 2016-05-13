@@ -7,7 +7,6 @@ import javax.xml.bind.DatatypeConverter
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.OAuth2LoginManagerMixin
 import com.twitter.logging.Logger
-import com.lookout.borderpatrol.Binder
 import com.lookout.borderpatrol.sessionx._
 import com.nimbusds.jose.JWSVerifier
 import com.nimbusds.jose.crypto.{ECDSAVerifier, RSASSAVerifier}
@@ -74,7 +73,7 @@ object OAuth2 {
 
     private[this] def downloadAadCerts(loginManager: OAuth2LoginManagerMixin, thumbprint: String): Future[String] = {
       //  Fetch the response
-      Binder.connect(loginManager.certificateEndpoint,
+      loginManager.certificateEndpoint.send(
         Request(loginManager.certificateEndpoint.path.toString)).flatMap(res => res.status match {
 
         //  Parse for Tokens if Status.Ok

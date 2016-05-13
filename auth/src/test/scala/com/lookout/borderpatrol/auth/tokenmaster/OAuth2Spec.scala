@@ -8,7 +8,7 @@ import javax.security.auth.x500.X500Principal
 import javax.xml.bind.DatatypeConverter
 
 import com.lookout.borderpatrol.auth._
-import com.lookout.borderpatrol.Binder
+import com.lookout.borderpatrol.Endpoint
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
 import com.lookout.borderpatrol.util.Combinators.tap
@@ -33,7 +33,7 @@ class OAuth2Spec extends BorderPatrolSuite {
       super.afterEach() // To be stackable, must call super.afterEach
     }
     finally {
-      Binder.clear
+      Endpoint.clearCache()
     }
   }
 

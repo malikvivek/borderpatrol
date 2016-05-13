@@ -30,7 +30,7 @@ object HealthCheck {
   /** BorderPatrol health check on a URL */
   case class UrlHealthCheck(name: String, endpoint: Endpoint) extends HealthCheck {
     def check(): Future[HealthCheckStatus] =
-      Binder.connect(endpoint, Request(endpoint.path.toString)).map(rep => rep.status match {
+      endpoint.send(Request(endpoint.path.toString)).map(rep => rep.status match {
         case Status.Ok => HealthCheckStatus.healthy
         case _ => HealthCheckStatus.unhealthy(rep.status, rep.status.reason.asJson)
       })
