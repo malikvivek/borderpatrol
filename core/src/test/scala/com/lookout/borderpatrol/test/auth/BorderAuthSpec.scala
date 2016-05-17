@@ -400,6 +400,19 @@ class BorderAuthSpec extends BorderPatrolSuite {
     Await.result(output).status should be(Status.InternalServerError)
   }
 
+  it should "succeed and convert exception without a message into error Response" in {
+    case class NoMessageException(error: String) extends Throwable
+    val testService = Service.mk[Request, Response] { req =>
+      throw new NoMessageException("No message for Throwable")
+    }
+
+    // Execute
+    val output = (ExceptionFilter() andThen testService)(req("enterprise", "/ent"))
+
+    // Validate
+    Await.result(output).status should be(Status.InternalServerError)
+  }
+
   behavior of "SendToIdentityProvider"
 
   it should "send a request for unauth SessionId to loginConfirm path to IdentityService chain" in {
