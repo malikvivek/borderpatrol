@@ -136,6 +136,7 @@ case class SessionIdFilter(matcher: ServiceMatcher, store: SessionStore)(
   /**
    * Passes the SignedId to the next in the filter chain. If any failures decoding the SignedId occur
    * (expired, not there, etc), we will terminate early and send a redirect
+   *
    * @param req
    * @param service
    */
@@ -474,7 +475,8 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
     case error: BpUserError => logAndResponse(req, error.getMessage, error.status, Level.INFO)
     case error: BpCommunicationError => logAndResponse(req, error.getMessage, error.status, Level.WARNING)
     case error: BpCoreError => logAndResponse(req, error.getMessage, error.status, Level.INFO)
-    case error: Throwable => logAndResponse(req, error.getMessage, Status.InternalServerError, Level.WARNING)
+    case error: Throwable => logAndResponse(req, s"${error.getClass.getSimpleName}: ${error.getMessage}",
+      Status.InternalServerError, Level.WARNING)
   }
 
   def apply(req: Request, service: Service[Request, Response]): Future[Response] = {

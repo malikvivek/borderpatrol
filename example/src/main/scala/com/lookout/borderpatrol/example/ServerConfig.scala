@@ -1,11 +1,14 @@
 package com.lookout.borderpatrol.example
 
+import java.net.URL
+
 import com.lookout.borderpatrol._
 import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.{BasicLoginManager, OAuth2LoginManager}
-import com.lookout.borderpatrol.server.{BpConfigError, BpInvalidConfigError, Config, EndpointConfig}
+import com.lookout.borderpatrol.server._
 import com.lookout.borderpatrol.sessionx._
 import com.twitter.app.App
 import cats.data.Xor
+import com.twitter.finagle.http.path.Path
 import com.twitter.logging.Logger
 import io.circe.{Encoder, _}
 import io.circe.jawn._
@@ -16,6 +19,20 @@ import scala.io.Source
 
 case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String)
 
+
+/**
+ *  EndpointConfig
+ */
+case class EndpointConfig(name: String, path: Path, hosts: Set[URL]) {
+  def toSimpleEndpoint: Endpoint = SimpleEndpoint(name, path, hosts)
+}
+object EndpointConfig {
+  def fromEndpoint(e: Endpoint): EndpointConfig = EndpointConfig(e.name, e.path, e.hosts)
+}
+
+/**
+ * Server Config
+ */
 case class ServerConfig(listeningPort: Int,
                         secretStore: SecretStoreApi,
                         sessionStore: SessionStore,
@@ -55,12 +72,75 @@ object ServerConfig {
     case blm: BasicLoginManager => blm.asJson
     case olm: OAuth2LoginManager => olm.asJson
   }
+  implicit val encodeBasicLoginManager: Encoder[BasicLoginManager] = Encoder.instance { blm =>
+    Json.fromFields(Seq(
+      ("name", blm.name.asJson),
+      ("type", blm.tyfe.asJson),
+      ("guid", blm.guid.asJson),
+      ("loginConfirm", blm.loginConfirm.asJson),
+      ("authorizePath", blm.authorizePath.asJson),
+      ("identityEndpoint", blm.identityEndpoint.name.asJson),
+      ("accessEndpoint", blm.accessEndpoint.name.asJson)
+    ))
+  }
+  implicit val encodeOAuth2LoginManager: Encoder[OAuth2LoginManager] = Encoder.instance { olm =>
+    Json.fromFields(Seq(
+      ("name", olm.name.asJson),
+      ("type", olm.tyfe.asJson),
+      ("guid", olm.guid.asJson),
+      ("loginConfirm", olm.loginConfirm.asJson),
+      ("identityEndpoint", olm.identityEndpoint.name.asJson),
+      ("accessEndpoint", olm.accessEndpoint.name.asJson),
+      ("authorizeEndpoint", olm.authorizeEndpoint.name.asJson),
+      ("tokenEndpoint", olm.tokenEndpoint.name.asJson),
+      ("certificateEndpoint", olm.certificateEndpoint.name.asJson),
+      ("clientId", olm.clientId.asJson),
+      ("clientSecret", olm.clientSecret.asJson)
+    ))
+  }
   def decodeLoginManager(eps: Map[String, EndpointConfig]): Decoder[LoginManager] = Decoder.instance { c =>
     c.downField("type").as[String].flatMap {
       case "tokenmaster.basic" => decodeBasicLoginManager(eps).apply(c)
       case "tokenmaster.oauth2" => decodeOAuth2LoginManager(eps).apply(c)
       case other => Xor.left(DecodingFailure(s"Login manager type: $other not found", c.history))
     }
+  }
+  def decodeBasicLoginManager(eps: Map[String, EndpointConfig]): Decoder[BasicLoginManager] = Decoder.instance { c =>
+    for {
+      name <- c.downField("name").as[String]
+      tyfe <- c.downField("type").as[String]
+      guid <- c.downField("guid").as[String]
+      loginConfirm <- c.downField("loginConfirm").as[Path]
+      authorizePath <- c.downField("authorizePath").as[Path]
+      ieName <- c.downField("identityEndpoint").as[String]
+      ie <- Xor.fromOption(eps.get(ieName), DecodingFailure(s"identityEndpoint '$ieName' not found: ", c.history))
+      aeName <- c.downField("accessEndpoint").as[String]
+      ae <- Xor.fromOption(eps.get(aeName), DecodingFailure(s"accessEndpoint '$aeName' not found: ", c.history))
+    } yield BasicLoginManager(name, tyfe, guid, loginConfirm, authorizePath,
+      ie.toSimpleEndpoint, ae.toSimpleEndpoint)
+  }
+  def decodeOAuth2LoginManager(eps: Map[String, EndpointConfig]): Decoder[OAuth2LoginManager] = Decoder.instance { c =>
+    for {
+      name <- c.downField("name").as[String]
+      tyfe <- c.downField("type").as[String]
+      guid <- c.downField("guid").as[String]
+      loginConfirm <- c.downField("loginConfirm").as[Path]
+      ieName <- c.downField("identityEndpoint").as[String]
+      ie <- Xor.fromOption(eps.get(ieName), DecodingFailure(s"identityEndpoint '$ieName' not found: ", c.history))
+      aeName <- c.downField("accessEndpoint").as[String]
+      ae <- Xor.fromOption(eps.get(aeName), DecodingFailure(s"accessEndpoint '$aeName' not found: ", c.history))
+      auName <- c.downField("authorizeEndpoint").as[String]
+      au <- Xor.fromOption(eps.get(auName), DecodingFailure(s"authorizeEndpoint '$auName' not found: ", c.history))
+      teName <- c.downField("tokenEndpoint").as[String]
+      te <- Xor.fromOption(eps.get(teName), DecodingFailure(s"tokenEndpoint '$teName' not found: ", c.history))
+      ceName <- c.downField("certificateEndpoint").as[String]
+      ce <- Xor.fromOption(eps.get(ceName),
+        DecodingFailure(s"certificateEndpoint '$ceName' not found: ", c.history))
+      clientId <- c.downField("clientId").as[String]
+      clientSecret <- c.downField("clientSecret").as[String]
+    } yield OAuth2LoginManager(name, tyfe, guid, loginConfirm,
+      ie.toSimpleEndpoint, ae.toSimpleEndpoint, au.toSimpleEndpoint, te.toSimpleEndpoint, ce.toSimpleEndpoint,
+      clientId, clientSecret)
   }
 
   /**
@@ -76,7 +156,7 @@ object ServerConfig {
       ("loginManagers", serverConfig.loginManagers.asJson),
       ("serviceIdentifiers", serverConfig.serviceIdentifiers.asJson),
       ("customerIdentifiers", serverConfig.customerIdentifiers.asJson),
-      ("customerIdentifiers", serverConfig.customerIdentifiers.asJson)
+      ("healthCheckEndpoints", serverConfig.healthCheckEndpointConfigs.asJson)
     ))
   }
   implicit val serverConfigDecoder: Decoder[ServerConfig] = Decoder.instance { c =>
@@ -102,6 +182,22 @@ object ServerConfig {
         DecodingFailure(s"Failed to decode endpoint(s) in the healthCheckEndpoints: ", c.history))
     } yield ServerConfig(listeningPort, secretStore, sessionStore, statsdExporterConfig,
       healthCheckEndpointConfigs, cids, sids, lms, eps)
+  }
+
+  /**
+   * Validate Endpoint configuration
+   *
+   * @param field
+   * @param endpoints
+   * @return set of all the errors encountered during validation
+   */
+  def validateEndpointConfig(field: String, endpoints: Set[EndpointConfig]): Set[String] = {
+    // Find if endpoints have duplicate entries
+    (cond(endpoints.size > endpoints.map(m => m.name).size,
+      s"Duplicate entries for key (name) are found in the field: ${field}") ++
+
+      // Make sure hosts in Endpoint have http or https protocol
+      endpoints.map(m => validateHostsConfig(field, m.name, m.hosts)).flatten)
   }
 
   /**
