@@ -12,6 +12,10 @@ import com.twitter.finagle.{Filter, Service}
 import com.twitter.finagle.http._
 import com.twitter.logging.Logger
 import com.twitter.util.{Future, Return, Throw}
+import io.circe.Json
+import io.circe.generic.auto._
+import io.circe.syntax._
+
 import scala.collection.JavaConverters._
 
 
@@ -45,14 +49,18 @@ object Tokenmaster {
       }
     }
 
-    private[this] def authPayload(grants: Set[String]): String =
-      Request.queryString(("s", req.serviceId.name), ("email", username),
-        ("password", password)).drop(1) /* Drop '?' */
+    lazy val basicCredential: Seq[(String, Json)] = Seq(("email", username.asJson), ("password", password.asJson))
+
+    def authPayload(grants: Set[String]): String =
+      Json.fromFields(
+        Seq(("s", req.serviceId.name.asJson)) ++ basicCredential ++ Seq(("grants", grants.asJson))
+      ).noSpaces
 
     def authRequest(grants: Set[String]): Request =
-      tap(Request(Method.Post, req.customerId.loginManager.identityEndpoint.path.toString)) { req =>
-        req.contentType = "application/x-www-form-urlencoded"
-        req.contentString = authPayload(grants)
+      tap(Request(Method.Post, req.customerId.loginManager.identityEndpoint.path.toString)) { r =>
+        r.setContentTypeJson()
+        r.contentString = authPayload(grants)
+        r.host = req.customerId.loginManager.identityEndpoint.hosts.head.getHost
       }
 
     def authenticate(grants: Set[String]): Future[Response] = {
@@ -89,15 +97,19 @@ object Tokenmaster {
       s"Failed to find string list claim '$claim' in the Id Token in the Request",
       BpTokenAccessError.apply)
 
-    private[this] def authPayload(grants: Set[String]): String =
-      Request.queryString(("s", req.serviceId.name), ("external_id", aStringClaim("sub")),
-        ("idp_guid", req.customerId.loginManager.guid), ("ent_guid", req.customerId.guid))
-        .drop(1) /* Drop '?' */
+    lazy val oAuth2Credential: Seq[(String, Json)] = Seq(("ent_guid", req.customerId.guid.asJson),
+      ("idp_guid", req.customerId.loginManager.guid.asJson),
+      ("external_id", aStringClaim("sub").asJson))
+
+    def authPayload(grants: Set[String]): String =
+      Json.fromFields(Seq(("s", req.serviceId.name.asJson)) ++ oAuth2Credential ++
+        Seq(("grants", grants.asJson))).noSpaces
 
     def authRequest(grants: Set[String]): Request = {
-      tap(Request(Method.Post, req.customerId.loginManager.identityEndpoint.path.toString)) { req =>
-        req.contentType = "application/x-www-form-urlencoded"
-        req.contentString = authPayload(grants)
+      tap(Request(Method.Post, req.customerId.loginManager.identityEndpoint.path.toString)) { r =>
+        r.setContentTypeJson()
+        r.contentString = authPayload(grants)
+        r.host = req.customerId.loginManager.identityEndpoint.hosts.head.getHost
       }
     }
 
@@ -251,7 +263,7 @@ object Tokenmaster {
 
   /**
    * A chain that performs the following:
-   * - Basic auth (no provisioning & grants)
+   * - Basic auth
    */
   def tokenmasterBasicServiceChain(store: SessionStore)
                                 (implicit secretStoreApi: SecretStoreApi,
@@ -262,7 +274,7 @@ object Tokenmaster {
 
   /**
    * A chain that performs the following:
-   * - OAuth2 auth (no provisioning & grants)
+   * - OAuth2 auth
    */
   def tokenmasterOAuth2ServiceChain(store: SessionStore)
                                  (implicit secretStoreApi: SecretStoreApi,
@@ -293,11 +305,11 @@ object Tokenmaster {
     private[this] val statCacheHits = statsReceiver.counter("tokenmaster.ai.cache.hits")
 
     def api(accessRequest: AccessRequest[Tokens]): Request =
-      tap(Request(Method.Post, accessRequest.customerId.loginManager.accessEndpoint.path.toString)) { req =>
-        req.contentType = "application/x-www-form-urlencoded"
-        req.contentString = Request.queryString("services" -> accessRequest.serviceId.name)
-          .drop(1) /* Drop '?' */
-        req.headerMap.add("Auth-Token", accessRequest.identity.id.master.value)
+      tap(Request(Method.Post, accessRequest.customerId.loginManager.accessEndpoint.path.toString)) { r =>
+        r.setContentTypeJson()
+        r.contentString = Json.obj(("services", accessRequest.serviceId.name.asJson)).noSpaces
+        r.host = accessRequest.customerId.loginManager.accessEndpoint.hosts.head.getHost
+        r.headerMap.add("Auth-Token", accessRequest.identity.id.master.value)
       }
 
     /**
