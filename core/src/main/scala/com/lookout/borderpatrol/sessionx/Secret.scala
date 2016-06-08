@@ -2,8 +2,12 @@ package com.lookout.borderpatrol.sessionx
 
 import java.util.concurrent.TimeUnit
 import javax.crypto.spec.SecretKeySpec
+
 import com.lookout.borderpatrol.crypto.{Generator, Signer}
 import com.twitter.util.{Duration, Time}
+import io.circe.{Decoder, Encoder => CEncoder, Json}
+import io.circe.syntax._
+
 
 /**
  * Creates a new [[com.lookout.borderpatrol.sessionx.Secret Secret]] that can
@@ -44,13 +48,43 @@ object Secret {
 
   /**
    * Creates a new [[Secret]] with default expiry of 1 day (set by [[lifetime]])
-   * @param expiry the time this should expire, defaults to 1 day
+    *
+    * @param expiry the time this should expire, defaults to 1 day
    * @return a new Secret
    */
   def apply(expiry: Time = currentExpiry): Secret =
     Secret(id, expiry, entropy)
-}
 
+  /**
+   * Time -> Long -> Json
+   */
+  implicit val TimeEncoder: CEncoder[Time] = CEncoder.instance { t =>
+    Json.obj(("ms", t.inMilliseconds.asJson))
+  }
+  implicit val TimeDecoder: Decoder[Time] = Decoder.instance { c =>
+    for {
+      s <- c.downField("ms").as[Long]
+    } yield Time.fromMilliseconds(s)
+  }
+
+  /**
+   * Secret Encoder/Decoder
+   */
+  implicit val SecretDecoder: Decoder[Secret] = Decoder.instance {c =>
+    for {
+      id <- c.downField("id").as[SecretId]
+      expiry <- c.downField("expiry").as[Time]
+      entropy <- c.downField("entropy").as[Entropy]
+    } yield Secret(id, expiry, entropy)
+  }
+  implicit val SecretEncoder: CEncoder[Secret] = CEncoder.instance {t =>
+    Json.fromFields(Seq(
+      ("id", t.id.asJson),
+      ("expiry", t.expiry.asJson),
+      ("entropy", t.entropy.asJson)
+    ))
+  }
+}
 
 /**
  * Place for current and previous valid [[com.lookout.borderpatrol.sessionx.Secret Secret]] as they rotate

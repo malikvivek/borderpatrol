@@ -24,11 +24,9 @@
 
 package com.lookout.borderpatrol
 
-import argonaut._, Argonaut._
-import com.twitter.finagle.http.{Request, Cookie}
+import com.twitter.finagle.http.Cookie
 import com.twitter.util.{Time, Future}
 
-import scala.util.{Failure, Success}
 
 /**
  * This introduces types and functions that enable identifying, fetching, and storing web session data. This
@@ -163,25 +161,4 @@ package object sessionx extends Types {
     def expired: Boolean =
       s.id.expired
   }
-
-  /**
-   * Helper for Byte -> Json
-   */
-  implicit val ByteCodecJson: CodecJson[Byte] =
-    CodecJson(
-      (b: Byte) => jNumberOrNull(b.toInt),
-      c => for (b <- c.as[Int]) yield b.toByte
-    )
-
-  /**
-   * Time -> Long -> Json
-   */
-  implicit val TimeCodecJson: CodecJson[Time] =
-    CodecJson(
-      (t: Time) =>
-        ("ms" := t.inMilliseconds) ->: jEmptyObject,
-      c => for {
-        s <- (c --\ "ms").as[Long]
-      } yield Time.fromMilliseconds(s))
-
 }

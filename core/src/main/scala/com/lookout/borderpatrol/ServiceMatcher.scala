@@ -1,7 +1,6 @@
 package com.lookout.borderpatrol
 
-import com.twitter.finagle.http.Request
-import com.twitter.finagle.http.path.{Root, Path}
+import com.twitter.finagle.http.path.Path
 
 /*
  * We derive a service `name` (a [[String]] name referencing a [[com.twitter.finagle.Name Name]]) via the `Path`

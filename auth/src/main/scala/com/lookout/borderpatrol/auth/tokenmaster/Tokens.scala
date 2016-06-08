@@ -3,7 +3,6 @@ package com.lookout.borderpatrol.auth.tokenmaster
 import com.lookout.borderpatrol.sessionx.{BpSessionDataError, SessionDataEncoder}
 import com.twitter.io.Buf
 import io.circe._
-import io.circe.generic.auto._
 import io.circe.syntax._
 import scala.util.{Try, Success, Failure}
 
@@ -63,7 +62,6 @@ case class Tokens(master: MasterToken, services: ServiceTokens) {
 
 object Tokens {
 
-  import io.circe.generic.semiauto._
   import cats.data.Xor
 
   def derive[A : Decoder](input: String): Xor[Error, A] =
@@ -89,7 +87,7 @@ object Tokens {
   implicit val ServiceTokensDecoder: Decoder[ServiceTokens] = Decoder[Map[String, String]] map (m =>
       ServiceTokens(m.mapValues(ServiceToken(_))))
   implicit val ServiceTokensEncoder: Encoder[ServiceTokens] = Encoder.instance[ServiceTokens](st =>
-    Json.fromFields(st.services.map(t => (t._1, Json.string(t._2.value))).toSeq))
+    Json.fromFields(st.services.map(t => (t._1, Json.fromString(t._2.value))).toSeq))
 
   /**
    * Compose Tokens from Options

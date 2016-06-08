@@ -4,8 +4,9 @@ import com.lookout.borderpatrol.util.Combinators.tap
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.util.Helpers
 import com.twitter.finagle.{SimpleFilter, Service, Filter}
-import com.twitter.finagle.http.{Status, Cookie, Request, Response}
-import com.twitter.util.{Time, Future}
+import com.twitter.finagle.http.{Request, Response}
+import com.twitter.util.Future
+
 
 object Csrf {
   case class InHeader(val header: String = "X-BORDER-CSRF") extends AnyVal

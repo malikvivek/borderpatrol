@@ -1,8 +1,7 @@
 package com.lookout.borderpatrol.sessionx
 
-import com.twitter.finagle.stats.StatsReceiver
-import com.twitter.logging.Level
 import com.twitter.util.Future
+
 
 /**
  * A container for some type `A` with a unique identifier of `SignedId`

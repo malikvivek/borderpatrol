@@ -1,6 +1,5 @@
 package com.lookout.borderpatrol.auth
 
-import com.lookout.borderpatrol.sessionx.SignedId
 import com.twitter.finagle.http.Status
 
 

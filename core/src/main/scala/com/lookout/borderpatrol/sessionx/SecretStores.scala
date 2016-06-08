@@ -4,21 +4,16 @@ import java.net.URL
 import java.util.concurrent.TimeUnit
 import javax.xml.bind.DatatypeConverter
 
-import argonaut.Parse
 import com.twitter.finagle.http.path.Path
 import io.circe.{Decoder, Json, jawn}
 import io.circe.generic.auto._
 import io.circe.syntax._
-import io.circe.generic.semiauto._
-import com.lookout.borderpatrol.{Endpoint, HealthCheck, HealthCheckStatus, SimpleEndpoint}
+import com.lookout.borderpatrol.{HealthCheck, HealthCheckStatus, SimpleEndpoint}
 import com.lookout.borderpatrol.util.Combinators._
 import com.twitter.finagle.http.{Method, Request, Status}
-import com.twitter.finagle.util.{DefaultTimer, HashedWheelTimer}
-import com.twitter.logging.{Level, Logger}
+import com.twitter.finagle.util.HashedWheelTimer
+import com.twitter.logging.Logger
 import com.twitter.util._
-
-import scala.util.{Failure, Success}
-import scalaz.{-\/, \/-}
 
 
 /**
@@ -198,7 +193,7 @@ object SecretStores {
         Future[(Option[Secrets], Boolean)] =
       consulEndpoint.send(tap(Request(Method.Put,
         Request.queryString(consulEndpoint.path.toString, ("cas" -> modifyIndex.toString)))){ req =>
-          req.contentString = SecretsEncoder.EncodeJson.encode(newSecrets).toString
+          req.contentString = newSecrets.asJson.toString()
           req.contentType = "application/json"
         }).flatMap(res => res.status match {
             case Status.Ok =>
@@ -258,14 +253,10 @@ case class ConsulResponse(createIndex: Int, flags: Int, key: String, lockIndex: 
 
   def secretsForValue(): Secrets = {
     val jsonString = new String(DatatypeConverter.parseBase64Binary(value)).map(_.toChar)
-    Parse.parse(jsonString) match {
-      case -\/(e) => throw BpConsulError(
-        s"Expected JSON string, but received invalid string Value from Consul with: ${e}")
-      case \/-(j) => SecretsEncoder.EncodeJson.decode(j) match {
-        case Failure(e) => throw BpConsulError(s"Failed to decode ConsulResponse from the JSON string with: $e")
-        case Success(v) => v
-      }
-    }
+    jawn.decode[Secrets](jsonString).fold[Secrets](
+      err => throw BpConsulError(s"Failed to decode ConsulResponse from the JSON string with: $err"),
+      t => t
+    )
   }
 }
 
@@ -275,7 +266,7 @@ object ConsulResponse {
   def apply(createIndex: Int, flags: Int, key: String, lockIndex: Int, modifyIndex: Int,
             secrets: Secrets): ConsulResponse =
     ConsulResponse(createIndex, flags, key, lockIndex, modifyIndex,
-      DatatypeConverter.printBase64Binary(SecretsEncoder.EncodeJson.encode(secrets).nospaces.getBytes))
+      DatatypeConverter.printBase64Binary(secrets.asJson.noSpaces.getBytes))
 
   /**
    * Consul Response Encoder/Decoder

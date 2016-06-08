@@ -42,7 +42,7 @@ class HealthCheckServiceSpec extends BorderPatrolSuite with MockitoSugar {
     // Validate
     Await.result(output).status should be (Status.Ok)
     Await.result(output).contentType.get should include("application/json")
-    Await.result(output).contentString.replaceAll("\\s", "") should be("""{"status":200,"dependencies":{"node2":{"status":200,"message":"jsonmessage"},"node1":{"status":200,"message":"stringmessage"}},"version":"0.0.0"}""")
+    Await.result(output).contentString.replaceAll("\\s", "") should be("""{"status":200,"dependencies":{"node1":{"status":200,"message":"stringmessage"},"node2":{"status":200,"message":"jsonmessage"}},"version":"0.0.0"}""")
   }
 
   it should "return Status.InternalError, when registry collects at least one unhealthy Status(s)" in {
@@ -61,6 +61,6 @@ class HealthCheckServiceSpec extends BorderPatrolSuite with MockitoSugar {
     // Validate
     Await.result(output).status should be (Status.InternalServerError)
     Await.result(output).contentType.get should include("application/json")
-    Await.result(output).contentString.replaceAll("\\s", "") should be("""{"status":500,"dependencies":{"node2":{"status":200,"message":"jsonmessage"},"node1":{"status":200,"message":"stringmessage"},"node3":{"status":301,"message":"jsonmessage"}},"version":"0.0.0"}""")
+    Await.result(output).contentString.replaceAll("\\s", "") should be("""{"status":500,"dependencies":{"node1":{"status":200,"message":"stringmessage"},"node2":{"status":200,"message":"jsonmessage"},"node3":{"status":301,"message":"jsonmessage"}},"version":"0.0.0"}""")
   }
 }

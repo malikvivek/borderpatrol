@@ -13,7 +13,6 @@ import com.twitter.finagle.http._
 import com.twitter.logging.Logger
 import com.twitter.util.{Future, Return, Throw}
 import io.circe.Json
-import io.circe.generic.auto._
 import io.circe.syntax._
 
 import scala.collection.JavaConverters._

@@ -15,7 +15,6 @@ import com.nimbusds.jwt.{PlainJWT, SignedJWT, JWTClaimsSet}
 import com.twitter.finagle.http.{Status, Request}
 import com.twitter.util.Future
 import io.circe._
-import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.Encoder
 
@@ -24,7 +23,6 @@ import scala.xml.{NodeSeq, Elem}
 
 
 object OAuth2 {
-  import io.circe.generic.semiauto._
   import cats.data.Xor
 
   def derive[A : Decoder](input: String): Xor[Error, A] =

@@ -1,6 +1,5 @@
 package com.lookout.borderpatrol.sessionx
 
-import com.lookout.borderpatrol.auth.{Id, EmptyIdentity, Identity}
 import com.lookout.borderpatrol.{HealthCheckStatus, HealthCheck}
 import com.twitter.finagle.http.Status
 import com.twitter.io.Buf
@@ -9,6 +8,7 @@ import com.twitter.finagle.memcached
 
 import scala.collection.mutable
 import scala.util.{Success, Failure}
+
 
 /**
  * Session store that will store a `Session[_]` data into
