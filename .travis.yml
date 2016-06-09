@@ -1,18 +1,18 @@
 language: scala
 sudo: false
+env:
+  - JAVA_OPTS="-Xmx2G -Xms2G"
 scala:
-- 2.10.5
-- 2.11.7
+  - 2.11.8
 jdk:
-- oraclejdk7
-- oraclejdk8
+  - oraclejdk8
 script: sbt ++$TRAVIS_SCALA_VERSION clean coverage test scalastyle && sbt ++$TRAVIS_SCALA_VERSION coverageAggregate
 after_success:
   - bash <(curl -s https://codecov.io/bash)
 notifications:
   webhooks:
     urls:
-    - https://webhooks.gitter.im/e/0a8b576604fce1b34b3e
+      - https://webhooks.gitter.im/e/0a8b576604fce1b34b3e
     on_success: change
     on_failure: always
     on_start: false

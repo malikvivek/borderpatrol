@@ -437,7 +437,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
         case p1 if p1 contains "identity" => Service.mk[Request, Response] { req =>
           assert(req.path == cust2k.loginManager.identityEndpoint.path.toString)
           req.contentString.replaceAll("\\s", "") should be(
-            """{"ent_guid":"cust2-guid","s":"two","idp_guid":"ulm-guid","external_id":"SomeAccessToken","grants":[]}""")
+            """{"s":"two","ent_guid":"cust2-guid","idp_guid":"ulm-guid","external_id":"SomeAccessToken","grants":[]}""")
           tap(Response(Status.Ok))(res => {
             res.contentString = TokensEncoder(tokens).toString()
             res.contentType = "application/json"

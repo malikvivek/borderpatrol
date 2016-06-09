@@ -1,13 +1,13 @@
 import sbtunidoc.Plugin.UnidocKeys._
 import scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages
 
-lazy val Version = "0.2.10-SNAPSHOT"
+lazy val Version = "0.2.11-SNAPSHOT"
 
 lazy val buildSettings = Seq(
   organization := "com.lookout",
   version := Version,
-  scalaVersion := "2.11.7",
-  crossScalaVersions := Seq("2.10.5", "2.11.7")
+  scalaVersion := "2.11.8",
+  crossScalaVersions := Seq("2.10.5", "2.11.8")
 )
 
 lazy val compilerOptions = Seq(
@@ -25,15 +25,14 @@ lazy val compilerOptions = Seq(
   "-Xlint"
 )
 
-lazy val finagleVersion = "6.31.0"
-lazy val finchVersion = "0.9.0"
-lazy val circeVersion = "0.1.1"
-lazy val twitterServerVersion = "1.16.0"
-lazy val nimbusVersion = "4.7"
+lazy val finagleVersion = "6.35.0"
+lazy val circeVersion = "0.4.0"
+lazy val twitterServerVersion = "1.20.0"
+lazy val nimbusVersion = "4.15"
 
 val testDependencies = Seq(
-  "org.scalacheck" %% "scalacheck" % "1.12.4",
-  "org.scalatest" %% "scalatest" % "2.2.5",
+  "org.scalacheck" %% "scalacheck" % "1.13.0",
+  "org.scalatest" %% "scalatest" % "2.2.6",
   "org.mockito" % "mockito-core" % "1.10.19"
 )
 
@@ -43,11 +42,10 @@ val baseSettings = Seq(
     "com.twitter" %% "finagle-http" % finagleVersion,
     "com.twitter" %% "finagle-memcached" % finagleVersion,
     "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-    "com.twitter" %% "bijection-core" % "0.8.1",
-    "com.twitter" %% "bijection-util" % "0.8.1",
-    "io.argonaut" %% "argonaut" % "6.1",
-    "org.bouncycastle" % "bcprov-jdk15on" % "1.52",
-    compilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
+    "com.twitter" %% "bijection-core" % "0.9.2",
+    "com.twitter" %% "bijection-util" % "0.9.2",
+    "org.bouncycastle" % "bcprov-jdk15on" % "1.54",
+    compilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
   ) ++ testDependencies.map(_ % "test"),
   scalacOptions ++= compilerOptions ++ (
       CrossVersion.partialVersion(scalaVersion.value) match {
@@ -56,7 +54,8 @@ val baseSettings = Seq(
       }
   ),
   scalacOptions in (Compile, console) := compilerOptions :+ "-Yrepl-class-based",
-  wartremoverWarnings in (Compile, compile) ++= Warts.allBut(Wart.FinalCaseClass, Wart.NoNeedForMonad, Wart.Throw, Wart.Null, Wart.Nothing, Wart.DefaultArguments)
+  wartremoverWarnings in (Compile, compile) ++= Warts.allBut(Wart.FinalCaseClass, Wart.NoNeedForMonad, Wart.Throw,
+    Wart.Null, Wart.Nothing, Wart.DefaultArguments)
 )
 
 /**
@@ -161,9 +160,7 @@ lazy val example = project
   .settings(noPublish)
   .settings(
     libraryDependencies ++= Seq(
-      "com.twitter" %% "twitter-server" % twitterServerVersion,
-      "com.github.finagle" %% "finch-core" % finchVersion,
-      "com.github.finagle" %% "finch-argonaut" % finchVersion
+      "com.twitter" %% "twitter-server" % twitterServerVersion
     )
   )
   .settings(assemblyJarName in assembly := s"borderpatrol-example-all-${version.value}.jar")

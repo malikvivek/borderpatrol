@@ -1,13 +1,12 @@
 package com.lookout.borderpatrol.sessionx
 
-import argonaut.Json
 import com.lookout.borderpatrol.crypto.{Decryptable, Encryptable}
 import com.lookout.borderpatrol.sessionx.SignedId.SignedIdInjections
 import com.twitter.finagle.http.Cookie
 import com.twitter.io.Buf
 import com.twitter.finagle.http
-import scala.util.{Success, Failure, Try}
-import argonaut._, Argonaut._
+import scala.util.{Failure, Try}
+
 
 /**
  * Typeclasses for Encoding data within sessions
@@ -75,16 +74,6 @@ object EncryptedDataEncoder {
   }
   implicit object EncryptedBytesEncoder extends EncryptedDataEncoder[Array[Byte]] {
     implicit val encoder: SessionDataEncoder[Array[Byte]] = SessionDataEncoder.encodeByteArray
-  }
-}
-
-/**
- * Create instances of Encoder
- */
-object Encoder {
-  def apply[A, B](fa: A => B, fb: B => A): Encoder[A, B] = new Encoder[A, B] {
-    def encode(a: A): B = fa(a)
-    def decode(b: B): Try[A] = Try { fb(b) }
   }
 }
 
@@ -177,61 +166,15 @@ object SignedIdEncoder {
  */
 object SecretEncoder {
   /**
-   * Helper method for creating new [[com.lookout.borderpatrol.sessionx.SecretEncoder SecretEncoder]] instances
-   */
+    * Helper method for creating new [[com.lookout.borderpatrol.sessionx.SecretEncoder SecretEncoder]] instances
+    */
   def apply[A](f: Secret => A, g: A => Try[Secret]): SecretEncoder[A] =
     new SecretEncoder[A] {
       def encode(secret: Secret): A = f(secret)
       def decode(a: A): Try[Secret] = g(a)
     }
-
-  /**
-   * A [[com.lookout.borderpatrol.sessionx.SecretEncoder SecretEncoder]] instance for [[argonaut.Json Json]]
-   */
-  implicit object EncodeJson extends SecretEncoder[Json] {
-    import argonaut._, Argonaut._
-
-    implicit val SecretCodecJson: argonaut.CodecJson[Secret] =
-      casecodec3(Secret.apply, Secret.unapply)("expiry", "id", "entropy")
-
-    def encode(secret: Secret): Json =
-      secret.asJson
-
-    def decode(json: Json): Try[Secret] =
-      json.jdecode[Secret].toDisjunction.fold[Try[Secret]](
-        e => Failure(BpSecretDecodeError(e._1)),
-        s => Success(s)
-      )
-
-  }
-
 }
 
-object SecretsEncoder {
-
-  implicit object EncodeJson extends SecretsEncoder[Json] {
-
-    import SecretEncoder.EncodeJson._
-
-    //this is neccesary for it to compile otherwise it complains
-    //about not knowing about the implicit object
-
-    implicit val SecretsCodecJson: argonaut.CodecJson[Secrets] =
-      casecodec2(Secrets.apply, Secrets.unapply)("current", "previous")
-
-    def encode(s: Secrets): Json =
-      s.asJson
-
-    def decode(json: Json): Try[Secrets] = {
-      json.as[Secrets].toDisjunction.fold[Try[Secrets]](
-        e => Failure(BpSecretsDecodeError(e._1)),
-        s => Success(s)
-        )
-    }
-
-  }
-
-}
 
 
 

@@ -1,11 +1,12 @@
 package com.lookout.borderpatrol.test.sessionx
 
-import argonaut.Json
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
 import com.twitter.io.Buf
 import com.twitter.finagle.http
-
+import io.circe._
+import io.circe.generic.auto._
+import io.circe.syntax._
 import scala.util.{Try, Success}
 
 
@@ -25,17 +26,12 @@ class EncoderSpec extends BorderPatrolSuite {
   }
 
   it should "uphold encoding/decoding identity" in {
-    def identity(s: Secret)(implicit ev: SecretEncoder[Json]): Secret =
-      ev.decode(ev.encode(s)) getOrElse Secret()
+    def identity(json: Json): Secret = {
+      jawn.decode[Secret](json.noSpaces).fold(e => throw new Exception("error decoding Secret"), s => s)
+    }
 
-    identity(secrets.current) should be(secrets.current)
-  }
-
-  it should "not decode invalid data" in {
-    def invalid[A](input: A)(implicit ev: SecretEncoder[A]): Try[Secret] =
-      ev.decode(input)
-
-    invalid[Json](Json.jNumber(1)).failure.exception should be(a[BpSecretDecodeError])
+    identity(secrets.current.asJson) should be(secrets.current)
+    Try(identity(10.asJson)).failure.exception should be(a[Exception])
   }
 
   behavior of "SignedIdEncoder"
@@ -77,9 +73,8 @@ class EncoderSpec extends BorderPatrolSuite {
   it should "Encode then decode Secrets and they should be the same" in {
     val a1 = Secret()
     val b1 = Secret()
-    val c = SecretsEncoder.EncodeJson.encode(Secrets(a1,b1))
-    SecretsEncoder.EncodeJson.decode(c).success.value.current should be(a1)
-    SecretsEncoder.EncodeJson.decode(c).success.value.previous should be(b1)
+    val c = Secrets(a1,b1)
+    jawn.decode[Secrets](c.asJson.noSpaces).toOption.value.current should be(a1)
+    jawn.decode[Secrets](c.asJson.noSpaces).toOption.value.previous should be(b1)
   }
-
 }

@@ -15,7 +15,6 @@ import com.twitter.finagle.http.{Method, Status, Response, Request}
 import com.twitter.util.Await
 import io.circe.generic.auto._
 import io.circe.syntax._
-import io.circe.generic.semiauto._
 
 
 class SecretStoresSpec extends BorderPatrolSuite {
@@ -30,9 +29,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
     }
   }
 
-  //val secretsJsonString = SecretsEncoder.EncodeJson.encode(testSecrets).nospaces
   val consulResponse = ConsulResponse(5, 0x11, "SomeKey", 5, 5, testSecrets)
-  //val expiredSecretsJsonString = SecretsEncoder.EncodeJson.encode(testExpiredSecrets).nospaces
   val expiredConsulResponse = ConsulResponse(0, 0, "failed", 0, 0, testExpiredSecrets)
   val consulUrls = Set(new URL("http://localhost:6789"))
   val consulKey = "TestBpKey"
@@ -40,21 +37,21 @@ class SecretStoresSpec extends BorderPatrolSuite {
   behavior of "SecretStoreApi"
 
   it should "give the current and previous Secret" in {
-    store.current shouldBe current
-    store.previous shouldBe previous
+    store.current should be(current)
+    store.previous should be(previous)
   }
 
   it should "always give a non-expired current secret" in {
     // set the current to an expired secret
     val tempStore = SecretStores.InMemorySecretStore(Secrets(previous, previous))
     tempStore.current should not be previous
-    tempStore.current.expired shouldBe false
+    tempStore.current.expired should be(false)
   }
 
   it should "find secrets if they exist" in {
-    store.find(_.id == previous.id).value shouldBe previous
-    store.find(_.id == current.id).value shouldBe current
-    store.find(_.id == invalid.id) shouldBe None
+    store.find(_.id == previous.id).value should be(previous)
+    store.find(_.id == current.id).value should be(current)
+    store.find(_.id == invalid.id) should be(None)
   }
 
   behavior of "ConsulResponse"
@@ -76,7 +73,7 @@ class SecretStoresSpec extends BorderPatrolSuite {
     val caught = the[Exception] thrownBy {
       cr1.secretsForValue()
     }
-    caught.getMessage should include ("Expected JSON string, but received invalid string Value from Consul with: ")
+    caught.getMessage should include ("Failed to decode ConsulResponse from the JSON string with: ")
   }
 
   it should "throw an exception if it fails to decode ConsulResponse from json string" in {

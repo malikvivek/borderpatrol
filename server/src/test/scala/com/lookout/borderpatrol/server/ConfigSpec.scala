@@ -73,7 +73,7 @@ class ConfigSpec extends BorderPatrolSuite {
     decodeSecretStore.decodeJson(Json.obj(("type", "InMemorySecretStore".asJson))).toOption should
       be(Some(defaultSecretStore.asInstanceOf[SecretStoreApi]))
     decodeSecretStore.decodeJson(Json.obj(("type", "ConsulSecretStore".asJson))).toOption should be(None)
-    decodeSecretStore.decodeJson(Json.obj(("type", Json.string("woof")))).toOption should be(None)
+    decodeSecretStore.decodeJson(Json.obj(("type", Json.fromString("woof")))).toOption should be(None)
   }
 
   it should "uphold encoding/decoding SessionStore" in {
@@ -86,7 +86,7 @@ class ConfigSpec extends BorderPatrolSuite {
     decodeSessionStore.decodeJson(Json.obj(("type", "InMemoryStore".asJson))).toOption should
       be(Some(defaultSessionStore.asInstanceOf[SessionStore]))
     decodeSessionStore.decodeJson(Json.obj(("type", "MemcachedStore".asJson))).toOption should be(None)
-    decodeSessionStore.decodeJson(Json.obj(("type", Json.string("woof")))).toOption should be(None)
+    decodeSessionStore.decodeJson(Json.obj(("type", Json.fromString("woof")))).toOption should be(None)
   }
 
   it should "uphold encoding/decoding ServiceIdentifier" in {

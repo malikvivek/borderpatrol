@@ -31,7 +31,7 @@ import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.auth.tokenmaster.Tokenmaster._
 import com.lookout.borderpatrol.auth.tokenmaster._
 import com.lookout.borderpatrol.auth.tokenmaster.Tokens._
-import com.lookout.borderpatrol.server.{HealthCheckService, Config}
+import com.lookout.borderpatrol.server.HealthCheckService
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.util.Combinators._
 import com.twitter.finagle.http.path.Path
@@ -41,7 +41,6 @@ import com.twitter.finagle.http.{Method, Request, Response, Status}
 import com.twitter.finagle.http.service.RoutingService
 import com.twitter.finagle.Service
 import com.twitter.util.Future
-import io.finch.response.ResponseBuilder
 import scala.util.{Failure, Success, Try}
 
 
@@ -157,10 +156,11 @@ object service {
 
     def apply(req: Request): Future[Response] =
       req.method match {
-        case Method.Get => {
-          val rb = ResponseBuilder(Status.Ok).withContentType(Some("text/html"))
-          rb(loginForm).toFuture
-        }
+        case Method.Get =>
+          tap(Response(Status.Ok)) { resp =>
+            resp.contentType = "text/html"
+            resp.content = loginForm
+        }.toFuture
         case _ => Future.value(Response(Status.NotFound))
       }
   }

@@ -1,6 +1,6 @@
 package com.lookout.borderpatrol.crypto
 
-import com.lookout.borderpatrol.sessionx.{EncryptedDataEncoder, SessionDataEncoder, SignedId, Session}
+import com.lookout.borderpatrol.sessionx.{EncryptedDataEncoder, SignedId, Session}
 import com.twitter.io.Buf
 import com.twitter.util.Future
 import com.twitter.finagle.memcached

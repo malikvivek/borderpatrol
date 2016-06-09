@@ -41,8 +41,3 @@ trait IdentifyRequest[A] {
 trait IdentifyResponse[A] {
   val identity: Id[A]
 }
-
-/**
- * Abstraction for those that are directing requests directly to the Identity Provider
- */
-trait IdentityProvider[A, B] extends Service[IdentifyRequest[A], IdentifyResponse[B]]

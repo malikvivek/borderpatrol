@@ -305,7 +305,8 @@ case class SendToUnprotectedService(store: SessionStore)
   private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val statRequestSends = statsReceiver.counter("req.unprotected.upstream.service.forwards")
   private[this] val unprotectedServiceChain = RewriteFilter() andThen Service.mk[BorderRequest, Response] {
-    br => br.serviceId.endpoint.send(br.req) }
+    br => br.serviceId.endpoint.send(br.req)
+  }
 
   def sendToUnprotectedService(req: BorderRequest): Future[Response] = {
     statRequestSends.incr

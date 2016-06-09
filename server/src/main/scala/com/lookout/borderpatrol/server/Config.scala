@@ -3,7 +3,6 @@ package com.lookout.borderpatrol.server
 import java.net.URL
 
 import com.lookout.borderpatrol._
-import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers._
 import com.lookout.borderpatrol.sessionx.SecretStores._
 import com.lookout.borderpatrol.sessionx.SessionStores._
 import com.lookout.borderpatrol.sessionx._
@@ -12,7 +11,6 @@ import com.twitter.finagle.http.path.Path
 import cats.data.Xor
 import com.twitter.logging.Logger
 import io.circe.{Encoder, _}
-import io.circe.generic.auto._
 import io.circe.syntax._
 
 
@@ -35,9 +33,9 @@ object Config {
 
   // Encoder/Decoder for SessionStore
   implicit val encodeSessionStore: Encoder[SessionStore] = Encoder.instance {
-    case x: InMemoryStore.type => Json.obj(("type", Json.string("InMemoryStore")))
-    case y: MemcachedStore =>  Json.obj(("type", Json.string("MemcachedStore")),
-      ("hosts", Json.string("localhost:123")))
+    case x: InMemoryStore.type => Json.obj(("type", Json.fromString("InMemoryStore")))
+    case y: MemcachedStore =>  Json.obj(("type", Json.fromString("MemcachedStore")),
+      ("hosts", Json.fromString("localhost:123")))
   }
   implicit val decodeSessionStore: Decoder[SessionStore] = Decoder.instance { c =>
     c.downField("type").as[String].flatMap {
@@ -50,7 +48,7 @@ object Config {
 
   // Encoder/Decoder for SecretStore
   implicit val encodeSecretStore: Encoder[SecretStoreApi] = Encoder.instance {
-    case x: InMemorySecretStore => Json.obj(("type", Json.string(x.getClass.getSimpleName)))
+    case x: InMemorySecretStore => Json.obj(("type", Json.fromString(x.getClass.getSimpleName)))
     case y: ConsulSecretStore => Json.fromFields(Seq(
       ("type", y.getClass.getSimpleName.asJson),
       ("hosts", y.consulUrls.asJson),

@@ -4,7 +4,6 @@ import com.twitter.finagle.http.{Request, Status}
 import com.twitter.util._
 import io.circe.Encoder
 import io.circe._
-import io.circe.generic.auto._
 import io.circe.syntax._
 import scala.collection.concurrent.TrieMap
 

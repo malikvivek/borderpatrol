@@ -1,6 +1,6 @@
 package com.lookout.borderpatrol.crypto
 
-import com.lookout.borderpatrol.sessionx.{BpSessionDataError, SessionDataEncoder, Session, SignedId}
+import com.lookout.borderpatrol.sessionx.{SessionDataEncoder, Session, SignedId}
 import com.twitter.io.Buf
 
 import scala.util.Try
