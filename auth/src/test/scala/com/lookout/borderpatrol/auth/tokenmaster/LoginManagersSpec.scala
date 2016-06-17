@@ -29,6 +29,8 @@ class LoginManagersSpec extends BorderPatrolSuite {
     val request1 = req("sky", "ulm1")
     request1.headerMap.set("X-Forwarded-Proto", "https")
     val request2 = req("sky", "ulm2")
+    val request3 = req("sky", "ulm3", "action" -> "consent")
+    val request4 = req("sky", "ulm4", "action" -> "foo")
     val location1 = umbrellaLoginManager.redirectLocation(request1)
     val location2 = umbrellaLoginManager.redirectLocation(request2, "foo" -> "bar", "bar" -> "baz")
     location1 should startWith(umbrellaLoginManager.authorizeEndpoint.hosts.head.toString +
@@ -41,6 +43,8 @@ class LoginManagersSpec extends BorderPatrolSuite {
     location2 should include("redirect_uri=http%3A%2F%2Fsky.example.com%2Fsignin")
     location2 should include("foo=bar")
     location2 should include("bar=baz")
+    umbrellaLoginManager.redirectLocation(request3) should include("prompt=admin_consent")
+    umbrellaLoginManager.redirectLocation(request4) should include("prompt=login")
   }
 
   it should "succeed to fetch oAuth2 token for code from server" in {

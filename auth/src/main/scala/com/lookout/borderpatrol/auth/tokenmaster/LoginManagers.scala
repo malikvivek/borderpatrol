@@ -40,9 +40,13 @@ object LoginManagers {
 
     def redirectLocation(req: Request, params: Tuple2[String, String]*): String = {
       val hostStr = req.host.getOrElse(throw BpInvalidRequest(s"Host not found in HTTP $req"))
+      val prompt = req.params.get("action") match {
+        case Some(a) if a == "consent" => "admin_consent"
+        case _ => "login"
+      }
       val scheme = req.headerMap.getOrElse("X-Forwarded-Proto", "http")
       /* Send URL with query string */
-      val paramsMap = Map(("response_type", "code"), ("state", "foo"), ("prompt", "login"), ("client_id", clientId),
+      val paramsMap = Map(("response_type", "code"), ("state", "foo"), ("prompt", prompt), ("client_id", clientId),
         ("redirect_uri", s"$scheme://$hostStr$loginConfirm")) ++ params
       authorizeEndpoint.hosts.headOption.fold("")(_.toString) +
         Request.queryString(authorizeEndpoint.path.toString, paramsMap)
