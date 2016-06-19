@@ -1,11 +1,12 @@
 package com.lookout.borderpatrol.test.auth
 
-import com.lookout.borderpatrol.{BpCommunicationError, BpNotFoundRequest}
+import com.lookout.borderpatrol.{BpCommunicationError, BpNotFoundRequest, ServiceIdentifier}
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.sessionx.SessionStores.MemcachedStore
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
 import com.twitter.finagle.http._
+import com.twitter.finagle.http.path.Path
 import com.twitter.finagle.http.service.RoutingService
 import com.twitter.finagle.{Service, memcached}
 import com.twitter.finagle.memcached.GetResult
@@ -999,6 +1000,31 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
     // Validate
     Await.result(output).status should be (Status.Ok)
+  }
+
+  it should "rewrite URLs in consistent form" in {
+    // Allocate and Session
+    val sessionId = sessionid.authenticated
+
+    // Create request
+    val s1 = ServiceIdentifier("two", urls, Path("/umb"), Some(Path("/broken/umb")), true)
+    val s2 = ServiceIdentifier("two", urls, Path("/umb"), Some(Path("/")), true)
+    val s3 = ServiceIdentifier("two", urls, Path("/umb"), Some(Path("")), true)
+    val s4 = ServiceIdentifier("two", urls, Path("/umb"), None, true)
+    val br1 = BorderRequest(req("umbrella", "/umb/some/weird/path"), cust2, s1, sessionId)
+    val br2 = BorderRequest(req("umbrella", "/umb/some/weird/path"), cust2, s2, sessionId)
+    val br3 = BorderRequest(req("umbrella", "/umb/some/weird/path"), cust2, s3, sessionId)
+    val br31 = BorderRequest(req("umbrella", "/umb/"), cust2, s3, sessionId)
+    val br32 = BorderRequest(req("umbrella", "/umb"), cust2, s3, sessionId)
+    val br4 = BorderRequest(req("umbrella", "/umb/some/weird/path"), cust2, s4, sessionId)
+
+    // Execute
+    RewriteFilter().rewrittenReq(br1).path should be("/broken/umb/some/weird/path")
+    RewriteFilter().rewrittenReq(br2).path should be("/some/weird/path")
+    RewriteFilter().rewrittenReq(br3).path should be("/some/weird/path")
+    RewriteFilter().rewrittenReq(br31).path should be("/")
+    RewriteFilter().rewrittenReq(br32).path should be("/")
+    RewriteFilter().rewrittenReq(br4).path should be("/umb/some/weird/path")
   }
 
   behavior of "LogoutService"
