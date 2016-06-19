@@ -89,6 +89,13 @@ class ConfigSpec extends BorderPatrolSuite {
     decodeSessionStore.decodeJson(Json.obj(("type", Json.fromString("woof")))).toOption should be(None)
   }
 
+  it should "uphold encoding/decoding Path" in {
+    decode[Path](""""/foo/bar"""").toOption.get.toString should be("/foo/bar")
+    decode[Path](""""/"""").toOption.get.toString should be("")
+    decode[Path]("""""""").toOption.get.toString should be("")
+    decode[Path]("""" """").toOption.get.toString should be("/ ")
+  }
+
   it should "uphold encoding/decoding ServiceIdentifier" in {
     def decodeFromJson(json: Json): ServiceIdentifier =
       decode[ServiceIdentifier](json.toString()) match {

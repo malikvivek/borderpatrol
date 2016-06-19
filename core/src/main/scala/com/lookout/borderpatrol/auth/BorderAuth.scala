@@ -427,13 +427,22 @@ case class AccessFilter[A, B](implicit statsReceiver: StatsReceiver)
  * This filter rewrites Request Path as per the ServiceIdentifier configuration
  */
 case class RewriteFilter() extends SimpleFilter[BorderRequest, Response] {
+  def rewrittenReq(req: BorderRequest): Request =
+    req.serviceId.rewritePath.fold(req.req) { rwPath =>
+      tap(req.req) {r =>
+        /*
+         * After rewrite, we need to ensure that rewritten path is NOT empty (becuase Path.Root is represented by emtpy
+         * string. Thus, if the rewritten path is going to be Root (i.e. empty), then use "/" as the rwPath
+         */
+        r.uri = if (r.path.replaceFirst(req.serviceId.path.toString, rwPath.toString).isEmpty)
+            r.uri.replaceFirst(req.serviceId.path.toString, "/")
+          else r.uri.replaceFirst(req.serviceId.path.toString, rwPath.toString)
+      }
+    }
+
   def apply(req: BorderRequest,
             service: Service[BorderRequest, Response]): Future[Response] = {
-    service(BorderRequest(tap(req.req) { r =>
-      // Rewrite the URI (i.e. path)
-      r.uri = req.serviceId.rewritePath.fold(r.uri)(p =>
-        r.uri.replaceFirst(req.serviceId.path.toString, p.toString))
-    }, req.customerId, req.serviceId, req.sessionId))
+    service(BorderRequest(rewrittenReq(req), req.customerId, req.serviceId, req.sessionId))
   }
 }
 
