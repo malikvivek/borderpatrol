@@ -3,7 +3,7 @@ package com.lookout.borderpatrol.test
 import java.net.URL
 
 import com.lookout.borderpatrol._
-import com.twitter.finagle.Service
+import com.twitter.finagle.{Http, Service}
 import com.twitter.finagle.http.path.Path
 import com.twitter.finagle.http.{Request, Response, Status}
 import com.twitter.util.Await
@@ -50,5 +50,10 @@ class EndpointSpec extends BorderPatrolSuite {
     } finally {
       server.close()
     }
+  }
+
+  it should "ensure tls and failfast codepath executions" in {
+    Endpoint.failFast(tokenmasterIdEndpoint)(Http.client)
+    Endpoint.tls(tokenmasterIdEndpoint)(Http.client)
   }
 }
