@@ -1,7 +1,7 @@
 import sbtunidoc.Plugin.UnidocKeys._
 import scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages
 
-lazy val Version = "0.2.13-SNAPSHOT"
+lazy val Version = "0.2.14-SNAPSHOT"
 
 lazy val buildSettings = Seq(
   organization := "com.lookout",
@@ -28,7 +28,7 @@ lazy val compilerOptions = Seq(
 lazy val finagleVersion = "6.35.0"
 lazy val circeVersion = "0.4.0"
 lazy val twitterServerVersion = "1.20.0"
-lazy val nimbusVersion = "4.15"
+lazy val nimbusVersion = "4.7"
 
 val testDependencies = Seq(
   "org.scalacheck" %% "scalacheck" % "1.13.0",
