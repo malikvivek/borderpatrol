@@ -21,7 +21,7 @@ class EndpointSpec extends BorderPatrolSuite {
     }
   }
 
-  behavior of "Config"
+  behavior of "Endpoint"
 
   it should "store clients in the cache" in {
     val server = com.twitter.finagle.Http.serve(

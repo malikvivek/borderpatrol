@@ -35,24 +35,31 @@ object Endpoint {
   private[this] val cache: collection.concurrent.Map[String, Service[Request, Response]] =
     new ConcurrentHashMap[String, Service[Request, Response]] asScala
 
-  /** Spawn a client */
-  private[this] def client(name: String, endpoint: Endpoint): Service[Request, Response] = {
-    // If its https, use TLS
+  /**
+   * Enable TLS
+   */
+  def tls(endpoint: Endpoint): Http.Client => Http.Client = { cl =>
     val isHttps = endpoint.hosts.exists(u => u.getProtocol == "https")
     val hostname = endpoint.hosts.map(u => u.getHost).mkString
+    if (isHttps) cl.withTls(hostname) else cl
+  }
 
+  /**
+   * If endpoint pointing to an ELB (i.e. single host), then it is important to disable fail fast as the
+   * remote load balancer has the visibility into which endpoints are up
+   */
+  def failFast(endpoint: Endpoint): Http.Client => Http.Client = { cl =>
+    if (endpoint.hosts.size == 1) cl.withSessionQualifier.noFailFast else cl
+  }
+
+  /** Spawn a client */
+  def client(name: String, endpoint: Endpoint): Service[Request, Response] = {
     // Find CSV of host & ports
     val hostAndPorts = endpoint.hosts.map(u => u.getAuthority).mkString(",")
+    val chain = tls(endpoint) //compose failFast(endpoint)
 
-    // Create a client and configure metrics in microseconds
-    if (isHttps) Http
-      .Client(Client.stack, StackClient.defaultParams + ProtocolLibrary("http") +
-              StatsFilter.Param(TimeUnit.MICROSECONDS))
-      .withTls(hostname).newService(hostAndPorts, name)
-    else Http
-      .Client(Client.stack, StackClient.defaultParams + ProtocolLibrary("http") +
-              StatsFilter.Param(TimeUnit.MICROSECONDS))
-      .newService(hostAndPorts, name)
+    chain(Http.Client(Client.stack, StackClient.defaultParams +
+      ProtocolLibrary("http") + StatsFilter.Param(TimeUnit.MICROSECONDS))).newService(hostAndPorts, name)
   }
 
   /** Get or store client in cache */
@@ -88,6 +95,7 @@ object Endpoint {
 
 /**
   * Simple Endpoint representation
+  *
   * @param name name of the endpoint
   * @param path path at the endpoint
   * @param hosts endpoint hosts
