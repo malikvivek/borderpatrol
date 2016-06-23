@@ -78,7 +78,7 @@ object SecretStores {
       extends SecretStoreApi {
     private[this] val log = Logger.get(getClass.getPackage.getName)
     private[this] val consulBinderName = s"${getClass.getSimpleName}.consulUrl"
-    private[this] val consulPath = s"/v1/kv/${key}"
+    private[this] val consulPath = s"/v1/kv/borderpatrol/${key}/secrets"
     private[this] val consulEndpoint = SimpleEndpoint(consulBinderName, Path(consulPath), consulUrls)
 
     /* Kick off a poll timer */
