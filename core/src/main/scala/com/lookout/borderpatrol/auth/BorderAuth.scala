@@ -113,11 +113,11 @@ case class CustomerIdFilter(matcher: ServiceMatcher)(implicit statsReceiver: Sta
     for {
       custIdOpt <- Future.value(req.host.flatMap(matcher.customerId))
       resp <- custIdOpt match {
-        case None => Future.exception(BpNotFoundRequest("Failed to find CustomerIdentifier for " +
+        case None => Future.exception(BpNotFoundRequest("Failed to find CustomerId for " +
           s"Request(${req.method}, ${req.host.fold("null-hostname")(h => s"$h${req.path}")})"))
         case Some(cid) =>
           log.debug(s"Processing: Request(${req.method}, ${req.host.get}${req.path} " +
-            s"with CustomerIdentifier: ${cid.subdomain}")
+            s"with CustomerId: ${cid.subdomain}")
           service(CustomerIdRequest(req, cid))
       }
     } yield resp
@@ -146,7 +146,7 @@ case class SessionIdFilter(matcher: ServiceMatcher, store: SessionStore)(
         case Success(s) => Some(s)
         case Failure(e) =>
           statSessionNotFound.incr()
-          log.debug(s"Did not find the sessionId in ${req.req}, reason: ${e.getMessage}")
+          log.debug(s"Did not find the SessionId in ${req.req}, reason: ${e.getMessage}")
           None
       })
       serviceIdOpt <- Future.value(matcher.serviceId(Path(req.req.path)))
@@ -171,7 +171,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
   private[this] val statIdentityProvider = statsReceiver.counter("req.identity.provider.forwards")
 
   def sendToIdentityProvider(req: BorderRequest): Future[Response] = {
-    log.debug(s"Send: Request(${req.req.method} ${req.req.path}) for Session: ${req.sessionId.toLogIdString} " +
+    log.debug(s"Send: Request(${req.req.method} ${req.req.path}) with SessionId: ${req.sessionId.toLogIdString} " +
       s"to identity provider chain for service: ${req.serviceId.name}")
     identityProviderMap.get(req.customerId.loginManager.tyfe) match {
       case Some(ip) => statIdentityProvider.incr(); ip(req)
@@ -198,7 +198,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
     } yield {
         statLoginRedirects.incr()
         BorderAuth.formatRedirectResponse(req.req, Status.Unauthorized, location, Some(sessionId),
-          s"Redirecting the ${req.req} for Untagged Session: ${sessionId.toLogIdString} " +
+          s"Redirecting the ${req.req} with Untagged SessionId: ${sessionId.toLogIdString} " +
             s"to login service, location: ${location.split('?').headOption}")
       }
   }
@@ -260,7 +260,7 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
   private[this] val statAccessIssuer = statsReceiver.counter("req.access.issuer.forwards")
 
   def sendToAccessIssuer(req: BorderRequest): Future[Response] = {
-    log.debug(s"Send: Request(${req.req.method} ${req.req.path}) for Session: ${req.sessionId.toLogIdString} " +
+    log.debug(s"Send: Request(${req.req.method} ${req.req.path}) with SessionId: ${req.sessionId.toLogIdString} " +
       s"to access issuer chain for service: ${req.serviceId.name}")
     accessIssuerMap.get(req.customerId.loginManager.tyfe) match {
       case Some(ip) => statAccessIssuer.incr(); ip(req)
@@ -280,7 +280,7 @@ case class SendToAccessIssuer(accessIssuerMap: Map[String, Service[BorderRequest
       case (Some(AuthenticatedTag), None) if Root.startsWith(Path(req.req.path)) =>
         BorderAuth.formatRedirectResponse(req.req, Status.NotFound, req.customerId.defaultServiceId.path.toString,
           req.sessionIdOpt,
-          s"Redirecting the ${req.req} for Authenticated Session: ${req.sessionIdOpt.get.toLogIdString} " +
+          s"Redirecting the ${req.req} with Authenticated SessionId: ${req.sessionIdOpt.get.toLogIdString} " +
             s"to upstream service, location: ${req.customerId.defaultServiceId.path}").toFuture
 
       /* Everything else */
@@ -310,7 +310,7 @@ case class SendToUnprotectedService(store: SessionStore)
 
   def sendToUnprotectedService(req: BorderRequest): Future[Response] = {
     statRequestSends.incr
-    log.debug(s"Send: Request(${req.req.method} ${req.req.path}) for Session: ${req.sessionId.toLogIdString} " +
+    log.debug(s"Send: Request(${req.req.method} ${req.req.path}) with SessionId: ${req.sessionId.toLogIdString} " +
       s"to the unprotected upstream service: ${req.serviceId.name}")
     /* Route through a Rewrite filter */
     unprotectedServiceChain(req)
@@ -376,7 +376,7 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(
       sessionMaybe <- store.get[A](sessionId)
     } yield sessionMaybe.fold[Identity[A]](EmptyIdentity)(s => Id(s.data))) handle {
       case e =>
-        log.warning(s"Failed to retrieve Identity for Session: ${sessionId.toLogIdString}, " +
+        log.warning(s"Failed to retrieve Identity with SessionId: ${sessionId.toLogIdString}, " +
           s"from sessionStore with: ${e.getMessage}")
         EmptyIdentity
     }
@@ -390,8 +390,8 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(
       } yield {
         val location = req.customerId.loginManager.redirectLocation(req.req)
         BorderAuth.formatRedirectResponse(req.req, Status.Unauthorized, location, Some(session.id),
-          s"Failed to find Session: ${req.sessionId.toLogIdString} for: ${req.req}, " +
-            s"allocating a new session: ${session.id.toLogIdString}, " +
+          s"Failed to find SessionId: ${req.sessionId.toLogIdString} for: ${req.req}, " +
+            s"allocating a new SessionId: ${session.id.toLogIdString}, " +
             s"redirecting to location: ${location.split('?').headOption}")
       }
     }
@@ -414,7 +414,7 @@ case class AccessFilter[A, B](implicit statsReceiver: StatsReceiver)
       resp <- req.serviceId.endpoint.send(
         tap(req.req) { r =>
           statRequestSends.incr
-          log.debug(s"Send: ${req.req} for Session: ${req.sessionId.toLogIdString} " +
+          log.debug(s"Send: ${req.req} with SessionId: ${req.sessionId.toLogIdString} " +
             s"to the protected upstream service: ${req.serviceId.name}")
           r.headerMap.add("Auth-Token", accessResp.access.access.toString)
         }
