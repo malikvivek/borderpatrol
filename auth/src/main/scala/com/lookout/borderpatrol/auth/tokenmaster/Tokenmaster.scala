@@ -168,9 +168,8 @@ object Tokenmaster {
         case Return(resp) => resp.toFuture
         case Throw(e: BpUserError) =>
           BorderAuth.formatRedirectResponse(req.req, e.status,
-            req.customerId.loginManager.redirectLocation(req.req,
-              ("msg" -> "Failed to authenticate the user, please check your credentials")), None,
-            e.getMessage + ", redirecting back to login page").toFuture
+            req.customerId.loginManager.redirectLocation(req.req, ("errorCode" -> Status.BadRequest.code.toString)),
+            None, e.getMessage + ", redirecting back to login page").toFuture
         case Throw(e: Throwable) => e.toFutureException
       }
     }

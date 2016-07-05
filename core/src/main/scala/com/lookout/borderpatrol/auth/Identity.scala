@@ -1,7 +1,5 @@
 package com.lookout.borderpatrol.auth
 
-import com.twitter.finagle.Service
-
 /**
  * The purpose of this abstraction to return some input from a user or entity that can be transformed into an
  * understandable identity to be used in the `AccessRequest`. There is no requirement that the identity from the
