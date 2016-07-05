@@ -14,7 +14,7 @@ import com.twitter.io.Buf
 import com.twitter.util.{Await, Future, Time}
 
 
-class  BorderAuthSpec extends BorderPatrolSuite {
+class BorderAuthSpec extends BorderPatrolSuite {
 
   import coreTestHelpers.{secretStore => store, _}
 

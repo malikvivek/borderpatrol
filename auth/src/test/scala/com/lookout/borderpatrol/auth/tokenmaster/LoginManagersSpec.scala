@@ -5,7 +5,7 @@ import com.lookout.borderpatrol.auth.BorderRequest
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
 import com.twitter.finagle.Service
-import com.twitter.finagle.http.{Request, Response, Status}
+import com.twitter.finagle.http.{Status, Response, Request}
 import com.twitter.finagle.http.service.RoutingService
 import com.twitter.util.Await
 

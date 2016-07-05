@@ -117,22 +117,21 @@ object OAuth2 {
      * @return
      */
     private[this] def getClaimsSet(req: BorderRequest, loginManager: OAuth2LoginManagerMixin, tokenStr: String):
-    Future[JWTClaimsSet] = {
-      for {
-        signedJWT <- wrapFuture({ () => SignedJWT.parse(tokenStr) }, BpTokenParsingError.apply)
-        thumbprint <- wrapFuture({() => signedJWT.getHeader.getX509CertThumbprint }, BpTokenParsingError.apply)
-        certStr <- find(thumbprint.toString).fold(downloadAadCerts(
-          loginManager, thumbprint.toString))(Future.value(_))
-        cert <- wrapFuture({ () => X509CertUtils.parse(DatatypeConverter.parseBase64Binary(certStr)) },
-          BpCertificateError.apply)
-      } yield signedJWT.verify(verifier(cert.getPublicKey)) match {
-        case true =>
-          log.debug(s"Verified the signature on AccessToken, for a user with certificate thumbprint: ${thumbprint}, " +
-          s"SessionId: ${req.sessionId.toLogIdString}")
-          signedJWT.getJWTClaimsSet
-
-        case false => throw BpVerifyTokenError(s"for a user with certificate thumbprint: $thumbprint, " +
-          s" SessionId: ${req.sessionId.toLogIdString}")
+      Future[JWTClaimsSet] = {
+        for {
+          signedJWT <- wrapFuture({ () => SignedJWT.parse(tokenStr) }, BpTokenParsingError.apply)
+          thumbprint <- wrapFuture({() => signedJWT.getHeader.getX509CertThumbprint }, BpTokenParsingError.apply)
+          certStr <- find(thumbprint.toString).fold(downloadAadCerts(
+            loginManager, thumbprint.toString))(Future.value(_))
+          cert <- wrapFuture({ () => X509CertUtils.parse(DatatypeConverter.parseBase64Binary(certStr)) },
+            BpCertificateError.apply)
+        } yield signedJWT.verify(verifier(cert.getPublicKey)) match {
+          case true =>
+            log.debug(s"Verified the signature on AccessToken, for a user with certificate thumbprint: ${thumbprint}, "+
+              s"SessionId: ${req.sessionId.toLogIdString}")
+            signedJWT.getJWTClaimsSet
+          case false => throw BpVerifyTokenError(s"for a user with certificate thumbprint: $thumbprint, " +
+            s" SessionId: ${req.sessionId.toLogIdString}")
       }
     }
 

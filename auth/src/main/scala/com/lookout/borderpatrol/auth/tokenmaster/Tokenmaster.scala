@@ -101,7 +101,7 @@ object Tokenmaster {
       ("idp_guid", req.customerId.loginManager.guid.asJson),
       ("external_id", aStringClaim("sub").asJson))
 
-    lazy val logUserId = s"ExternalId: ${aStringClaim("sub").takeRight(8)}"
+    private lazy val logUserId = s"ExternalId: ${aStringClaim("sub").takeRight(8)}"
 
     def authPayload(grants: Set[String]): String =
       Json.fromFields(Seq(("s", req.serviceId.name.asJson)) ++ oAuth2Credential ++
@@ -117,7 +117,7 @@ object Tokenmaster {
 
     def authenticate(grants: Set[String]): Future[Response] = {
       log.info(s"Send: Request to IdentityProvider, with SessionId: ${req.sessionId.toLogIdString}, " +
-        s"${logUserId}")
+        s"$logUserId")
       req.customerId.loginManager.identityEndpoint.send(authRequest(grants))
     }
   }
@@ -264,7 +264,6 @@ object Tokenmaster {
         resp <- OAuth2Helper(accessClaimSet, idClaimSet, req).authenticate(Set.empty)
       } yield resp
     }
-
   }
 
   /**
