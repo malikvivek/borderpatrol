@@ -1,6 +1,7 @@
 package com.lookout.borderpatrol.auth.tokenmaster
 
 import com.lookout.borderpatrol.BpCommunicationError
+import com.lookout.borderpatrol.auth.BorderRequest
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
 import com.twitter.finagle.Service
@@ -62,10 +63,11 @@ class LoginManagersSpec extends BorderPatrolSuite {
     try {
       // Login POST request
       val request = req("sky", "/signin", ("code" -> "XYZ123"))
+      val borderRequest = BorderRequest(request, cust1, one, sessionid.untagged)
       request.headerMap.set("X-Forwarded-Proto", "https")
 
       // Execute
-      val output = umbrellaLoginManager.codeToToken(request)
+      val output = umbrellaLoginManager.codeToToken(borderRequest)
 
       // Validate
       Await.result(output).status should be(Status.Ok)
@@ -93,9 +95,10 @@ class LoginManagersSpec extends BorderPatrolSuite {
 
     // Login POST request
     val request = req("rainy", "/signblew", ("code" -> "XYZ123"))
+    val borderRequest = BorderRequest(request, cust1, one, sessionid.untagged)
 
     // Execute
-    val output = rainyLoginManager.codeToToken(request)
+    val output = rainyLoginManager.codeToToken(borderRequest)
 
     // Validate
     val caught = the[BpCommunicationError] thrownBy {
@@ -108,12 +111,14 @@ class LoginManagersSpec extends BorderPatrolSuite {
   it should "throw an Exception if host value is not present in the request when calling codeToToken" in {
     // Create request
     val request = Request("/umb")
+    val borderRequest = BorderRequest(request, cust1, one, sessionid.untagged)
+//    val borderRequest = BorderRequest(req("", "/umb", ("code" -> "XYZ123")), cust1, one, sessionid.untagged)
 
     // Validate
     val caught = the[Exception] thrownBy {
       // Execute
-      val output = umbrellaLoginManager.codeToToken(request)
+      val output = umbrellaLoginManager.codeToToken(borderRequest)
     }
-    caught.getMessage should include("Host not found in HTTP Request")
+    caught.getMessage should include("Host not found in HTTP BorderRequest")
   }
 }

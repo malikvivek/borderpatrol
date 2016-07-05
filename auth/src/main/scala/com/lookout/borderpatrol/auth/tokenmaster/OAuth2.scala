@@ -116,20 +116,22 @@ object OAuth2 {
      * @param tokenStr
      * @return
      */
-    private[this] def getClaimsSet(loginManager: OAuth2LoginManagerMixin, tokenStr: String): Future[JWTClaimsSet] = {
-      for {
-        signedJWT <- wrapFuture({ () => SignedJWT.parse(tokenStr) }, BpTokenParsingError.apply)
-        thumbprint <- wrapFuture({() => signedJWT.getHeader.getX509CertThumbprint }, BpTokenParsingError.apply)
-        certStr <- find(thumbprint.toString).fold(downloadAadCerts(
-          loginManager, thumbprint.toString))(Future.value(_))
-        cert <- wrapFuture({ () => X509CertUtils.parse(DatatypeConverter.parseBase64Binary(certStr)) },
-          BpCertificateError.apply)
-      } yield signedJWT.verify(verifier(cert.getPublicKey)) match {
-        case true =>
-          log.debug("Verified the signature on AccessToken, for a user with certificate thumbprint: " + thumbprint)
-          signedJWT.getJWTClaimsSet
-
-        case false => throw BpVerifyTokenError(s"for a user with certificate thumbprint: $thumbprint")
+    private[this] def getClaimsSet(req: BorderRequest, loginManager: OAuth2LoginManagerMixin, tokenStr: String):
+      Future[JWTClaimsSet] = {
+        for {
+          signedJWT <- wrapFuture({ () => SignedJWT.parse(tokenStr) }, BpTokenParsingError.apply)
+          thumbprint <- wrapFuture({() => signedJWT.getHeader.getX509CertThumbprint }, BpTokenParsingError.apply)
+          certStr <- find(thumbprint.toString).fold(downloadAadCerts(
+            loginManager, thumbprint.toString))(Future.value(_))
+          cert <- wrapFuture({ () => X509CertUtils.parse(DatatypeConverter.parseBase64Binary(certStr)) },
+            BpCertificateError.apply)
+        } yield signedJWT.verify(verifier(cert.getPublicKey)) match {
+          case true =>
+            log.debug(s"Verified the signature on AccessToken, for a user with certificate thumbprint: ${thumbprint}, "+
+              s"SessionId: ${req.sessionId.toLogIdString}")
+            signedJWT.getJWTClaimsSet
+          case false => throw BpVerifyTokenError(s"for a user with certificate thumbprint: $thumbprint, " +
+            s" SessionId: ${req.sessionId.toLogIdString}")
       }
     }
 
@@ -142,7 +144,7 @@ object OAuth2 {
     def codeToClaimsSet(req: BorderRequest, loginManager: OAuth2LoginManagerMixin):
       Future[(JWTClaimsSet, JWTClaimsSet)] = {
       for {
-        aadToken <- loginManager.codeToToken(req.req).flatMap(res => res.status match {
+        aadToken <- loginManager.codeToToken(req).flatMap(res => res.status match {
           //  Parse for Tokens if Status.Ok
           case Status.Ok =>
             OAuth2.derive[AadToken](res.contentString).fold[Future[AadToken]](
@@ -151,10 +153,11 @@ object OAuth2 {
               t => Future.value(t)
             )
           case _ => Future.exception(BpTokenRetrievalError(
-            s"Failed to receive the token from OAuth2 Server: '${loginManager.name}', with: ${res.status}"))
+            s"Failed to receive the token from OAuth2 Server: '${loginManager.name}', with: ${res.status}, " +
+              s"and SessionId: ${req.sessionId.toLogIdString}"))
         })
         idClaimSet <- wrapFuture({() => PlainJWT.parse(aadToken.idToken).getJWTClaimsSet}, BpTokenParsingError.apply)
-        accessClaimSet <- getClaimsSet(loginManager, aadToken.accessToken)
+        accessClaimSet <- getClaimsSet(req, loginManager, aadToken.accessToken)
       } yield (accessClaimSet, idClaimSet)
     }
   }

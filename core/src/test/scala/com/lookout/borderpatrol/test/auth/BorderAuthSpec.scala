@@ -72,10 +72,10 @@ class BorderAuthSpec extends BorderPatrolSuite {
       Await.result(output)
     }
     caught.status should be(Status.NotFound)
-    caught.getMessage should startWith("Not Found: Failed to find CustomerIdentifier for")
+    caught.getMessage should startWith("Not Found: Failed to find CustomerId for")
   }
 
-  it should "return NotFound Status if Request lacks the hostname " in {
+  it should "return NotFound Status if Request lacks the hostname" in {
     // Execute
     val output = (CustomerIdFilter(serviceMatcher) andThen serviceFilterTestService)(Request("/bar"))
 
@@ -84,7 +84,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
       Await.result(output)
     }
     caught.status should be(Status.NotFound)
-    caught.getMessage should startWith("Not Found: Failed to find CustomerIdentifier for")
+    caught.getMessage should startWith("Not Found: Failed to find CustomerId for")
     caught.getMessage should include("null-hostname")
   }
 
