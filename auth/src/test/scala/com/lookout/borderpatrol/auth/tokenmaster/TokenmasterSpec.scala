@@ -254,8 +254,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
 
     // Validate
     Await.result(output).status should be(Status.Found)
-    Await.result(output).location.get should
-      include("msg=Failed%20to%20authenticate%20the%20user%2C%20please%20check%20your%20credentials")
+    Await.result(output).location.get should include("errorCode=400")
   }
 
   it should "propagate BpIdentityProviderError thrown by service" in {
