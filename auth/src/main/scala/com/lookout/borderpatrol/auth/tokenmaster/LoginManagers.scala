@@ -1,6 +1,7 @@
 package com.lookout.borderpatrol.auth.tokenmaster
 
-import com.lookout.borderpatrol.auth.BpInvalidRequest
+import com.lookout.borderpatrol.auth.{BorderRequest, BpInvalidRequest, SessionIdRequest}
+import com.lookout.borderpatrol.sessionx.Session
 import com.lookout.borderpatrol.{Endpoint, LoginManager}
 import com.lookout.borderpatrol.util.Helpers
 import com.lookout.borderpatrol.util.Combinators.tap
@@ -52,19 +53,20 @@ object LoginManagers {
         Request.queryString(authorizeEndpoint.path.toString, paramsMap)
     }
 
-    def codeToToken(req: Request): Future[Response] = {
-      val hostStr = req.host.getOrElse(throw BpInvalidRequest(s"Host not found in HTTP $req"))
-      val scheme = req.headerMap.getOrElse("X-Forwarded-Proto", "http")
+    def codeToToken(req: BorderRequest): Future[Response] = {
+      val hostStr = req.req.host.getOrElse(throw BpInvalidRequest(s"Host not found in HTTP $req"))
+      val scheme = req.req.headerMap.getOrElse("X-Forwarded-Proto", "http")
       val request = tap(Request(Method.Post, tokenEndpoint.path.toString))(re => {
         re.contentType = "application/x-www-form-urlencoded"
         re.contentString = Request.queryString(("grant_type", "authorization_code"), ("client_id", clientId),
-          ("code", Helpers.scrubQueryParams(req.params, "code")
+          ("code", Helpers.scrubQueryParams(req.req.params, "code")
             .getOrElse(throw BpInvalidRequest(s"OAuth2 code not found in HTTP ${req}"))),
           ("redirect_uri", s"$scheme://$hostStr$loginConfirm"),
           ("client_secret", clientSecret), ("resource", "00000002-0000-0000-c000-000000000000"))
           .drop(1) /* Drop '?' */
       })
-      log.debug(s"Sending: Request(GET ${tokenEndpoint.path}) to fetch tokens")
+      log.debug(s"Sending: Request(GET ${tokenEndpoint.path}) to fetch tokens " +
+        s"with SessionId: ${req.sessionId.toLogIdString}" )
       tokenEndpoint.send(request)
     }
   }

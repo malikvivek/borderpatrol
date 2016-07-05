@@ -77,6 +77,7 @@ object Tokenmaster {
     val accessClaimSet: JWTClaimsSet
     val idClaimSet: JWTClaimsSet
     val req: BorderRequest
+    private[this] val log = Logger.get(getClass.getPackage.getName)
 
     def aStringClaim(claim: String): String = wrapOps[String]({ () => accessClaimSet.getStringClaim(claim)},
       s"Failed to find string claim '$claim' in the Access Token in the Request",
@@ -100,6 +101,8 @@ object Tokenmaster {
       ("idp_guid", req.customerId.loginManager.guid.asJson),
       ("external_id", aStringClaim("sub").asJson))
 
+    private lazy val logUserId = s"ExternalId: ${aStringClaim("sub").takeRight(8)}"
+
     def authPayload(grants: Set[String]): String =
       Json.fromFields(Seq(("s", req.serviceId.name.asJson)) ++ oAuth2Credential ++
         Seq(("grants", grants.asJson))).noSpaces
@@ -113,6 +116,8 @@ object Tokenmaster {
     }
 
     def authenticate(grants: Set[String]): Future[Response] = {
+      log.info(s"Send: Request to IdentityProvider, with SessionId: ${req.sessionId.toLogIdString}, " +
+        s"$logUserId")
       req.customerId.loginManager.identityEndpoint.send(authRequest(grants))
     }
   }
@@ -132,7 +137,6 @@ object Tokenmaster {
   case class TokenmasterPostLoginFilter(store: SessionStore)
                                      (implicit secretStoreApi: SecretStoreApi, statsReceiver: StatsReceiver)
     extends Filter[BorderRequest, Response, BorderRequest, IdentifyResponse[Tokens]] {
-    private[this] val log = Logger.get(getClass.getPackage.getName)
     private[this] val statSessionAuthenticated = statsReceiver.counter("tokenmaster.idp.authenticated")
 
     /**
@@ -155,8 +159,8 @@ object Tokenmaster {
       } yield {
         statSessionAuthenticated.incr
         BorderAuth.formatRedirectResponse(req.req, Status.Ok, originReq.uri, Some(session.id),
-          s"Session: ${req.sessionId.toLogIdString}} is authenticated, " +
-            s"allocated new Session: ${session.id.toLogIdString} and redirecting to " +
+          s"SessionId: ${req.sessionId.toLogIdString}} is authenticated, " +
+            s"allocated new SessionId: ${session.id.toLogIdString} and redirecting to " +
             s"location: ${originReq.path}")
       })
         /** Capture User error here, log it and redirect user back to login page */
@@ -208,12 +212,14 @@ object Tokenmaster {
           )
         case Status.Forbidden => {
           statResponseDenied.incr
-          Future.exception(BpUnauthorizedRequest(s"IdentityProvider failed to authenticate user"))
+          Future.exception(BpUnauthorizedRequest(s"IdentityProvider failed to authenticate user " +
+            s"with SessionId: ${req.sessionId.toLogIdString}"))
         }
         case _ => {
           statResponseFailed.incr
           Future.exception(BpIdentityProviderError(
-            s"IdentityProvider failed to authenticate user, with status: ${res.status}"))
+            s"IdentityProvider failed to authenticate user, with status: ${res.status}, " +
+              s"SessionId: ${req.sessionId.toLogIdString}"))
         }
       })
     }
