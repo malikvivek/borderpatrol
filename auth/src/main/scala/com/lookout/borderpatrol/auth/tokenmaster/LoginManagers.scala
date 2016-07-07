@@ -66,7 +66,8 @@ object LoginManagers {
           .drop(1) /* Drop '?' */
       })
       log.debug(s"Sending: Request(GET ${tokenEndpoint.path}) to fetch tokens " +
-        s"with SessionId: ${req.sessionId.toLogIdString}" )
+        s"with SessionId: ${req.sessionId.toLogIdString}, " +
+        s"IPAddress: '${req.req.xForwardedFor.getOrElse("No IP Address")}'" )
       tokenEndpoint.send(request)
     }
   }
