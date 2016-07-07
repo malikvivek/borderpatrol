@@ -128,10 +128,12 @@ object OAuth2 {
         } yield signedJWT.verify(verifier(cert.getPublicKey)) match {
           case true =>
             log.debug(s"Verified the signature on AccessToken, for a user with certificate thumbprint: ${thumbprint}, "+
-              s"SessionId: ${req.sessionId.toLogIdString}")
+              s"SessionId: ${req.sessionId.toLogIdString}, " +
+              s"IPAddress: '${req.req.xForwardedFor.getOrElse("No IP Address")}'")
             signedJWT.getJWTClaimsSet
           case false => throw BpVerifyTokenError(s"for a user with certificate thumbprint: $thumbprint, " +
-            s" SessionId: ${req.sessionId.toLogIdString}")
+            s" SessionId: ${req.sessionId.toLogIdString}, " +
+            s"IPAddress: '${req.req.xForwardedFor.getOrElse("No IP Address")}'")
       }
     }
 
@@ -154,7 +156,8 @@ object OAuth2 {
             )
           case _ => Future.exception(BpTokenRetrievalError(
             s"Failed to receive the token from OAuth2 Server: '${loginManager.name}', with: ${res.status}, " +
-              s"and SessionId: ${req.sessionId.toLogIdString}"))
+              s"and SessionId: ${req.sessionId.toLogIdString}, " +
+              s"IPAddress: '${req.req.xForwardedFor.getOrElse("No IP Address")}'"))
         })
         idClaimSet <- wrapFuture({() => PlainJWT.parse(aadToken.idToken).getJWTClaimsSet}, BpTokenParsingError.apply)
         accessClaimSet <- getClaimsSet(req, loginManager, aadToken.accessToken)

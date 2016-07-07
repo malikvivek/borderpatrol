@@ -117,7 +117,7 @@ object Tokenmaster {
 
     def authenticate(grants: Set[String]): Future[Response] = {
       log.info(s"Send: Request to IdentityProvider, with SessionId: ${req.sessionId.toLogIdString}, " +
-        s"$logUserId")
+        s"${logUserId}, IPAddress: '${req.req.xForwardedFor.getOrElse("No IP Address")}'")
       req.customerId.loginManager.identityEndpoint.send(authRequest(grants))
     }
   }
@@ -202,7 +202,9 @@ object Tokenmaster {
             err => {
               statResponseParsingFailed.incr
               Future.exception(BpTokenParsingError(
-                s"Failed to parse the Tokenmaster Identity Response with: ${err.getMessage}"))
+                s"Failed to parse the Tokenmaster Identity Response with: ${err.getMessage}, " +
+                  s"SessionId: ${req.sessionId.toLogIdString}, " +
+                  s"IPAddress: '${req.req.xForwardedFor.getOrElse("No IP Address")}'"))
             },
             t => {
               statResponseSuccess.incr
@@ -212,13 +214,15 @@ object Tokenmaster {
         case Status.Forbidden => {
           statResponseDenied.incr
           Future.exception(BpUnauthorizedRequest(s"IdentityProvider failed to authenticate user " +
-            s"with SessionId: ${req.sessionId.toLogIdString}"))
+            s"with SessionId: ${req.sessionId.toLogIdString}, " +
+            s"IPAddress: '${req.req.xForwardedFor.getOrElse("No IP Address")}'"))
         }
         case _ => {
           statResponseFailed.incr
           Future.exception(BpIdentityProviderError(
             s"IdentityProvider failed to authenticate user, with status: ${res.status}, " +
-              s"SessionId: ${req.sessionId.toLogIdString}"))
+              s"SessionId: ${req.sessionId.toLogIdString}, " +
+              s"IPAddress:'${req.req.xForwardedFor.getOrElse("No IP Address")}'"))
         }
       })
     }
