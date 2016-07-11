@@ -65,6 +65,7 @@ object coreTestHelpers {
     val tyfe: String = "test1.type"
     val guid: String = "test1.guid"
     val loginConfirm: Path = Path("/test1/confirm")
+    val loggedOutUrl: Option[URL] = None
     val identityEndpoint: Endpoint = tokenmasterIdEndpoint
     val accessEndpoint: Endpoint = tokenmasterAccessEndpoint
     def redirectLocation(req: Request, params: Tuple2[String, String]*): String = "/test1/redirect"
@@ -74,6 +75,7 @@ object coreTestHelpers {
     val tyfe: String = "test2.type"
     val guid: String = "test2.guid"
     val loginConfirm: Path = Path("/test2/confirm")
+    val loggedOutUrl: Option[URL] = Some(new URL("http://www.example.com"))
     val identityEndpoint: Endpoint = tokenmasterIdEndpoint
     val accessEndpoint: Endpoint = tokenmasterAccessEndpoint
     def redirectLocation(req: Request, params: Tuple2[String, String]*): String = "/test2/redirect"

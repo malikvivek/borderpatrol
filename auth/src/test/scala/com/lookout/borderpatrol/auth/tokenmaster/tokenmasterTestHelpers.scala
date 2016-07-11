@@ -30,13 +30,13 @@ object tokenmasterTestHelpers {
 
   // Login Managers
   val checkpointLoginManager = BasicLoginManager("checkpointLoginManager", "tokenmaster.basic", "cp-guid",
-    Path("/loginConfirm"), Path("/check"), tokenmasterIdEndpoint, tokenmasterAccessEndpoint)
+    Path("/loginConfirm"), None, Path("/check"), tokenmasterIdEndpoint, tokenmasterAccessEndpoint)
   val umbrellaLoginManager = OAuth2LoginManager("ulmLoginManager", "tokenmaster.oauth2", "ulm-guid", Path("/signin"),
-    tokenmasterIdEndpoint, tokenmasterAccessEndpoint,
+    Some(new URL("http://www.example.com")), tokenmasterIdEndpoint, tokenmasterAccessEndpoint,
     ulmAuthorizeEndpoint, ulmTokenEndpoint, ulmCertificateEndpoint,
     "clientId", "clientSecret")
   val rainyLoginManager = OAuth2LoginManager("rlmProtoManager", "tokenmaster.oauth2", "rlm-guid", Path("/signblew"),
-    tokenmasterIdEndpoint, tokenmasterAccessEndpoint,
+    Some(new URL("http://www.example.com")), tokenmasterIdEndpoint, tokenmasterAccessEndpoint,
     rlmAuthorizeEndpoint, rlmTokenEndpoint, rlmCertificateEndpoint,
     "clientId", "clientSecret")
   val loginManagersk = Set(checkpointLoginManager.asInstanceOf[LoginManager],

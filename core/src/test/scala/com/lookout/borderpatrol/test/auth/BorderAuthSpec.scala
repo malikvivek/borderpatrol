@@ -1078,9 +1078,9 @@ class BorderAuthSpec extends BorderPatrolSuite {
     Await.result(output).cookies.get(SignedId.sessionIdCookieName) should be (None)
   }
 
-  it should "succeed to logout the requests w/o sessionId w/ JSON response to logged out page" in {
+  it should "succeed to logout the requests w/o sessionId w/ JSON response to destination in query param" in {
     // Create request
-    val request = req("sky", "/logout", ("destination", "/abc%0d%0atest:abc%0d%0a"))
+    val request = req("enterprise", "/logout", ("destination", "/abc"))
     request.accept = Seq("application/json")
 
     // Execute
@@ -1090,7 +1090,23 @@ class BorderAuthSpec extends BorderPatrolSuite {
     // Validate
     Await.result(output).status should be (Status.Ok)
     Await.result(output).contentType.get should include("application/json")
-    Await.result(output).contentString should include(s""""redirect_url" : "/abc%0d%0atest:abc%0d%0a"""")
+    Await.result(output).contentString should include(s""""redirect_url" : "/abc"""")
+    Await.result(output).cookies.get(SignedId.sessionIdCookieName) should be (None)
+  }
+
+  it should "succeed to logout the requests w/o sessionId w/ JSON response to loggedOut URL" in {
+    // Create request
+    val request = req("sky", "/logout", ("destination", "/abc"))
+    request.accept = Seq("application/json")
+
+    // Execute
+    val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen LogoutService(sessionStore))(
+      request)
+
+    // Validate
+    Await.result(output).status should be (Status.Ok)
+    Await.result(output).contentType.get should include("application/json")
+    Await.result(output).contentString should include(s""""redirect_url" : "http://www.example.com"""")
     Await.result(output).cookies.get(SignedId.sessionIdCookieName) should be (None)
   }
 }

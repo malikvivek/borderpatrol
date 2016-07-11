@@ -1,5 +1,7 @@
 package com.lookout.borderpatrol
 
+import java.net.URL
+
 import com.twitter.finagle.http.Request
 import com.twitter.finagle.http.path.Path
 
@@ -14,6 +16,7 @@ trait LoginManager {
   val tyfe: String
   val guid: String
   val loginConfirm: Path
+  val loggedOutUrl: Option[URL]
   val identityEndpoint: Endpoint
   val accessEndpoint: Endpoint
   def redirectLocation(req: Request, params: Tuple2[String, String]*): String

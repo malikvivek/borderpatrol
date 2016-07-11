@@ -362,12 +362,15 @@ case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreA
       log.debug(s"Logging out Session: ${sid.toLogIdString}")
       store.delete(sid)
     })
-    // Redirect to suggested url or the logged out path or default service
-    val location = Helpers.scrubQueryParams(req.req.params, "destination")
-      .fold(req.customerId.defaultServiceId.path.toString)(_.toString)
-
+    // Redirect to (1) the logged out url, (2) suggested url or (3) default service path, in that order
+    val location = (req.customerId.loginManager.loggedOutUrl,
+      Helpers.scrubQueryParams(req.req.params, "destination")) match {
+      case (Some(loc), _) => loc.toString
+      case (None, Some(loc)) => loc
+      case _ => req.customerId.defaultServiceId.path.toString
+    }
     BorderAuth.formatLogoutResponse(req.req, Status.Ok, location,
-      s"After logout, redirecting to: $location").toFuture
+      s"After logout, redirecting to: '$location'").toFuture
   }
 }
 
