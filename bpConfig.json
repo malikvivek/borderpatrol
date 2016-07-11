@@ -58,6 +58,7 @@
       "type": "tokenmaster.oauth2",
       "guid": "1111-1111-22222222",
       "loginConfirm": "/signin",
+      "loggedOutUrl": "http://www.example.com",
       "identityEndpoint": "tokenmaster-identity-example",
       "accessEndpoint": "tokenmaster-access-example",
       "authorizeEndpoint": "aad-authorize-example",

@@ -149,7 +149,7 @@ class ConfigSpec extends BorderPatrolSuite {
 
   it should "return a Set with errors if duplicates are configured in loginManagers config" in {
     val output = validateLoginManagerConfig("loginManagers", loginManagersk +
-      BasicLoginManager("checkpointLoginManager", "tokenmaster-basic", "some-guid", Path("/some"), Path("/some"),
+      BasicLoginManager("checkpointLoginManager", "tokenmaster-basic", "some-guid", Path("/some"), None, Path("/some"),
         tokenmasterIdEndpoint, tokenmasterAccessEndpoint))
     output should contain ("Duplicate entries for key (name) are found in the field: loginManagers")
   }
