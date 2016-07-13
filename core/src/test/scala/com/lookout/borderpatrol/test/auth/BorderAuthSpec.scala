@@ -401,6 +401,19 @@ class BorderAuthSpec extends BorderPatrolSuite {
     Await.result(output).status should be(Status.InternalServerError)
   }
 
+  it should "succeed and convert the BpForbiddenRequest exception into error Response" in {
+    val testService = Service.mk[Request, Response] { req =>
+      Future.exception(BpForbiddenRequest("Some identity provider error"))
+    }
+
+    // Execute
+    val output = (ExceptionFilter() andThen testService)(req("enterprise", "/ent"))
+
+    // Validate
+    Await.result(output).status should be(Status.Forbidden)
+    Await.result(output).contentString should be("Oops, something went wrong, please try your action again")
+  }
+
   it should "succeed and convert exception without a message into error Response" in {
     case class NoMessageException(error: String) extends Throwable
     val testService = Service.mk[Request, Response] { req =>

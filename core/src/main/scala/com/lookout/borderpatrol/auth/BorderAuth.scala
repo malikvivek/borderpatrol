@@ -500,6 +500,7 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
     case error: BpUserError => logAndResponse(req, error.getMessage, error.status, Level.INFO)
     case error: BpCommunicationError => logAndResponse(req, error.getMessage, error.status, Level.WARNING)
     case error: BpCoreError => logAndResponse(req, error.getMessage, error.status, Level.INFO)
+    case error: BpForbiddenRequest => logAndResponse(req, error.getMessage, Status.Forbidden, Level.INFO)
     case error: Throwable => logAndResponse(req, s"${error.getClass.getSimpleName}: ${error.getMessage}",
       Status.InternalServerError, Level.WARNING)
   }

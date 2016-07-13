@@ -630,8 +630,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
       val caught = the[BpForbiddenRequest] thrownBy {
         Await.result(output)
       }
-      caught.getMessage should include("Forbidden: Failed to permit access to the service: 'one'")
-      caught.status should be(Status.Forbidden)
+      caught.getMessage should include(s"Forbidden: Failed to permit access to the service: 'one'")
     } finally {
       server.close()
     }
