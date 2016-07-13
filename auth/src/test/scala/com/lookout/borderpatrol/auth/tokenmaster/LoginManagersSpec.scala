@@ -38,14 +38,14 @@ class LoginManagersSpec extends BorderPatrolSuite {
       umbrellaLoginManager.authorizeEndpoint.path.toString)
     location1 should include("response_type=code")
     location1 should include("state=foo")
-    location1 should include("prompt=login")
+    location1 should not include("prompt=")
     location1 should include("client_id=clientId")
     location1 should include("redirect_uri=https%3A%2F%2Fsky.example.com%2Fsignin")
     location2 should include("redirect_uri=http%3A%2F%2Fsky.example.com%2Fsignin")
     location2 should include("foo=bar")
     location2 should include("bar=baz")
     umbrellaLoginManager.redirectLocation(request3) should include("prompt=admin_consent")
-    umbrellaLoginManager.redirectLocation(request4) should include("prompt=login")
+    umbrellaLoginManager.redirectLocation(request4) should not include("prompt=")
   }
 
   it should "succeed to fetch oAuth2 token for code from server" in {

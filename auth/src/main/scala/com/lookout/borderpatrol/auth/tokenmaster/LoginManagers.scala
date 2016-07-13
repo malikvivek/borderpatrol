@@ -1,5 +1,7 @@
 package com.lookout.borderpatrol.auth.tokenmaster
 
+import java.net.URL
+
 import com.lookout.borderpatrol.auth.{BorderRequest, BpInvalidRequest, SessionIdRequest}
 import com.lookout.borderpatrol.sessionx.Session
 import com.lookout.borderpatrol.{Endpoint, LoginManager}
@@ -41,14 +43,15 @@ object LoginManagers {
 
     def redirectLocation(req: Request, params: Tuple2[String, String]*): String = {
       val hostStr = req.host.getOrElse(throw BpInvalidRequest(s"Host not found in HTTP $req"))
-      val prompt = req.params.get("action") match {
-        case Some(a) if a == "consent" => "admin_consent"
-        case _ => "login"
-      }
       val scheme = req.headerMap.getOrElse("X-Forwarded-Proto", "http")
+      val prompt = req.params.get("action") match {
+        case Some(a) if a == "consent" => Map("prompt" -> "admin_consent")
+        case _ => Map.empty[String, String]
+      }
       /* Send URL with query string */
-      val paramsMap = Map(("response_type", "code"), ("state", "foo"), ("prompt", prompt), ("client_id", clientId),
-        ("redirect_uri", s"$scheme://$hostStr$loginConfirm")) ++ params
+      val paramsMap = Map(("response_type", "code"), ("state", "foo"), ("client_id", clientId),
+        ("redirect_uri", s"$scheme://$hostStr$loginConfirm")) ++ params ++ prompt
+
       authorizeEndpoint.hosts.headOption.fold("")(_.toString) +
         Request.queryString(authorizeEndpoint.path.toString, paramsMap)
     }
@@ -66,7 +69,8 @@ object LoginManagers {
           .drop(1) /* Drop '?' */
       })
       log.debug(s"Sending: Request(GET ${tokenEndpoint.path}) to fetch tokens " +
-        s"with SessionId: ${req.sessionId.toLogIdString}" )
+        s"with SessionId: ${req.sessionId.toLogIdString}, " +
+        s"IPAddress: '${req.req.xForwardedFor.getOrElse("No IP Address")}'" )
       tokenEndpoint.send(request)
     }
   }
@@ -77,12 +81,13 @@ object LoginManagers {
    * @param name name of the login manager
    * @param guid
    * @param loginConfirm path owned by borderpatrol. The interal login form POSTs here
+   * @param loggedOutUrl destination after the logout
    * @param authorizePath path of the internal login form
    * @param identityEndpoint endpoint that does identity provisioning for the cloud
    * @param accessEndpoint endpoint that does access issuing for the cloud
    */
-  case class BasicLoginManager(name: String, tyfe: String, guid: String, loginConfirm: Path, authorizePath: Path,
-                               identityEndpoint: Endpoint, accessEndpoint: Endpoint)
+  case class BasicLoginManager(name: String, tyfe: String, guid: String, loginConfirm: Path, loggedOutUrl: Option[URL],
+                               authorizePath: Path, identityEndpoint: Endpoint, accessEndpoint: Endpoint)
       extends LoginManager with BasicAuthLoginManagerMixin
 
   /**
@@ -91,6 +96,7 @@ object LoginManagers {
    * @param name name of the login manager
    * @param guid
    * @param loginConfirm path owned by borderpatrol. The OAuth2 server posts the oAuth2 code on this path
+   * @param loggedOutUrl destination after the logout
    * @param identityEndpoint endpoint that does identity provisioning for the cloud
    * @param accessEndpoint endpoint that does access issuing for the cloud
    * @param authorizeEndpoint External endpoint of the OAuth2 service where client is redirected for authentication
@@ -99,9 +105,9 @@ object LoginManagers {
    * @param clientId Id used for communicating with OAuth2 server
    * @param clientSecret Secret used for communicating with OAuth2 server
    */
-  case class OAuth2LoginManager(name: String, tyfe: String, guid: String, loginConfirm: Path,
-                                identityEndpoint: Endpoint, accessEndpoint: Endpoint,
-                                authorizeEndpoint: Endpoint, tokenEndpoint: Endpoint, certificateEndpoint: Endpoint,
+  case class OAuth2LoginManager(name: String, tyfe: String, guid: String, loginConfirm: Path, loggedOutUrl: Option[URL],
+                                identityEndpoint: Endpoint, accessEndpoint: Endpoint, authorizeEndpoint: Endpoint,
+                                tokenEndpoint: Endpoint, certificateEndpoint: Endpoint,
                                 clientId: String, clientSecret: String)
       extends LoginManager with OAuth2LoginManagerMixin
 }

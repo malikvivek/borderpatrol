@@ -78,6 +78,7 @@ object ServerConfig {
       ("type", blm.tyfe.asJson),
       ("guid", blm.guid.asJson),
       ("loginConfirm", blm.loginConfirm.asJson),
+      ("loggedOutUrl", blm.loggedOutUrl.asJson),
       ("authorizePath", blm.authorizePath.asJson),
       ("identityEndpoint", blm.identityEndpoint.name.asJson),
       ("accessEndpoint", blm.accessEndpoint.name.asJson)
@@ -89,6 +90,7 @@ object ServerConfig {
       ("type", olm.tyfe.asJson),
       ("guid", olm.guid.asJson),
       ("loginConfirm", olm.loginConfirm.asJson),
+      ("loggedOutUrl", olm.loggedOutUrl.asJson),
       ("identityEndpoint", olm.identityEndpoint.name.asJson),
       ("accessEndpoint", olm.accessEndpoint.name.asJson),
       ("authorizeEndpoint", olm.authorizeEndpoint.name.asJson),
@@ -111,12 +113,13 @@ object ServerConfig {
       tyfe <- c.downField("type").as[String]
       guid <- c.downField("guid").as[String]
       loginConfirm <- c.downField("loginConfirm").as[Path]
+      loggedOutUrl <- c.downField("loggedOutUrl").as[Option[URL]]
       authorizePath <- c.downField("authorizePath").as[Path]
       ieName <- c.downField("identityEndpoint").as[String]
       ie <- Xor.fromOption(eps.get(ieName), DecodingFailure(s"identityEndpoint '$ieName' not found: ", c.history))
       aeName <- c.downField("accessEndpoint").as[String]
       ae <- Xor.fromOption(eps.get(aeName), DecodingFailure(s"accessEndpoint '$aeName' not found: ", c.history))
-    } yield BasicLoginManager(name, tyfe, guid, loginConfirm, authorizePath,
+    } yield BasicLoginManager(name, tyfe, guid, loginConfirm, loggedOutUrl, authorizePath,
       ie.toSimpleEndpoint, ae.toSimpleEndpoint)
   }
   def decodeOAuth2LoginManager(eps: Map[String, EndpointConfig]): Decoder[OAuth2LoginManager] = Decoder.instance { c =>
@@ -125,6 +128,7 @@ object ServerConfig {
       tyfe <- c.downField("type").as[String]
       guid <- c.downField("guid").as[String]
       loginConfirm <- c.downField("loginConfirm").as[Path]
+      loggedOutUrl <- c.downField("loggedOutUrl").as[Option[URL]]
       ieName <- c.downField("identityEndpoint").as[String]
       ie <- Xor.fromOption(eps.get(ieName), DecodingFailure(s"identityEndpoint '$ieName' not found: ", c.history))
       aeName <- c.downField("accessEndpoint").as[String]
@@ -138,7 +142,7 @@ object ServerConfig {
         DecodingFailure(s"certificateEndpoint '$ceName' not found: ", c.history))
       clientId <- c.downField("clientId").as[String]
       clientSecret <- c.downField("clientSecret").as[String]
-    } yield OAuth2LoginManager(name, tyfe, guid, loginConfirm,
+    } yield OAuth2LoginManager(name, tyfe, guid, loginConfirm, loggedOutUrl,
       ie.toSimpleEndpoint, ae.toSimpleEndpoint, au.toSimpleEndpoint, te.toSimpleEndpoint, ce.toSimpleEndpoint,
       clientId, clientSecret)
   }
