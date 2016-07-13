@@ -15,9 +15,14 @@ case class BpTokenParsingError(msg: String)
 case class BpCertificateError(msg: String)
   extends BpAuthError(s"Failed to process Certificate with: $msg}")
 
-case class BpIdentityProviderError(msg: String) extends BpAuthError(s"Failed in identity provisioning with: $msg}")
+case class BpIdentityProviderError(msg: String)
+  extends BpAuthError(s"Failed in identity provisioning with: $msg}")
 
-case class BpAccessIssuerError(msg: String) extends BpAuthError(s"Failed in access issuer with: $msg}")
+case class BpAccessIssuerError(msg: String)
+  extends BpAuthError(s"Failed in access issuer with: $msg}")
+
+case class BpForbiddenRequest(msg: String = "")
+  extends BpAuthError(s"${Status.Forbidden.reason}: $msg")
 
 /**
   * User initiated error(s) - encoutered during identity or access phase
@@ -32,9 +37,6 @@ case class BpTokenAccessError(msg: String)
 
 case class BpVerifyTokenError(msg: String)
   extends BpUserError(Status.BadRequest, s"Failed to verify the signature on the token: $msg}")
-
-case class BpForbiddenRequest(msg: String = "")
-  extends BpUserError(Status.Forbidden, s"${Status.Forbidden.reason}: $msg")
 
 case class BpUnauthorizedRequest(msg: String = "")
   extends BpUserError(Status.Unauthorized, s"${Status.Unauthorized.reason}: $msg")

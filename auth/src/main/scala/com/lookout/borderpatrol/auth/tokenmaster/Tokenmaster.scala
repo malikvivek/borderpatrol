@@ -160,7 +160,8 @@ object Tokenmaster {
         statSessionAuthenticated.incr
         BorderAuth.formatRedirectResponse(req.req, Status.Ok, originReq.uri, Some(session.id),
           s"SessionId: ${req.sessionId.toLogIdString}} is authenticated, " +
-            s"allocated new SessionId: ${session.id.toLogIdString} and redirecting to " +
+            s"allocated new SessionId: ${session.id.toLogIdString}, " +
+            s"IPAddress: ${req.req.xForwardedFor.getOrElse("No IP Address")} and redirecting to " +
             s"location: ${originReq.path}")
       })
         /** Capture User error here, log it and redirect user back to login page */
