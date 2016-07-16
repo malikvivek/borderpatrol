@@ -366,10 +366,9 @@ object Tokenmaster {
    * Tokenmaster Access Issuer service Chain
    */
   def tokenmasterAccessIssuerChain(store: SessionStore)
-                                (implicit secretStoreApi: SecretStoreApi,
-                                 statsReceiver: StatsReceiver): Service[BorderRequest, Response] =
-    RewriteFilter() andThen
-      IdentityFilter[Tokens](store) andThen
+                                  (implicit secretStoreApi: SecretStoreApi,
+                                   statsReceiver: StatsReceiver): Service[BorderRequest, Response] =
+    IdentityFilter[Tokens](store) andThen
       AccessFilter[Tokens, ServiceToken]() andThen
       TokenmasterAccessIssuer(store)
 }
