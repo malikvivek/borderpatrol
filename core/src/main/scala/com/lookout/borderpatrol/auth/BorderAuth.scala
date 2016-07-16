@@ -98,7 +98,24 @@ object BorderAuth {
           res.contentString = "Logged out successfully"
       }})
   }
+
+  /**
+    * This filter rewrites Request Path as per the ServiceIdentifier configuration
+    */
+  def rewriteRequest(req: Request, serviceId: ServiceIdentifier): Request =
+    serviceId.rewritePath.fold(req) { rwPath =>
+      tap(req) {r =>
+        /*
+         * After rewrite, we need to ensure that rewritten path is NOT empty (becuase Path.Root is represented by emtpy
+         * string. Thus, if the rewritten path is going to be Root (i.e. empty), then use "/" as the rwPath
+         */
+        r.uri = if (r.path.replaceFirst(serviceId.path.toString, rwPath.toString).isEmpty)
+          r.uri.replaceFirst(serviceId.path.toString, "/")
+        else r.uri.replaceFirst(serviceId.path.toString, rwPath.toString)
+      }
+    }
 }
+
 /**
  * Determines the service that the request is trying to contact
  * If the service doesn't exist, it returns a 404 Not Found response
@@ -199,12 +216,12 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
           } yield session.id
       }
     } yield {
-        statLoginRedirects.incr()
-        BorderAuth.formatRedirectResponse(req.req, Status.Unauthorized, location, Some(sessionId),
-          s"Redirecting the ${req.req} with Untagged SessionId: ${sessionId.toLogIdString}, " +
-            s"IPAddress: '${req.req.xForwardedFor.getOrElse("No IP Address")}', " +
-            s"to login service, location: ${location.split('?').headOption}")
-      }
+      statLoginRedirects.incr()
+      BorderAuth.formatRedirectResponse(req.req, Status.Unauthorized, location, Some(sessionId),
+        s"Redirecting the ${req.req} with Untagged SessionId: ${sessionId.toLogIdString}, " +
+          s"IPAddress: '${req.req.xForwardedFor.getOrElse("No IP Address")}', " +
+          s"to login service, location: ${location.split('?').headOption}")
+    }
   }
 
   def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] = {
@@ -312,17 +329,14 @@ case class SendToUnprotectedService(store: SessionStore)
     extends SimpleFilter[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val statRequestSends = statsReceiver.counter("req.unprotected.upstream.service.forwards")
-  private[this] val unprotectedServiceChain = RewriteFilter() andThen Service.mk[BorderRequest, Response] {
-    br => br.serviceId.endpoint.send(br.req)
-  }
 
   def sendToUnprotectedService(req: BorderRequest): Future[Response] = {
     statRequestSends.incr
     log.debug(s"Send: Request(${req.req.method} ${req.req.path}) with SessionId: ${req.sessionId.toLogIdString}, " +
       s"IPAddress: '${req.req.xForwardedFor.getOrElse("No IP Address")}', " +
       s"to the unprotected upstream service: ${req.serviceId.name}")
-    /* Route through a Rewrite filter */
-    unprotectedServiceChain(req)
+    /* Rewrite Path and send to upstream */
+    req.serviceId.endpoint.send(BorderAuth.rewriteRequest(req.req, req.serviceId))
   }
 
   def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] =
@@ -414,7 +428,6 @@ case class IdentityFilter[A : SessionDataEncoder](store: SessionStore)(
 
 /**
  * This filter acquires the access and then forwards the request to upstream service
- *
  */
 case class AccessFilter[A, B](implicit statsReceiver: StatsReceiver)
     extends Filter[AccessIdRequest[A], Response, AccessRequest[A], AccessResponse[B]] {
@@ -426,38 +439,16 @@ case class AccessFilter[A, B](implicit statsReceiver: StatsReceiver)
     for {
       accessResp <- accessService(AccessRequest(req.id, req.customerId, req.serviceId, req.sessionId))
       resp <- req.serviceId.endpoint.send(
-        tap(req.req) { r =>
+        /* Rewrite Path */
+        tap(BorderAuth.rewriteRequest(req.req, req.serviceId)) { r =>
           statRequestSends.incr
-          log.debug(s"Send: ${req.req} with SessionId: ${req.sessionId.toLogIdString}, " +
+          log.debug(s"Send: ${r} with SessionId: ${req.sessionId.toLogIdString}, " +
             s"IPAddress: '${req.req.xForwardedFor.getOrElse("No IP Address")}', " +
             s"to the protected upstream service: ${req.serviceId.name}")
           r.headerMap.add("Auth-Token", accessResp.access.access.toString)
         }
       )
     } yield resp
-  }
-}
-
-/**
- * This filter rewrites Request Path as per the ServiceIdentifier configuration
- */
-case class RewriteFilter() extends SimpleFilter[BorderRequest, Response] {
-  def rewrittenReq(req: BorderRequest): Request =
-    req.serviceId.rewritePath.fold(req.req) { rwPath =>
-      tap(req.req) {r =>
-        /*
-         * After rewrite, we need to ensure that rewritten path is NOT empty (becuase Path.Root is represented by emtpy
-         * string. Thus, if the rewritten path is going to be Root (i.e. empty), then use "/" as the rwPath
-         */
-        r.uri = if (r.path.replaceFirst(req.serviceId.path.toString, rwPath.toString).isEmpty)
-            r.uri.replaceFirst(req.serviceId.path.toString, "/")
-          else r.uri.replaceFirst(req.serviceId.path.toString, rwPath.toString)
-      }
-    }
-
-  def apply(req: BorderRequest,
-            service: Service[BorderRequest, Response]): Future[Response] = {
-    service(BorderRequest(rewrittenReq(req), req.customerId, req.serviceId, req.sessionId))
   }
 }
 
@@ -477,7 +468,7 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
   }
 
   private[this] def logAndResponse(req: Request, msg: String, status: Status, level: Level): Response = {
-    log.log(level, msg)
+    log.log(level, s"BP Exception: $msg")
     tap(Response(status))(res => {
       expectsJson(req) match {
         case true =>
