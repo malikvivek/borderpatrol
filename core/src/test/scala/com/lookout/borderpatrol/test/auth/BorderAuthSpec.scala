@@ -24,6 +24,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
       sessionMaybe <- sessionStore.get[Request](sid)
     } yield sessionMaybe.fold[Identity[Request]](EmptyIdentity)(s => Id(s.data))).map {
       case Id(req) => req
+      // scalastyle:off null
       case EmptyIdentity => null
     }
 
@@ -51,6 +52,33 @@ class BorderAuthSpec extends BorderPatrolSuite {
     override def getResult(keys: Iterable[String]): Future[GetResult] = {
       Future.exception(new Exception("oopsie"))
     }
+  }
+
+  behavior of "rewriteRequest"
+
+  it should "rewrite URLs in consistent form" in {
+    // Allocate and Session
+    val sessionId = sessionid.authenticated
+
+    // Create request
+    val s1 = ServiceIdentifier("two", urls, Path("/umb"), Some(Path("/broken/umb")), true)
+    val s2 = ServiceIdentifier("two", urls, Path("/umb"), Some(Path("/")), true)
+    val s3 = ServiceIdentifier("two", urls, Path("/umb"), Some(Path("")), true)
+    val s4 = ServiceIdentifier("two", urls, Path("/umb"), None, true)
+    val br1 = BorderRequest(req("umbrella", "/umb/some/weird/path"), cust2, s1, sessionId)
+    val br2 = BorderRequest(req("umbrella", "/umb/some/weird/path"), cust2, s2, sessionId)
+    val br3 = BorderRequest(req("umbrella", "/umb/some/weird/path"), cust2, s3, sessionId)
+    val br31 = BorderRequest(req("umbrella", "/umb/"), cust2, s3, sessionId)
+    val br32 = BorderRequest(req("umbrella", "/umb"), cust2, s3, sessionId)
+    val br4 = BorderRequest(req("umbrella", "/umb/some/weird/path"), cust2, s4, sessionId)
+
+    // Execute
+    BorderAuth.rewriteRequest(br1.req, br1.serviceId).path should be("/broken/umb/some/weird/path")
+    BorderAuth.rewriteRequest(br2.req, br2.serviceId).path should be("/some/weird/path")
+    BorderAuth.rewriteRequest(br3.req, br3.serviceId).path should be("/some/weird/path")
+    BorderAuth.rewriteRequest(br31.req, br31.serviceId).path should be("/")
+    BorderAuth.rewriteRequest(br32.req, br32.serviceId).path should be("/")
+    BorderAuth.rewriteRequest(br4.req, br4.serviceId).path should be("/umb/some/weird/path")
   }
 
   behavior of "CustomerIdFilter"
@@ -401,6 +429,19 @@ class BorderAuthSpec extends BorderPatrolSuite {
     Await.result(output).status should be(Status.InternalServerError)
   }
 
+  it should "succeed and convert the BpForbiddenRequest exception into error Response" in {
+    val testService = Service.mk[Request, Response] { req =>
+      Future.exception(BpForbiddenRequest("Some identity provider error"))
+    }
+
+    // Execute
+    val output = (ExceptionFilter() andThen testService)(req("enterprise", "/ent"))
+
+    // Validate
+    Await.result(output).status should be(Status.Forbidden)
+    Await.result(output).contentString should be("Oops, something went wrong, please try your action again")
+  }
+
   it should "succeed and convert exception without a message into error Response" in {
     case class NoMessageException(error: String) extends Throwable
     val testService = Service.mk[Request, Response] { req =>
@@ -716,7 +757,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   behavior of "SendToAccessIssuer"
 
-  it should "send the request to AccessIssuer chain if session is authenticated and trying to reach a valid service" in {
+  it should "send the request to AccessIssuer chain if session is authenticated and service is valid" in {
     val testService = Service.mk[SessionIdRequest, Response] { _ => fail("Must not invoke this service")}
 
     //  Allocate and Session
@@ -952,79 +993,6 @@ class BorderAuthSpec extends BorderPatrolSuite {
     } finally {
       server.close()
     }
-  }
-
-  behavior of "RewriteFilter"
-
-  it should "succeed and include service token in the request and invoke the REST API of upstream service" in {
-    val testService = Service.mk[BorderRequest, Response] {
-      req => {
-        // Verify path is unchanged in the request
-        assert(req.req.uri.startsWith(one.path.toString))
-        Response(Status.Ok).toFuture
-      }
-    }
-
-    // Allocate and Session
-    val sessionId = sessionid.authenticated
-
-    // Create request
-    val request = req("enterprise", "/ent/whatever")
-
-    // Execute
-    val output = (RewriteFilter() andThen testService)(
-      BorderRequest(request, cust1, one, sessionId))
-
-    // Validate
-    Await.result(output).status should be (Status.Ok)
-  }
-
-  it should "succeed and include service token in the request and invoke rewritten URL on upstream service" in {
-    val testService = Service.mk[BorderRequest, Response] {
-      req => {
-        // Verify path is rewritten in the request
-        assert(req.req.uri.startsWith(two.rewritePath.get.toString))
-        Response(Status.Ok).toFuture
-      }
-    }
-
-    // Allocate and Session
-    val sessionId = sessionid.authenticated
-
-    // Create request
-    val request = req("umbrella", "/umb/some/weird/path")
-
-    // Execute
-    val output = (RewriteFilter() andThen testService)(
-      BorderRequest(request, cust2, two, sessionId))
-
-    // Validate
-    Await.result(output).status should be (Status.Ok)
-  }
-
-  it should "rewrite URLs in consistent form" in {
-    // Allocate and Session
-    val sessionId = sessionid.authenticated
-
-    // Create request
-    val s1 = ServiceIdentifier("two", urls, Path("/umb"), Some(Path("/broken/umb")), true)
-    val s2 = ServiceIdentifier("two", urls, Path("/umb"), Some(Path("/")), true)
-    val s3 = ServiceIdentifier("two", urls, Path("/umb"), Some(Path("")), true)
-    val s4 = ServiceIdentifier("two", urls, Path("/umb"), None, true)
-    val br1 = BorderRequest(req("umbrella", "/umb/some/weird/path"), cust2, s1, sessionId)
-    val br2 = BorderRequest(req("umbrella", "/umb/some/weird/path"), cust2, s2, sessionId)
-    val br3 = BorderRequest(req("umbrella", "/umb/some/weird/path"), cust2, s3, sessionId)
-    val br31 = BorderRequest(req("umbrella", "/umb/"), cust2, s3, sessionId)
-    val br32 = BorderRequest(req("umbrella", "/umb"), cust2, s3, sessionId)
-    val br4 = BorderRequest(req("umbrella", "/umb/some/weird/path"), cust2, s4, sessionId)
-
-    // Execute
-    RewriteFilter().rewrittenReq(br1).path should be("/broken/umb/some/weird/path")
-    RewriteFilter().rewrittenReq(br2).path should be("/some/weird/path")
-    RewriteFilter().rewrittenReq(br3).path should be("/some/weird/path")
-    RewriteFilter().rewrittenReq(br31).path should be("/")
-    RewriteFilter().rewrittenReq(br32).path should be("/")
-    RewriteFilter().rewrittenReq(br4).path should be("/umb/some/weird/path")
   }
 
   behavior of "LogoutService"
