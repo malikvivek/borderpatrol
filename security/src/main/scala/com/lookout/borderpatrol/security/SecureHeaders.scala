@@ -19,7 +19,7 @@ object SecureHeaders {
   val XXSSProtection = ("X-XSS-Protection", "1; mode=block")
   val XContentTypeOptions = ("X-ContentType-Options", "nosniff")
   val XDownloadOptions = ("X-Download-Options", "noopen")
-  val XPermittedCrossDomainPolicies = ("X-Permitted-Cross-Domain-Policies", "none")
+  var XPermittedCrossDomainPolicies = ("X-Permitted-Cross-Domain-Policies", "none")
 
   val response = HeaderMap(StrictTransportSecurity, XFrameOptions, XXSSProtection,
                            XContentTypeOptions, XDownloadOptions, XPermittedCrossDomainPolicies)

@@ -14,6 +14,7 @@ import com.twitter.logging.Logger
 import com.twitter.util.Duration
 import io.circe.{Encoder, _}
 import io.circe.syntax._
+import com.google.common.net.InternetDomainName
 
 
 /**
@@ -199,4 +200,22 @@ object Config {
     cond(cids.size > cids.map(cid => cid.subdomain).size,
       s"Duplicate entries for key (subdomain) are found in the field: ${field}")
   }
+
+  /**
+    * Validate domain name(s) specified for some field
+    *
+    * @param field - used for error reporting
+    * @param domainNames - set of names that are to be used as domains
+    * @return set of all errors encountered during validation
+    */
+  def validateDomainNames(field: String, domainNames: List[String]): Set[String] = {
+    // Find if endpoints have duplicate entries
+    ((cond(domainNames.distinct.size != domainNames.size,
+      s"Duplicate entries for key (domain name) are found in the field: ${field}")) ++
+
+    domainNames.filter(domainName => !InternetDomainName.isValid(domainName)) collect { case k =>
+      s"Invalid domain entry ${k} for field ${field}"})
+
+  }
+
 }

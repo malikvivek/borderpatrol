@@ -186,4 +186,10 @@ class ConfigSpec extends BorderPatrolSuite {
     validateHostsConfig("some", "failed4", Set()) should contain (
       "hosts configuration for failed4 in some: has unsupported protocol")
   }
+
+  it should "validate domain names" in {
+    val domainNames = List("www.bluelotussoftware.com", "bluelotussoftware.com", "bluelotussoftware", "256.0.0.0")
+
+    validateDomainNames("whitelistDomains", domainNames).toString().contains("256") should be (true)
+  }
 }

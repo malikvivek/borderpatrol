@@ -16,7 +16,6 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import scala.io.Source
 
-
 case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String)
 
 
@@ -34,6 +33,7 @@ object EndpointConfig {
  * Server Config
  */
 case class ServerConfig(listeningPort: Int,
+                        whitelistedDomains: List[String],
                         secretStore: SecretStoreApi,
                         sessionStore: SessionStore,
                         statsdExporterConfig: StatsdExporterConfig,
@@ -166,6 +166,7 @@ object ServerConfig {
   implicit val serverConfigDecoder: Decoder[ServerConfig] = Decoder.instance { c =>
     for {
       listeningPort <- c.downField("listeningPort").as[Int]
+      whitelistedDomains <- c.downField("whiteListedDomains").as[List[String]]
       secretStore <- c.downField("secretStore").as[SecretStoreApi]
       sessionStore <- c.downField("sessionStore").as[SessionStore]
       statsdExporterConfig <- c.downField("statsdReporter").as[StatsdExporterConfig]
@@ -184,7 +185,7 @@ object ServerConfig {
           if (healthCheckEndpointOpts.contains(None)) None else Some(healthCheckEndpointOpts.flatten)
         },
         DecodingFailure(s"Failed to decode endpoint(s) in the healthCheckEndpoints: ", c.history))
-    } yield ServerConfig(listeningPort, secretStore, sessionStore, statsdExporterConfig,
+    } yield ServerConfig(listeningPort, whitelistedDomains, secretStore, sessionStore, statsdExporterConfig,
       healthCheckEndpointConfigs, cids, sids, lms, eps)
   }
 
@@ -226,7 +227,10 @@ object ServerConfig {
       validateServiceIdentifierConfig("serviceIdentifiers", serverConfig.serviceIdentifiers) ++
 
       //  Validate customerIdentifiers config
-      validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers))
+      validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers) ++
+
+      // Validate domain names config
+      validateDomainNames("whitelistedDomains", serverConfig.whitelistedDomains))
   }
 
   /**
