@@ -154,6 +154,7 @@ object ServerConfig {
   implicit val serverConfigEncoder: Encoder[ServerConfig] = Encoder.instance { serverConfig =>
     Json.fromFields(Seq(
       ("listeningPort", serverConfig.listeningPort.asJson),
+      ("allowedDomains", serverConfig.allowedDomains.asJson),
       ("secretStore", serverConfig.secretStore.asJson),
       ("sessionStore", serverConfig.sessionStore.asJson),
       ("statsdReporter", serverConfig.statsdExporterConfig.asJson),
@@ -167,7 +168,7 @@ object ServerConfig {
   implicit val serverConfigDecoder: Decoder[ServerConfig] = Decoder.instance { c =>
     for {
       listeningPort <- c.downField("listeningPort").as[Int]
-      allowedDomains <- c.downField("whiteListedDomains").as[Set[InternetDomainName]]
+      allowedDomains <- c.downField("allowedDomains").as[Set[InternetDomainName]]
       secretStore <- c.downField("secretStore").as[SecretStoreApi]
       sessionStore <- c.downField("sessionStore").as[SessionStore]
       statsdExporterConfig <- c.downField("statsdReporter").as[StatsdExporterConfig]
