@@ -21,10 +21,10 @@ object HostHeaderFilter {
   case class HostChecker(validHosts: Set[String]) extends SimpleFilter[Request, Response] {
 
     private[this] def checkHostEntry(request: Request): Request = {
-      val host = request.host
-      if (host.isDefined) {
+      if (!validHosts.isEmpty && request.host.isDefined) {
+        val host = request.host
         if (!validHosts(host.get))
-        throw new BpUserError(Status.NotFound, s"Host Header: '${host.get}' not found")
+          throw new BpUserError(Status.NotFound, s"Host Header: '${host.get}' not found")
       }
       request
     }
