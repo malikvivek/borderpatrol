@@ -20,19 +20,17 @@ object HostHeaderFilter {
     */
   case class HostChecker(validHosts: Set[String]) extends SimpleFilter[Request, Response] {
 
-    private def checkHostEntry(request: Request): Request =
-      tap(request) { re =>
-        re.host match {
-          case Some(s) if !s.isEmpty => if (!validHosts(s))
-            throw new BpUserError(Status.NotFound, s"Host Header: $s not found")
-          case _ => (re)
-        }
+    private[this] def checkHostEntry(request: Request): Request = {
+      val host = request.host
+      if (host.isDefined) {
+        if (!validHosts(host.get))
+        throw new BpUserError(Status.NotFound, s"Host Header: '${host.get}' not found")
+      }
+      request
     }
 
-
     /**
-      * Requests get X-Forwarded-For and other request headers added before passing to the service
-      * Responses get response headers added before returning to the client
+      * Requests get forwarded to service only for host entries that have been assigned to this filter
       */
     def apply(req: Request, service: Service[Request, Response]): Future[Response] =
       for {

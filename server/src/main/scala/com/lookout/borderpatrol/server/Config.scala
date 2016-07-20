@@ -204,5 +204,5 @@ object Config {
     cond(cids.size > cids.map(cid => cid.subdomain).size,
       s"Duplicate entries for key (subdomain) are found in the field: ${field}")
   }
-  
+
 }
