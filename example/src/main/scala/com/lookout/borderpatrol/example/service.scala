@@ -86,6 +86,7 @@ object service {
       /** Logout */
       case "/logout" =>
         ExceptionFilter() andThen /* Convert exceptions to responses */
+          HostChecker(validHosts) /* Check hosts here as well - in future different host values could be used here */
           CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
           LogoutService(config.sessionStore)
 
