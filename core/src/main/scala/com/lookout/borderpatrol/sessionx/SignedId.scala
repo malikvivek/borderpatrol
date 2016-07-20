@@ -173,23 +173,16 @@ object SignedId {
       case _ => Failure(new BpSignedIdError("Not a session string"))
     }
 
-    implicit def seq2SignedId(bytes: IndexedSeq[Byte])(implicit store: SecretStoreApi): Try[SignedId] = for {
+    def str2seq(s: String): Try[IndexedSeq[Byte]] =
+      Try(Base64StringEncoder.decode(s))
+        .transform(i => Success(i.toIndexedSeq), f => Failure(new BpSignedIdError(f.toString)))
+
+    def str2SignedId(s: String)(implicit store: SecretStoreApi): Try[SignedId] = for {
+      bytes <- str2seq(s)
       (pyld, tbs, ent, secretId, tagId, sig) <- bytes2Tuple(bytes)
       time <- bytes2Time(tbs)
       secret <- bytes2Secret(secretId)
       _ <- validate(time, sig, secret.sign(pyld))
     } yield new SignedId(time, ent, secret, Tag(tagId), sig)
-
-    implicit def str2arr(s: String): Array[Byte] =
-      Base64StringEncoder.decode(s)
-
-    def arr2seq(bytes: Array[Byte]): IndexedSeq[Byte] =
-      bytes.toIndexedSeq
-
-    implicit def str2seq(s: String): IndexedSeq[Byte] =
-      arr2seq(str2arr(s))
-
-    implicit def str2SignedId(s: String)(implicit store: SecretStoreApi): Try[SignedId] =
-      seq2SignedId(str2seq(s))
   }
 }

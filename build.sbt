@@ -1,7 +1,7 @@
 import sbtunidoc.Plugin.UnidocKeys._
 import scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages
 
-lazy val Version = "0.2.21-SNAPSHOT"
+lazy val Version = "0.2.23-SNAPSHOT"
 
 lazy val buildSettings = Seq(
   organization := "com.lookout",
@@ -25,9 +25,9 @@ lazy val compilerOptions = Seq(
   "-Xlint"
 )
 
-lazy val finagleVersion = "6.35.0"
+lazy val finagleVersion = "6.36.0"
 lazy val circeVersion = "0.4.0"
-lazy val twitterServerVersion = "1.20.0"
+lazy val twitterServerVersion = "1.21.0"
 lazy val nimbusVersion = "4.7"
 
 val testDependencies = Seq(
@@ -39,6 +39,7 @@ val testDependencies = Seq(
 val baseSettings = Seq(
   resolvers += "twitter-repo" at "http://maven.twttr.com",
   libraryDependencies ++= Seq(
+    "com.twitter" %% "finagle-core" % finagleVersion,
     "com.twitter" %% "finagle-http" % finagleVersion,
     "com.twitter" %% "finagle-memcached" % finagleVersion,
     "org.scala-lang" % "scala-reflect" % scalaVersion.value,

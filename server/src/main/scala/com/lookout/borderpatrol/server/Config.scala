@@ -9,7 +9,9 @@ import com.lookout.borderpatrol.sessionx._
 import com.twitter.finagle.Memcached
 import com.twitter.finagle.http.path.Path
 import cats.data.Xor
+import com.twitter.finagle.service.FailureAccrualFactory
 import com.twitter.logging.Logger
+import com.twitter.util.Duration
 import io.circe.{Encoder, _}
 import io.circe.syntax._
 
@@ -40,8 +42,12 @@ object Config {
   implicit val decodeSessionStore: Decoder[SessionStore] = Decoder.instance { c =>
     c.downField("type").as[String].flatMap {
       case "InMemoryStore" => Xor.right(defaultSessionStore)
-      case "MemcachedStore"   => c.downField("hosts").as[String].map(hosts =>
-        SessionStores.MemcachedStore(Memcached.client.newRichClient(s"memcached=${hosts}")))
+      case "MemcachedStore"   =>
+        c.downField("hosts").as[String].map(hosts => SessionStores.MemcachedStore(
+          Memcached.client
+            .configured(FailureAccrualFactory.Param(1, () => Duration.fromSeconds(60)))
+            .configured(Memcached.param.EjectFailedHost(true))
+            .newRichClient(s"memcached=${hosts}")))
       case other  => Xor.left(DecodingFailure(s"Invalid sessionStore: $other", c.history))
     }
   }
