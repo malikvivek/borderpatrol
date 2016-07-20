@@ -26,6 +26,7 @@ package com.lookout.borderpatrol.example
 import java.net.URL
 
 import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.{OAuth2LoginManager, BasicLoginManager}
+import com.lookout.borderpatrol.security.HostHeaderFilter.HostChecker
 import com.lookout.borderpatrol.{HealthCheckRegistry, ServiceMatcher}
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.auth.tokenmaster.Tokenmaster._
@@ -76,6 +77,7 @@ object service {
                        secretStore: SecretStoreApi): Service[Request, Response] = {
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
     val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
+    val validHosts = config.allowedDomains.map( k => k.toString)
 
     RoutingService.byPath {
       case "/health" =>
@@ -90,6 +92,8 @@ object service {
       case _ =>
         /* Convert exceptions to responses */
         ExceptionFilter() andThen
+          /* Validate host if present to be present in pre-configured list*/
+          HostChecker(validHosts) andThen
           /* Validate that its our service */
           CustomerIdFilter(serviceMatcher) andThen
           /* Get or allocate Session/SignedId */

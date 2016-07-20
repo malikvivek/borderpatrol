@@ -118,6 +118,10 @@ object Config {
       } yield CustomerIdentifier(subdomain, guid, sid, lm)
     }
 
+  // Encoder/Decoder for InternetDomainName
+  implicit val encodeInternetDomainName: Encoder[InternetDomainName] = Encoder[String].contramap(_.toString)
+  implicit val decodeInternetDomainName: Decoder[InternetDomainName] = Decoder[String].map(InternetDomainName.from(_))
+
   /**
    * Validate Hosts (i.e. Set of URLs) configuration
    *
@@ -200,22 +204,5 @@ object Config {
     cond(cids.size > cids.map(cid => cid.subdomain).size,
       s"Duplicate entries for key (subdomain) are found in the field: ${field}")
   }
-
-  /**
-    * Validate domain name(s) specified for some field
-    *
-    * @param field - used for error reporting
-    * @param domainNames - set of names that are to be used as domains
-    * @return set of all errors encountered during validation
-    */
-  def validateDomainNames(field: String, domainNames: List[String]): Set[String] = {
-    // Find if endpoints have duplicate entries
-    ((cond(domainNames.distinct.size != domainNames.size,
-      s"Duplicate entries for key (domain name) are found in the field: ${field}")) ++
-
-    domainNames.filter(domainName => !InternetDomainName.isValid(domainName)) collect { case k =>
-      s"Invalid domain entry ${k} for field ${field}"})
-
-  }
-
+  
 }

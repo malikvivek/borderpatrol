@@ -2,6 +2,7 @@ package com.lookout.borderpatrol.server
 
 import java.net.URL
 
+import com.google.common.net.InternetDomainName
 import com.lookout.borderpatrol.auth.tokenmaster._
 import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers._
 import com.lookout.borderpatrol.sessionx.SecretStores.ConsulSecretStore
@@ -187,9 +188,12 @@ class ConfigSpec extends BorderPatrolSuite {
       "hosts configuration for failed4 in some: has unsupported protocol")
   }
 
-  it should "validate domain names" in {
-    val domainNames = List("www.bluelotussoftware.com", "bluelotussoftware.com", "bluelotussoftware", "256.0.0.0")
+  it should "uphold encode decode InternetDomainName to string" in {
+    val lookout = InternetDomainName.from("source.corp.lookout.com")
+    decodeInternetDomainName.decodeJson(lookout.asJson).toOption.get should be (lookout)
 
-    validateDomainNames("whitelistDomains", domainNames).toString().contains("256") should be (true)
+    val yahoo = InternetDomainName.from("yahoo.com")
+    encodeInternetDomainName(yahoo) eq("yahoo.com")
   }
+
 }

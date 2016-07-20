@@ -2,6 +2,7 @@ package com.lookout.borderpatrol.example
 
 import java.net.URL
 
+import com.google.common.net.InternetDomainName
 import com.lookout.borderpatrol._
 import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.{BasicLoginManager, OAuth2LoginManager}
 import com.lookout.borderpatrol.server._
@@ -33,7 +34,7 @@ object EndpointConfig {
  * Server Config
  */
 case class ServerConfig(listeningPort: Int,
-                        whitelistedDomains: List[String],
+                        allowedDomains: Set[InternetDomainName],
                         secretStore: SecretStoreApi,
                         sessionStore: SessionStore,
                         statsdExporterConfig: StatsdExporterConfig,
@@ -166,7 +167,7 @@ object ServerConfig {
   implicit val serverConfigDecoder: Decoder[ServerConfig] = Decoder.instance { c =>
     for {
       listeningPort <- c.downField("listeningPort").as[Int]
-      whitelistedDomains <- c.downField("whiteListedDomains").as[List[String]]
+      allowedDomains <- c.downField("whiteListedDomains").as[Set[InternetDomainName]]
       secretStore <- c.downField("secretStore").as[SecretStoreApi]
       sessionStore <- c.downField("sessionStore").as[SessionStore]
       statsdExporterConfig <- c.downField("statsdReporter").as[StatsdExporterConfig]
@@ -185,7 +186,7 @@ object ServerConfig {
           if (healthCheckEndpointOpts.contains(None)) None else Some(healthCheckEndpointOpts.flatten)
         },
         DecodingFailure(s"Failed to decode endpoint(s) in the healthCheckEndpoints: ", c.history))
-    } yield ServerConfig(listeningPort, whitelistedDomains, secretStore, sessionStore, statsdExporterConfig,
+    } yield ServerConfig(listeningPort, allowedDomains, secretStore, sessionStore, statsdExporterConfig,
       healthCheckEndpointConfigs, cids, sids, lms, eps)
   }
 
@@ -227,10 +228,7 @@ object ServerConfig {
       validateServiceIdentifierConfig("serviceIdentifiers", serverConfig.serviceIdentifiers) ++
 
       //  Validate customerIdentifiers config
-      validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers) ++
-
-      // Validate domain names config
-      validateDomainNames("whitelistedDomains", serverConfig.whitelistedDomains))
+      validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers))
   }
 
   /**
