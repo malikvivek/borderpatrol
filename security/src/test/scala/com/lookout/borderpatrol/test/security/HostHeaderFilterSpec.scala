@@ -1,8 +1,9 @@
 package com.lookout.borderpatrol.test.security
 
-import com.lookout.borderpatrol.auth.BpUserError
+import com.google.common.net.InternetDomainName
+import com.lookout.borderpatrol.BpNotFoundRequest
 import com.lookout.borderpatrol.test._
-import com.lookout.borderpatrol.security.HostHeaderFilter.HostChecker
+import com.lookout.borderpatrol.security.HostHeaderFilter
 import com.twitter.finagle.http.{Status, Request}
 import com.twitter.util.Await
 
@@ -12,8 +13,9 @@ import com.twitter.util.Await
 class HostHeaderFilterSpec extends BorderPatrolSuite {
 
   behavior of "HostHeaderFilter"
-  val validHosts = Set("example.com","aad.example.com", "getouttahere.com")
-  val checker = HostChecker(validHosts)
+  val validHostsString = Set("example.com","aad.example.com", "getouttahere.com")
+  val validHosts = validHostsString map { host => InternetDomainName.from(host)}
+  val checker = HostHeaderFilter(validHosts)
   val service = testService(r => true)
 
   it should "allow empty domain request to pass through" in {
@@ -24,7 +26,7 @@ class HostHeaderFilterSpec extends BorderPatrolSuite {
 
   it should "allow valid host entry request to pass through" in {
     val request = Request("/")
-    request.host = validHosts.head
+    request.host = validHosts.head.toString
     val response = checker.apply(request, service)
     Await.result(response).status should be (Status.Ok)
   }
@@ -32,8 +34,11 @@ class HostHeaderFilterSpec extends BorderPatrolSuite {
   it should "throw 404 error on unknown host entry" in {
     val request = Request("/")
     request.host = "dummy.com"
-    val caught = the[BpUserError] thrownBy { checker.apply(request, service) }
+    val caught = the[BpNotFoundRequest] thrownBy { checker.apply(request, service) }
     caught.status should be (Status.NotFound)
   }
 
+  it should "throw IllegalArgumentException when creating instance with empty host set" in {
+    a[IllegalArgumentException] should be thrownBy { HostHeaderFilter(Set()) }
+  }
 }

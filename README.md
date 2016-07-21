@@ -24,6 +24,7 @@ Border Patrol Concepts
  * The identity endpoint, access endpoint, subdomains and default service forms the policy, which is defined using
 `LoginManager`.
  * When a HTTP request with URL `<http[s]>://<subdomain>:[port]/<path-prefix>` hits BorderPatrol:
+   * It can check whether or not a host specified is supported by this instance of BorderPatrol.
    * It looks up the CustomerIdentifier using subdomain prefix. It returns 404, if no match is found.
    * It looks up the ServiceIdentifier using path prefix. In the absence of any path (i.e. Root), the request is
 redirected to the default service.
@@ -154,6 +155,12 @@ this service
    * `prefix`: Prefix attached to each reported stat
  * `listeningPort`: Border Patrol listens to new requests on this port.
  * `healthCheckEndpoints`: A set of endpoints that impact the Border Patrol Health Status
+ * `allowedDomains`: Border Patrol checks whether incoming request has a host header value (*IF* present) 
+that is present in this set.
+
+     ```json
+     "allowedDomains" : [ "my.localhost", "localhost.com", "yet.another.domain.com"]
+     ```
 
 Modules
 -------
