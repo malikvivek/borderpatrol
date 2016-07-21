@@ -77,7 +77,6 @@ object service {
                        secretStore: SecretStoreApi): Service[Request, Response] = {
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
     val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
-    val validHosts = config.allowedDomains
 
     RoutingService.byPath {
       case "/health" =>
@@ -87,7 +86,7 @@ object service {
       case "/logout" =>
         ExceptionFilter() andThen /* Convert exceptions to responses */
           /* Check hosts here as well - in future different host values could be used here */
-          HostHeaderFilter(validHosts) andThen
+          HostHeaderFilter(config.allowedDomains) andThen
           CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
           LogoutService(config.sessionStore)
 
@@ -95,7 +94,7 @@ object service {
         /* Convert exceptions to responses */
         ExceptionFilter() andThen
           /* Validate host if present to be present in pre-configured list*/
-          HostHeaderFilter(validHosts) andThen
+          HostHeaderFilter(config.allowedDomains) andThen
           /* Validate that its our service */
           CustomerIdFilter(serviceMatcher) andThen
           /* Get or allocate Session/SignedId */

@@ -68,6 +68,10 @@ in the HTTP response.
    * For authenticate user, the Session contains Master Token and one or more Service Token(s)
  * Secret Store:
    * A store is used to cache secret used to sign the session id(s)
+ * Host Checker:
+   * A filter that blocks any request with a host entry, **if present** that is not present in the `allowedDomains` entry.
+This filter is applied by default and the config will throw an exception if there is *no entry/0* entries for this field.
+The code should be updated if you don't intend on using it.
 
 Configuration
 -------------
@@ -155,7 +159,7 @@ this service
    * `prefix`: Prefix attached to each reported stat
  * `listeningPort`: Border Patrol listens to new requests on this port.
  * `healthCheckEndpoints`: A set of endpoints that impact the Border Patrol Health Status
- * `allowedDomains`: Border Patrol checks whether incoming request has a host header value (*IF* present) 
+ * `allowedDomains`: Border Patrol checks whether incoming request has a host header value **If present** 
 that is present in this set.
 
      ```json

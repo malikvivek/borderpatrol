@@ -189,6 +189,9 @@ class ConfigSpec extends BorderPatrolSuite {
   }
 
   it should "uphold encode decode InternetDomainName to string" in {
+    def decodedInternetDomainNameJson(internetDomainName: InternetDomainName): Option[InternetDomainName] =
+      decodeInternetDomainName.decodeJson(internetDomainName.asJson).toOption
+
     val wiki = InternetDomainName.from("source.corp.wiki.com")
     decodedInternetDomainNameJson(wiki).get should be (wiki)
 
@@ -198,9 +201,5 @@ class ConfigSpec extends BorderPatrolSuite {
     a[IllegalArgumentException]should be thrownBy {
       decodeInternetDomainName.decodeJson(500.toString.asJson)
     }
-  }
-
-  private def decodedInternetDomainNameJson(internetDomainName: InternetDomainName): Option[InternetDomainName] = {
-    decodeInternetDomainName.decodeJson(internetDomainName.asJson).toOption
   }
 }

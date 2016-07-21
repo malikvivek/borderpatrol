@@ -16,12 +16,10 @@ import com.twitter.util.Future
   */
 case class HostHeaderFilter(validHosts: Set[InternetDomainName]) extends SimpleFilter[Request, Response] {
 
-  if (validHosts.size == 0) {
-    throw new IllegalArgumentException("hosts set - to check cannot be empty.")
-  }
+  lazy val validHostStrings = validHosts.map( validHost => validHost.toString )
 
   private[this] def checkHostEntry(request: Request): Unit = {
-    request.host.foreach( host => if (!validHosts.map( validHost => validHost.toString ).contains(host))
+    request.host.foreach( host => if (!validHostStrings.contains(host))
       throw new BpNotFoundRequest(s"Host Header: '${host}' not found")
     )
   }

@@ -38,7 +38,4 @@ class HostHeaderFilterSpec extends BorderPatrolSuite {
     caught.status should be (Status.NotFound)
   }
 
-  it should "throw IllegalArgumentException when creating instance with empty host set" in {
-    a[IllegalArgumentException] should be thrownBy { HostHeaderFilter(Set()) }
-  }
 }

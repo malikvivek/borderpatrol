@@ -208,6 +208,16 @@ object ServerConfig {
   }
 
   /**
+    * Validate allowedDomains set to ensure that it is not empty
+    *
+    * @param field
+    * @param domainsSet
+    * @return error that the set is empty if domainsSet is empty
+    */
+  def validateAllowedDomains(field: String, domainsSet: Set[InternetDomainName]): Set[String] = {
+    cond(domainsSet.isEmpty, s"Cannot have empty set for field: '${field}'")
+  }
+  /**
    * Validates the BorderPatrol Configuration
    * - for duplicates
    * - invalid host configurations
@@ -229,7 +239,10 @@ object ServerConfig {
       validateServiceIdentifierConfig("serviceIdentifiers", serverConfig.serviceIdentifiers) ++
 
       //  Validate customerIdentifiers config
-      validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers))
+      validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers) ++
+
+      // Validate allowedDomains set
+      validateAllowedDomains("allowedDomains", serverConfig.allowedDomains))
   }
 
   /**
