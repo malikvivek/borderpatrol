@@ -26,6 +26,7 @@ package com.lookout.borderpatrol.example
 import java.net.URL
 
 import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.{OAuth2LoginManager, BasicLoginManager}
+import com.lookout.borderpatrol.security.HostHeaderFilter
 import com.lookout.borderpatrol.{HealthCheckRegistry, ServiceMatcher}
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.auth.tokenmaster.Tokenmaster._
@@ -84,12 +85,16 @@ object service {
       /** Logout */
       case "/logout" =>
         ExceptionFilter() andThen /* Convert exceptions to responses */
+          /* Check hosts here as well - in future different host values could be used here */
+          HostHeaderFilter(config.allowedDomains) andThen
           CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
           LogoutService(config.sessionStore)
 
       case _ =>
         /* Convert exceptions to responses */
         ExceptionFilter() andThen
+          /* Validate host if present to be present in pre-configured list*/
+          HostHeaderFilter(config.allowedDomains) andThen
           /* Validate that its our service */
           CustomerIdFilter(serviceMatcher) andThen
           /* Get or allocate Session/SignedId */

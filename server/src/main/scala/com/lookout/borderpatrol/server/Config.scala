@@ -14,6 +14,7 @@ import com.twitter.logging.Logger
 import com.twitter.util.Duration
 import io.circe.{Encoder, _}
 import io.circe.syntax._
+import com.google.common.net.InternetDomainName
 
 
 /**
@@ -117,6 +118,10 @@ object Config {
       } yield CustomerIdentifier(subdomain, guid, sid, lm)
     }
 
+  // Encoder/Decoder for InternetDomainName
+  implicit val encodeInternetDomainName: Encoder[InternetDomainName] = Encoder[String].contramap(_.toString)
+  implicit val decodeInternetDomainName: Decoder[InternetDomainName] = Decoder[String].map(InternetDomainName.from(_))
+
   /**
    * Validate Hosts (i.e. Set of URLs) configuration
    *
@@ -199,4 +204,5 @@ object Config {
     cond(cids.size > cids.map(cid => cid.subdomain).size,
       s"Duplicate entries for key (subdomain) are found in the field: ${field}")
   }
+
 }
