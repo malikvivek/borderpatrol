@@ -194,11 +194,12 @@ class ConfigSpec extends BorderPatrolSuite {
     decodedInternetDomainNameJson(wiki).get should be (wiki)
 
     val yahoo = InternetDomainName.from("yahoo.com")
-    encodeInternetDomainName(yahoo) should equal (decodedInternetDomainNameJson(yahoo).asJson)
+    encodeInternetDomainName(yahoo).toString() should be (decodedInternetDomainNameJson(yahoo).asJson.toString())
 
-    a[IllegalArgumentException]should be thrownBy {
+    a[IllegalArgumentException] should be thrownBy {
       decodeInternetDomainName.decodeJson(500.toString.asJson)
     }
+
   }
 
   def decodedInternetDomainNameJson(internetDomainName: InternetDomainName): Option[InternetDomainName] = {
