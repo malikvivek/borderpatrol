@@ -19,9 +19,28 @@ case class HostHeaderFilter(validHosts: Set[InternetDomainName]) extends SimpleF
   lazy val validHostStrings = validHosts.map( validHost => validHost.toString )
 
   private[this] def checkHostEntry(request: Request): Unit = {
-    request.host.foreach( host => if (!validHostStrings.contains(host))
-      throw new BpNotFoundRequest(s"Host Header: '${host}' not found")
+    request.host.foreach( host => {
+      val hostNameOnly = filterPort(host).trim
+      if (hostNameOnly.length > 0 && !validHostStrings.contains(hostNameOnly)) {
+        throw new BpNotFoundRequest(s"Host Header: '${hostNameOnly}' not found")
+      }
+    }
     )
+  }
+
+  /**
+    * Strip out the port portion including the semicolon from the provided
+    * host entry.
+    * @param host string to strip port from
+    * @return empty or stripped port string
+    */
+  def filterPort(host: String): String = {
+    if (host.contains(":") && host.indexOf(":") != 0)
+      host.substring(0, host.indexOf(":"))
+    else if (!host.contains(":"))
+      host
+    else /* the entry contains a ':' at the beginning of the string */
+      ""
   }
 
   /**

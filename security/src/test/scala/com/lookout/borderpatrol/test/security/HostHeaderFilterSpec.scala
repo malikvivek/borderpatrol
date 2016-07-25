@@ -38,4 +38,12 @@ class HostHeaderFilterSpec extends BorderPatrolSuite {
     caught.status should be (Status.NotFound)
   }
 
+  it should "return filter out port entries when present" in {
+    val someHostNames = Seq("hello.com", "yahoo.com:8080", ":dummy", " ", "localhost:8080")
+    val filteredNames: Seq[String] = someHostNames.map( s => checker.filterPort(s))
+    filteredNames.contains(":dummy") should be (false)
+    filteredNames.contains("hello.com") should be (true)
+    filteredNames.contains("localhost") should be (true)
+    filteredNames.contains("yahoo.com") should be (true)
+  }
 }
