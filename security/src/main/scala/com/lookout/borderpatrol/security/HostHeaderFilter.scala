@@ -2,9 +2,11 @@ package com.lookout.borderpatrol.security
 
 import com.google.common.net.InternetDomainName
 import com.lookout.borderpatrol.BpNotFoundRequest
+import com.twitter.finagle.util.InetSocketAddressUtil
 import com.twitter.finagle.{Service, SimpleFilter}
 import com.twitter.finagle.http.{Response, Request}
 import com.twitter.util.Future
+import scala.util.{Try,Success,Failure}
 
 /**
   * Created by rikesh.chouhan on 7/18/16.
@@ -18,29 +20,28 @@ case class HostHeaderFilter(validHosts: Set[InternetDomainName]) extends SimpleF
 
   lazy val validHostStrings = validHosts.map( validHost => validHost.toString )
 
-  private[this] def checkHostEntry(request: Request): Unit = {
-    request.host.foreach( host => {
-      val hostNameOnly = filterPort(host).trim
-      if (hostNameOnly.length > 0 && !validHostStrings.contains(hostNameOnly)) {
-        throw new BpNotFoundRequest(s"Host Header: '${hostNameOnly}' not found")
-      }
-    }
-    )
-  }
-
   /**
     * Strip out the port portion including the semicolon from the provided
     * host entry.
-    * @param host string to strip port from
-    * @return empty or stripped port string
+    *
+    * @param host
+    * @return
     */
-  def filterPort(host: String): String = {
-    if (host.contains(":") && host.indexOf(":") != 0)
-      host.substring(0, host.indexOf(":"))
-    else if (!host.contains(":"))
-      host
-    else /* the entry contains a ':' at the beginning of the string */
-      ""
+  private[security] def extractHostName(host: String): Option[String] = {
+    Try (InetSocketAddressUtil.parseHostPorts(host).seq.head._1) match {
+      case Success(hostOnly) => Some(hostOnly)
+      case Failure(f) => Some(host)
+    }
+  }
+
+  private[security] def checkHostEntry(request: Request): Unit = {
+    request.host.foreach( host => {
+      extractHostName(host) match {
+        case Some(hostName) if (!validHostStrings(hostName)) =>
+          throw new BpNotFoundRequest(s"Host Header: '${hostName}' not found")
+        case _ => ()
+      }
+    })
   }
 
   /**

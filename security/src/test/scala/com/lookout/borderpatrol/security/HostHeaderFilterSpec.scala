@@ -1,10 +1,9 @@
-package com.lookout.borderpatrol.test.security
+package com.lookout.borderpatrol.security
 
 import com.google.common.net.InternetDomainName
 import com.lookout.borderpatrol.BpNotFoundRequest
 import com.lookout.borderpatrol.test._
-import com.lookout.borderpatrol.security.HostHeaderFilter
-import com.twitter.finagle.http.{Status, Request}
+import com.twitter.finagle.http.{Request, Status}
 import com.twitter.util.Await
 
 /**
@@ -38,12 +37,22 @@ class HostHeaderFilterSpec extends BorderPatrolSuite {
     caught.status should be (Status.NotFound)
   }
 
-  it should "return filter out port entries when present" in {
-    val someHostNames = Seq("hello.com", "yahoo.com:8080", ":dummy", " ", "localhost:8080")
-    val filteredNames: Seq[String] = someHostNames.map( s => checker.filterPort(s))
-    filteredNames.contains(":dummy") should be (false)
+  it should "attempt to extract just the hostname from entries which can have port " +
+    "and just return entry if there is no port" in {
+    val someHostNames = Seq("hello.com", "yahoo.com:8080", "123456", ":dummy", " ", "localhost:8080")
+    val filteredNames: Seq[String] = someHostNames.map( s => checker.extractHostName(s).getOrElse(""))
+    filteredNames.contains(":dummy") should be (true)
     filteredNames.contains("hello.com") should be (true)
     filteredNames.contains("localhost") should be (true)
     filteredNames.contains("yahoo.com") should be (true)
+    filteredNames.contains("123456") should be (true)
   }
+
+  it should "allow a valid host name with port entry to pass through" in {
+    val request = Request("/")
+    request.host = validHosts.last.toString+":9000"
+    val response = checker.apply(request, service)
+    Await.result(response).status should be (Status.Ok)
+  }
+
 }
