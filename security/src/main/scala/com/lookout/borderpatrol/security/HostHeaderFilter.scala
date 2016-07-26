@@ -2,9 +2,11 @@ package com.lookout.borderpatrol.security
 
 import com.google.common.net.InternetDomainName
 import com.lookout.borderpatrol.BpNotFoundRequest
+import com.twitter.finagle.util.InetSocketAddressUtil
 import com.twitter.finagle.{Service, SimpleFilter}
 import com.twitter.finagle.http.{Response, Request}
 import com.twitter.util.Future
+import scala.util.{Try,Success,Failure}
 
 /**
   * Created by rikesh.chouhan on 7/18/16.
@@ -18,10 +20,23 @@ case class HostHeaderFilter(validHosts: Set[InternetDomainName]) extends SimpleF
 
   lazy val validHostStrings = validHosts.map( validHost => validHost.toString )
 
-  private[this] def checkHostEntry(request: Request): Unit = {
-    request.host.foreach( host => if (!validHostStrings.contains(host))
-      throw new BpNotFoundRequest(s"Host Header: '${host}' not found")
-    )
+  /**
+    * Strip out the port portion including the semicolon from the provided
+    * host entry.
+    *
+    * @param host
+    * @return
+    */
+  private[security] def extractHostName(host: String): String = {
+    Try (InetSocketAddressUtil.parseHostPorts(host).head._1).getOrElse(host)
+  }
+
+  private[security] def checkHostEntry(request: Request): Unit = {
+    request.host.foreach( host => {
+      val hostName = extractHostName(host)
+      if (!validHostStrings(hostName))
+        throw new BpNotFoundRequest(s"Host Header: '${hostName}' not found")
+    })
   }
 
   /**

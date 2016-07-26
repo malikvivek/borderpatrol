@@ -161,10 +161,15 @@ this service
  * `listeningPort`: Border Patrol listens to new requests on this port.
  * `healthCheckEndpoints`: A set of endpoints that impact the Border Patrol Health Status
  * `allowedDomains`: Border Patrol checks whether incoming request has a host header value present
-in this set.
+in this set. 
 
      ```json
-     "allowedDomains" : [ "my.localhost", "localhost.com", "yet.another.domain.com"]
+     "allowedDomains" : [ "api.localhost", "ent.localhost"],
+     ```
+    * If the domain name is "example.com"
+    
+    ```json
+     "allowedDomains" : [ "api.example.com", "ent.example.com"],
      ```
 
 Modules

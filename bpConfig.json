@@ -5,7 +5,7 @@
      "durationInSec": 60,
      "prefix": "bp"
   },
-  "allowedDomains": ["localhost", "my.localhost"],
+  "allowedDomains": ["api.localhost", "ent.localhost"],
   "sessionStore": {
     "type": "InMemoryStore"
   },
