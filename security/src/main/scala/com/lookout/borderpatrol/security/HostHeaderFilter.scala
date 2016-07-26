@@ -27,20 +27,15 @@ case class HostHeaderFilter(validHosts: Set[InternetDomainName]) extends SimpleF
     * @param host
     * @return
     */
-  private[security] def extractHostName(host: String): Option[String] = {
-    Try (InetSocketAddressUtil.parseHostPorts(host).seq.head._1) match {
-      case Success(hostOnly) => Some(hostOnly)
-      case Failure(f) => Some(host)
-    }
+  private[security] def extractHostName(host: String): String = {
+    Try (InetSocketAddressUtil.parseHostPorts(host).head._1).getOrElse(host)
   }
 
   private[security] def checkHostEntry(request: Request): Unit = {
     request.host.foreach( host => {
-      extractHostName(host) match {
-        case Some(hostName) if (!validHostStrings(hostName)) =>
-          throw new BpNotFoundRequest(s"Host Header: '${hostName}' not found")
-        case _ => ()
-      }
+      val hostName = extractHostName(host)
+      if (!validHostStrings(hostName))
+        throw new BpNotFoundRequest(s"Host Header: '${hostName}' not found")
     })
   }
 
