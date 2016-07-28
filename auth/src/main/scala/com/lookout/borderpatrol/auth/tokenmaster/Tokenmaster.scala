@@ -145,7 +145,7 @@ object Tokenmaster {
     def requestFromSessionStore(sessionId: SignedId): Future[Request] =
       store.get[Request](sessionId).flatMap {
         case Some(session) => Future.value(session.data)
-        case None => Future.exception(BpOriginalRequestNotFound(s"no request stored for ${sessionId.toLogIdString}"))
+        case None => Future.exception(BpOriginalRequestNotFound(s"SessionId: ${sessionId.toLogIdString}"))
       }
 
     def apply(req: BorderRequest,

@@ -1,13 +1,14 @@
 package com.lookout.borderpatrol.sessionx
 
-import com.lookout.borderpatrol.{HealthCheckStatus, HealthCheck}
+import com.lookout.borderpatrol.{HealthCheck, HealthCheckStatus}
 import com.twitter.finagle.http.Status
 import com.twitter.io.Buf
-import com.twitter.util.{Time, Future}
+import com.twitter.util.{Future, Time}
 import com.twitter.finagle.memcached
+import com.twitter.logging.Logger
 
 import scala.collection.mutable
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success}
 
 
 /**
@@ -24,6 +25,7 @@ trait SessionStore {
  * [[com.twitter.finagle.memcached memcached]] and an in-memory store for mocking
  */
 object SessionStores {
+  private[this] val log = Logger.get(getClass.getPackage.getName)
 
   /**
    * Memcached backend to [[com.lookout.borderpatrol.sessionx.SessionStore SessionStore]]
@@ -34,6 +36,7 @@ object SessionStores {
    *   requestSession.onSuccess(s => log(s"Success! you were going to ${s.data.uri}"))
    *                 .onFailure(log)
    * }}}
+   *
    * @param store finagle [[com.twitter.finagle.memcached.BaseClient memcached.BaseClient]] memcached backend
    */
   case class MemcachedStore(store: memcached.BaseClient[Buf])
@@ -47,17 +50,21 @@ object SessionStores {
      * @param key lookup key
      * @param ev evidence for converting the Buf to the type of A
      * @tparam A [[Session.data]] type that must have a view from `Buf %> Option[A]`
-     *
      * @return
      */
     def get[A](key: SignedId)(implicit ev: SessionDataEncoder[A]): Future[Option[Session[A]]] =
-      store.get(key.asBase64).flatMap(_ match {
-        case None => Future.value(None)
-        case Some(buf) => ev.decode(buf) match {
-          case Failure(e) => e.toFutureException[Option[Session[A]]]
-          case Success(data) => Some(Session(key, data)).toFuture
-        }
-      })
+      store.get(key.asBase64).flatMap {
+        case None =>
+          log.info(s"Failed to find the Session data for SessionId: ${key.toLogIdString}")
+          Future.value(None)
+        case Some(buf) =>
+          ev.decode(buf) match {
+            case Failure(e) =>
+              log.info(s"Failed to decode the Session data for SessionId: ${key.toLogIdString}")
+              e.toFutureException[Option[Session[A]]]
+            case Success(data) => Some(Session(key, data)).toFuture
+          }
+      }
 
     /**
      * Stores a [[com.lookout.borderpatrol.sessionx.Session Session]]. On failure returns a
@@ -66,7 +73,6 @@ object SessionStores {
      * @param session
      * @param ev evidence for the conversion to `Buf`
      * @tparam A [[Session.data]] type that must have a view from `A %> Buf`
-     *
      * @return a [[com.twitter.util.Future Future]]
      */
     def update[A](session: Session[A])(implicit ev: SessionDataEncoder[A]): Future[Unit] =
