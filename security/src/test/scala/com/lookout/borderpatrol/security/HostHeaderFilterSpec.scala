@@ -1,12 +1,9 @@
 package com.lookout.borderpatrol.security
 
 import com.google.common.net.InternetDomainName
-import com.lookout.borderpatrol.BpNotFoundRequest
 import com.lookout.borderpatrol.test._
-import com.twitter.finagle
 import com.twitter.finagle.http.{Request, Status}
 import com.twitter.finagle.util.InetSocketAddressUtil
-import com.twitter.finagle.util.InetSocketAddressUtil.HostPort
 import com.twitter.util.Await
 
 import scala.util.{Failure, Success, Try}
@@ -22,10 +19,10 @@ class HostHeaderFilterSpec extends BorderPatrolSuite {
   val checker = HostHeaderFilter(validHosts)
   val service = testService(r => true)
 
-  it should "allow empty domain request to pass through" in {
+  it must "not allow empty domain request to pass through" in {
     val request = Request("/")
     val response = checker.apply(request, service)
-    Await.result(response).status should be (Status.Ok)
+    Await.result(response).status should be (Status.BadRequest)
   }
 
   it should "allow valid host entry request to pass through" in {
@@ -38,8 +35,7 @@ class HostHeaderFilterSpec extends BorderPatrolSuite {
   it should "throw 404 error on unknown host entry" in {
     val request = Request("/")
     request.host = "dummy.com"
-    val caught = the[BpNotFoundRequest] thrownBy { checker.apply(request, service) }
-    caught.status should be (Status.NotFound)
+    Await.result(checker.apply(request, service)).status should be (Status.BadRequest)
   }
 
   it should "attempt to extract just the hostname from entries which can have port " +
