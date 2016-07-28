@@ -78,10 +78,10 @@ object service {
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
     val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
     val serviceChainFront: Filter[Request, Response, Request, Response] =
+    /* Validate host if present to be present in pre-configured list*/
+      HostHeaderFilter(config.allowedDomains) andThen
       /* Convert exceptions to responses */
-      ExceptionFilter() andThen
-        /* Validate host if present to be present in pre-configured list*/
-        HostHeaderFilter(config.allowedDomains)
+      ExceptionFilter()
 
     RoutingService.byPath {
       case "/health" =>
