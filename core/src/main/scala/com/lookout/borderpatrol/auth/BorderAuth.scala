@@ -54,7 +54,7 @@ object BorderAuth {
 
   /* Convert a redirect into a response palatable to the client */
   def formatRedirectResponse(req: Request, status: Status, location: String, sessionIdOpt: Option[SignedId],
-                             msg: String): Response = {
+                             msg: String, msgSrc: String = "borderpatrol"): Response = {
     log.info(msg)
     tap(Response())(res => {
       sessionIdOpt.foreach(sessionId => res.addCookie(sessionId.asCookie()))
@@ -62,7 +62,7 @@ object BorderAuth {
         case true =>
           res.status = status
           res.contentString = Json.fromFields(Seq(
-            ("msg_source", "borderpatrol".asJson),
+            ("msg_source", msgSrc.asJson),
             ("redirect_url", location.asJson))).toString()
           res.setContentTypeJson()
         case _ =>

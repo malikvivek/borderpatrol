@@ -24,8 +24,7 @@
 package com.lookout.borderpatrol.example
 
 import java.net.URL
-
-import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.{OAuth2LoginManager, BasicLoginManager}
+import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.{BasicLoginManager, OAuth2LoginManager}
 import com.lookout.borderpatrol.security.HostHeaderFilter
 import com.lookout.borderpatrol.{HealthCheckRegistry, ServiceMatcher}
 import com.lookout.borderpatrol.auth._
@@ -40,8 +39,9 @@ import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.io.Buf
 import com.twitter.finagle.http.{Method, Request, Response, Status}
 import com.twitter.finagle.http.service.RoutingService
-import com.twitter.finagle.Service
+import com.twitter.finagle.{Filter, Service}
 import com.twitter.util.Future
+import io.circe._
 import scala.util.{Failure, Success, Try}
 
 
@@ -77,24 +77,25 @@ object service {
                        secretStore: SecretStoreApi): Service[Request, Response] = {
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
     val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
+    val serviceChainFront: Filter[Request, Response, Request, Response] =
+      /* Convert exceptions to responses */
+      ExceptionFilter() andThen
+        /* Validate host if present to be present in pre-configured list*/
+        HostHeaderFilter(config.allowedDomains)
 
     RoutingService.byPath {
       case "/health" =>
-        HealthCheckService(registry, BpBuild.BuildInfo.version)
+        serviceChainFront andThen
+          HealthCheckService(registry, BpBuild.BuildInfo.version)
 
       /** Logout */
       case "/logout" =>
-        ExceptionFilter() andThen /* Convert exceptions to responses */
-          /* Check hosts here as well - in future different host values could be used here */
-          HostHeaderFilter(config.allowedDomains) andThen
+        serviceChainFront andThen
           CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
           LogoutService(config.sessionStore)
 
       case _ =>
-        /* Convert exceptions to responses */
-        ExceptionFilter() andThen
-          /* Validate host if present to be present in pre-configured list*/
-          HostHeaderFilter(config.allowedDomains) andThen
+        serviceChainFront andThen
           /* Validate that its our service */
           CustomerIdFilter(serviceMatcher) andThen
           /* Get or allocate Session/SignedId */
@@ -112,36 +113,63 @@ object service {
 
   //  Mock Tokenmaster identityEndpoint
   val mockTokenmasterIdentityService = new Service[Request, Response] {
-
+    val tokens = Tokens(MasterToken("masterT"), ServiceTokens())
     val userMap: Map[String, String] = Map(
       ("test1@example.com" -> "password1")
     )
 
+    case class IdentityProviderPod(email: String, password: String)
+    implicit val idpPodDecoder: Decoder[IdentityProviderPod] = Decoder.instance {c =>
+      for {
+        email <- c.downField("email").as[String]
+        password <- c.downField("password").as[String]
+      } yield IdentityProviderPod(email, password)
+    }
+
+    def decode(req: Request): Option[IdentityProviderPod] = {
+      req.contentType match {
+        case Some(c) if c.contains("application/json") =>
+          jawn.decode[IdentityProviderPod](req.contentString).toOption
+        case _ => (req.params.get("email"), req.params.get("password")) match {
+          case (Some(e), Some(p)) => Some(IdentityProviderPod(e, p))
+          case _ => None
+        }
+      }
+    }
+
     def apply(request: Request): Future[Response] = {
-      val tokens = Tokens(MasterToken("masterT"), ServiceTokens())
-      (for {
-        email <- request.getParam("email").toFuture
-        pass <- request.getParam("password").toFuture
-        if userMap(email) == (pass)
-      } yield tap(Response(Status.Ok))(res => {
+      decode(request).fold(Response(Status.Unauthorized))(_ =>
+        tap(Response(Status.Ok))(res => {
           res.contentString = TokensEncoder(tokens).toString()
           res.contentType = "application/json"
-        })) handle {
-        case ex => Response(Status.Unauthorized)
-      }
+        })
+      ).toFuture
     }
   }
 
   //  Mock Tokenmaster AccessIssuer
   val mockTokenmasterAccessIssuerService = new Service[Request, Response] {
+    case class AccessIssuerPod(s: String)
+    implicit val accessIssuerPodDecoder: Decoder[AccessIssuerPod] = Decoder.instance { c =>
+      c.downField("services").as[String].map(AccessIssuerPod(_)) }
+
+    def decode(req: Request): Option[AccessIssuerPod] = {
+      req.contentType match {
+        case Some(c) if c.contains("application/json") =>
+          jawn.decode[AccessIssuerPod](req.contentString).toOption
+        case _ => req.params.get("services").map(AccessIssuerPod(_))
+      }
+    }
+
     def apply(request: Request): Future[Response] = {
-      val serviceName = request.getParam("services")
-      val tokens = Tokens(MasterToken("masterT"), ServiceTokens().add(
-        serviceName, ServiceToken(s"SomeServiceData:${serviceName}")))
-      tap(Response(Status.Ok))(res => {
-        res.contentString = TokensEncoder(tokens).toString()
-        res.contentType = "application/json"
-      }).toFuture
+      decode(request).fold(Response(Status.Unauthorized)) { pod =>
+        val tokens = Tokens(MasterToken("masterT"), ServiceTokens().add(
+          pod.s, ServiceToken(s"SomeServiceData:${pod.s}")))
+        tap(Response(Status.Ok))(res => {
+          res.contentString = TokensEncoder(tokens).toString()
+          res.contentType = "application/json"
+        })
+      }.toFuture
     }
   }
 
@@ -230,11 +258,11 @@ object service {
         case path if path.startsWith(internalLm.authorizePath) => mockLoginService(internalLm.loginConfirm)
 
         /** *FIXME: Mocking external AAD authentication */
-        case path if path.startsWith(externalLm.authorizeEndpoint.path) => mockLoginService(externalPostPath)
-        case externalPostPath =>
-          mockAadAuthenticateService(new URL(s"http://api.localhost:8080${externalLm.loginConfirm}"))
-        case path if path.startsWith(externalLm.tokenEndpoint.path) => mockAadTokenService
-        case path if path.startsWith(externalLm.certificateEndpoint.path) => mockAadTokenService
+        //case path if path.startsWith(externalLm.authorizeEndpoint.path) => mockLoginService(externalPostPath)
+        //case path if path.equals(externalPostPath) =>
+        //  mockAadAuthenticateService(new URL(s"http://api.localhost:8080${externalLm.loginConfirm}"))
+        //case path if path.startsWith(externalLm.tokenEndpoint.path) => mockAadTokenService
+        //case path if path.startsWith(externalLm.certificateEndpoint.path) => mockAadCertificateService
 
         /** Upstream */
         case _ => mockUpstreamService
