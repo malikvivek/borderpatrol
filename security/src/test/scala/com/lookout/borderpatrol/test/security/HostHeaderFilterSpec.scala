@@ -1,12 +1,11 @@
-package com.lookout.borderpatrol.security
+package com.lookout.borderpatrol.test.security
 
 import com.google.common.net.InternetDomainName
+import com.lookout.borderpatrol.security.HostHeaderFilter
 import com.lookout.borderpatrol.test._
 import com.twitter.finagle.http.{Request, Status}
 import com.twitter.finagle.util.InetSocketAddressUtil
 import com.twitter.util.Await
-
-import scala.util.{Failure, Success, Try}
 
 /**
   * Created by rikesh.chouhan on 7/19/16.
