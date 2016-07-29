@@ -155,7 +155,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     Await.result(tokensz) should be(tokens)
   }
 
-  it should "throw BpOriginalRequestNotFound and redirect to login on failure to lookup req from sessionStore" in {
+  it should "redirect to default service on failure to lookup original req from sessionStore" in {
     val testService = Service.mk[BorderRequest, IdentifyResponse[Tokens]] {
       req => Future(TokenmasterIdentifyRes(tokens)) }
 
@@ -171,7 +171,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
 
     // Validate
     Await.result(output).status should be(Status.Found)
-    Await.result(output).location.get should include("errorCode=400")
+    Await.result(output).location.get should include("/ent")
   }
 
   it should "throw Exception if Session lookup operation throws an exception" in {

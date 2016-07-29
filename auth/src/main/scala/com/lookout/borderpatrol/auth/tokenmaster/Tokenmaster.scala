@@ -139,16 +139,20 @@ object Tokenmaster {
     extends Filter[BorderRequest, Response, BorderRequest, IdentifyResponse[Tokens]] {
     private[this] val statSessionAuthenticated = statsReceiver.counter("tokenmaster.idp.authenticated")
     private[this] val statSessionNotFound = statsReceiver.counter("tokenmaster.idp.session.data.notfound")
+    private[this] val log = Logger.get(getClass.getPackage.getName)
 
     /**
      * Grab the original request from the session store, otherwise just send them to the default location of '/'
      */
-    def requestFromSessionStore(sessionId: SignedId): Future[Request] =
-      store.get[Request](sessionId).flatMap {
+    def requestFromSessionStore(req: BorderRequest): Future[Request] =
+      store.get[Request](req.sessionId).flatMap {
         case Some(session) => Future.value(session.data)
         case None =>
           statSessionNotFound.incr()
-          Future.exception(BpOriginalRequestNotFound(s"SessionId: ${sessionId.toLogIdString}"))
+          /** On failure to find the original request, redirect back to default service */
+          log.info(s"Failed to find original request for SessionId: ${req.sessionId.toLogIdString}, " +
+            s"making up Request pointing to default service")
+          Request(req.customerId.defaultServiceId.path.toString).toFuture
       }
 
     def apply(req: BorderRequest,
@@ -157,7 +161,7 @@ object Tokenmaster {
         tokenResponse <- service(req)
         session <- Session(tokenResponse.identity.id, AuthenticatedTag)
         _ <- store.update[Tokens](session)
-        originReq <- requestFromSessionStore(req.sessionId)
+        originReq <- requestFromSessionStore(req)
         _ <- store.delete(req.sessionId)
       } yield {
         statSessionAuthenticated.incr
