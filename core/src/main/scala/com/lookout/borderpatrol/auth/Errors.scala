@@ -44,6 +44,3 @@ case class BpUnauthorizedRequest(msg: String = "")
 case class BpInvalidRequest(msg: String = "")
   extends BpUserError(Status.BadRequest, s"${Status.BadRequest.reason}: $msg")
 
-case class BpOriginalRequestNotFound(msg: String)
-  extends BpUserError(Status.BadRequest ,s"Failed to lookup request from the session store: $msg")
-

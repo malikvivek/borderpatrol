@@ -4,9 +4,11 @@ import com.google.common.net.InternetDomainName
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.twitter.finagle.util.InetSocketAddressUtil
 import com.twitter.finagle.{Service, SimpleFilter}
-import com.twitter.finagle.http.{Status, Response, Request}
-import com.twitter.logging.{Level, Logger}
+import com.twitter.finagle.http.{Request, Response, Status}
+import com.twitter.finagle.stats.StatsReceiver
+import com.twitter.logging.Logger
 import com.twitter.util.Future
+
 import scala.util.Try
 
 /**
@@ -17,39 +19,14 @@ import scala.util.Try
   *
   * @param validHosts
   */
-case class HostHeaderFilter(validHosts: Set[InternetDomainName]) extends SimpleFilter[Request, Response] {
-
-  lazy val validHostStrings = validHosts.map( validHost => validHost.toString )
+case class HostHeaderFilter(validHosts: Set[InternetDomainName])(implicit statsReceiver: StatsReceiver)
+    extends SimpleFilter[Request, Response] {
+  lazy val validHostStrings = validHosts.map(_.toString)
   private[this] val log = Logger.get(getClass.getPackage.getName)
+  private[this] val statInvalidHost = statsReceiver.counter("req.host.validation.failed")
 
-  /**
-    * Attempt to return the hostname by stripping out the port portion including
-    * the semicolon from the provided host entry.
-    *
-    * @param host
-    * @return
-    */
-  private[security] def extractHostName(host: String): String = {
-    Try (InetSocketAddressUtil.parseHostPorts(host).head._1).getOrElse(host)
-  }
-
-  /**
-    * Requests get forwarded to service only for host entries that have been assigned to this filter
-    */
-  def apply(request: Request, service: Service[Request, Response]): Future[Response] = {
-    request.host.map( extractHostName(_)) match {
-      case None =>
-        log.log(Level.WARNING, "Host Header: is empty")
-        cannedResponse
-      case Some(hostName) if (!validHostStrings(hostName)) =>
-        log.log(Level.WARNING, s"Host Header: '${hostName}' not found")
-        cannedResponse
-      case _ => service(request)
-    }
-  }
-
-  private[this] def cannedResponse(): Future[Response] = {
-    Future.value(tap(Response(Status.BadRequest))(res => {
+  private[this] val cannedResponse: Response = {
+    tap(Response(Status.BadRequest))(res => {
       res.contentString =
         """<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN""http://www.w3.org/TR/html4/strict.dtd">
           |<HTML><HEAD><TITLE>Bad Request</TITLE>
@@ -59,6 +36,27 @@ case class HostHeaderFilter(validHosts: Set[InternetDomainName]) extends SimpleF
           |</BODY></HTML>
           |* Closing connect""".stripMargin
       res.contentType = "text/html; charset=us-ascii"
-    }))
+    })
+  }
+
+  /**
+    * Attempt to return the hostname by stripping out the port portion including
+    * the semicolon from the provided host entry.
+    *
+    * @param host
+    * @return
+    */
+  def extractHostName(host: String): String = {
+    Try (InetSocketAddressUtil.parseHostPorts(host).head._1).getOrElse(host)
+  }
+
+  /**
+    * Requests get forwarded to service only for host entries that have been assigned to this filter
+    */
+  def apply(request: Request, service: Service[Request, Response]): Future[Response] = {
+    request.host.map(extractHostName(_)) match {
+      case Some(hostName) if validHostStrings.contains(hostName) => service(request)
+      case _ => statInvalidHost.incr(); Future.value(cannedResponse)
+    }
   }
 }
