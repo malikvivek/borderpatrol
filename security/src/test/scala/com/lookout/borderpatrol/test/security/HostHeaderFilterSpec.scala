@@ -11,8 +11,10 @@ import com.twitter.util.Await
   * Created by rikesh.chouhan on 7/19/16.
   */
 class HostHeaderFilterSpec extends BorderPatrolSuite {
+  import coreTestHelpers._
 
   behavior of "HostHeaderFilter"
+
   val validHostsString = Set("example.com","aad.example.com", "getouttahere.com")
   val validHosts = validHostsString map { host => InternetDomainName.from(host)}
   val checker = HostHeaderFilter(validHosts)

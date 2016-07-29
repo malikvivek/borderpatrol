@@ -4,9 +4,11 @@ import com.google.common.net.InternetDomainName
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.twitter.finagle.util.InetSocketAddressUtil
 import com.twitter.finagle.{Service, SimpleFilter}
-import com.twitter.finagle.http.{Status, Response, Request}
+import com.twitter.finagle.http.{Request, Response, Status}
+import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.logging.Logger
 import com.twitter.util.Future
+
 import scala.util.Try
 
 /**
@@ -17,9 +19,11 @@ import scala.util.Try
   *
   * @param validHosts
   */
-case class HostHeaderFilter(validHosts: Set[InternetDomainName]) extends SimpleFilter[Request, Response] {
+case class HostHeaderFilter(validHosts: Set[InternetDomainName])(implicit statsReceiver: StatsReceiver)
+    extends SimpleFilter[Request, Response] {
   lazy val validHostStrings = validHosts.map(_.toString)
   private[this] val log = Logger.get(getClass.getPackage.getName)
+  private[this] val statInvalidHost = statsReceiver.counter("req.host.validation.failed")
 
   private[this] val cannedResponse: Response = {
     tap(Response(Status.BadRequest))(res => {
@@ -52,7 +56,7 @@ case class HostHeaderFilter(validHosts: Set[InternetDomainName]) extends SimpleF
   def apply(request: Request, service: Service[Request, Response]): Future[Response] = {
     request.host.map(extractHostName(_)) match {
       case Some(hostName) if validHostStrings.contains(hostName) => service(request)
-      case _ => Future.value(cannedResponse)
+      case _ => statInvalidHost.incr(); Future.value(cannedResponse)
     }
   }
 }

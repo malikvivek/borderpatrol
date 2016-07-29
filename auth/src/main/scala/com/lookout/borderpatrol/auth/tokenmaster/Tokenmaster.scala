@@ -138,6 +138,7 @@ object Tokenmaster {
                                      (implicit secretStoreApi: SecretStoreApi, statsReceiver: StatsReceiver)
     extends Filter[BorderRequest, Response, BorderRequest, IdentifyResponse[Tokens]] {
     private[this] val statSessionAuthenticated = statsReceiver.counter("tokenmaster.idp.authenticated")
+    private[this] val statSessionNotFound = statsReceiver.counter("tokenmaster.idp.session.data.notfound")
 
     /**
      * Grab the original request from the session store, otherwise just send them to the default location of '/'
@@ -145,7 +146,9 @@ object Tokenmaster {
     def requestFromSessionStore(sessionId: SignedId): Future[Request] =
       store.get[Request](sessionId).flatMap {
         case Some(session) => Future.value(session.data)
-        case None => Future.exception(BpOriginalRequestNotFound(s"SessionId: ${sessionId.toLogIdString}"))
+        case None =>
+          statSessionNotFound.incr()
+          Future.exception(BpOriginalRequestNotFound(s"SessionId: ${sessionId.toLogIdString}"))
       }
 
     def apply(req: BorderRequest,
