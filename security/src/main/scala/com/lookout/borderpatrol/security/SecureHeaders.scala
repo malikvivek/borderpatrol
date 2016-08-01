@@ -14,7 +14,6 @@ import com.twitter.util.Future
   */
 object SecureHeaders {
 
-  val allowOrigin = "Access-Control-Allow-Origin"
   // response headers https://en.wikipedia.org/wiki/List_of_HTTP_header_fields#Response_fields
   val StrictTransportSecurity = ("Strict-Transport-Security", "max-age=31557600")
   val XFrameOptions = ("X-Frame-Options", "DENY")
@@ -22,6 +21,8 @@ object SecureHeaders {
   val XContentTypeOptions = ("X-ContentType-Options", "nosniff")
   val XDownloadOptions = ("X-Download-Options", "noopen")
   val XPermittedCrossDomainPolicies = ("X-Permitted-Cross-Domain-Policies", "none")
+  /* CORS support headers */
+  val allowOrigin = "Access-Control-Allow-Origin"
   val controlEnabled = "Access-Control-Allow-Credentials" -> "true"
   val exposeHeaders = "Access-Control-Expose-Headers" -> "ETag,Set-Cookie"
   val allowMethods = "Access-Control-Allow-Methods" -> "GET, POST, PATCH, PUT, DELETE, OPTIONS, HEAD"
@@ -61,9 +62,8 @@ case class SecureHeaderFilter(requestHeaders: HeaderMap = SecureHeaders.request,
                               responseHeaders: HeaderMap = SecureHeaders.response,
                               allowedDomains: Set[InternetDomainName])
     extends SimpleFilter[Request, Response] {
-  val validHostsString = allowedDomains.mkString(",")
   val localIp = InetAddress.getLocalHost.getHostAddress
-  val controlOrigin = SecureHeaders.allowOrigin -> validHostsString
+  val controlOrigin = SecureHeaders.allowOrigin -> allowedDomains.mkString(",")
 
   def injectRequestHeaders(req: Request): Request =
     tap(req) { re =>
@@ -71,11 +71,10 @@ case class SecureHeaderFilter(requestHeaders: HeaderMap = SecureHeaders.request,
       re.xForwardedFor_=(re.xForwardedFor.fold(localIp)(s => s"$s, $localIp"))
     }
 
-  private[this] def injectResponseHeaders(response: Response): Response = {
-    response.headerMap ++= responseHeaders
-    response.headerMap.add(controlOrigin._1, controlOrigin._2)
-    response
-  }
+  private[this] def injectResponseHeaders(response: Response): Response =
+    tap(response) { resp =>
+      resp.headerMap ++= (responseHeaders + controlOrigin)
+    }
 
   /**
     * Requests get X-Forwarded-For and other request headers added before passing to the service
