@@ -2,6 +2,7 @@ package com.lookout.borderpatrol.security
 
 import java.net.InetAddress
 
+import com.google.common.net.InternetDomainName
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.util.Combinators.tap
 import com.twitter.finagle.{Service, SimpleFilter}
@@ -20,9 +21,22 @@ object SecureHeaders {
   val XContentTypeOptions = ("X-ContentType-Options", "nosniff")
   val XDownloadOptions = ("X-Download-Options", "noopen")
   val XPermittedCrossDomainPolicies = ("X-Permitted-Cross-Domain-Policies", "none")
+  /* CORS support headers */
+  val allowOrigin = "Access-Control-Allow-Origin"
+  val controlEnabled = "Access-Control-Allow-Credentials" -> "true"
+  val exposeHeaders = "Access-Control-Expose-Headers" -> "ETag,Set-Cookie"
+  val allowMethods = "Access-Control-Allow-Methods" -> "GET, POST, PATCH, PUT, DELETE, OPTIONS, HEAD"
+  val allowHeaders =
+    "Access-Control-Allow-Headers" -> "*,x-csrf-token,x-requested-with,Content-Type,If-Modified-Since,If-None-Match"
+  val maxAge = "Access-Control-Max-Age" -> "86400"
 
-  val response = HeaderMap(StrictTransportSecurity, XFrameOptions, XXSSProtection,
-                           XContentTypeOptions, XDownloadOptions, XPermittedCrossDomainPolicies)
+  def response(allowedDomains: Set[InternetDomainName]): HeaderMap = {
+    HeaderMap(StrictTransportSecurity, XFrameOptions, XXSSProtection,
+      XContentTypeOptions, XDownloadOptions, XPermittedCrossDomainPolicies,
+      allowMethods, allowHeaders, controlEnabled,exposeHeaders, maxAge,
+      SecureHeaders.allowOrigin -> allowedDomains.mkString(","))
+  }
+
   val request = HeaderMap()
 }
 
@@ -46,17 +60,22 @@ object SecureHeaders {
   *   X-Forwarded-For: the ip of this host appended to any existing values
   *
   * @param requestHeaders
-  * @param responseHeaders
   */
 case class SecureHeaderFilter(requestHeaders: HeaderMap = SecureHeaders.request,
-                              responseHeaders: HeaderMap = SecureHeaders.response)
+                              allowedDomains: Set[InternetDomainName])
     extends SimpleFilter[Request, Response] {
   val localIp = InetAddress.getLocalHost.getHostAddress
+  lazy val responseMap = SecureHeaders.response(allowedDomains)
 
   def injectRequestHeaders(req: Request): Request =
     tap(req) { re =>
       re.headerMap ++= requestHeaders
       re.xForwardedFor_=(re.xForwardedFor.fold(localIp)(s => s"$s, $localIp"))
+    }
+
+  private[this] def injectResponseHeaders(response: Response): Response =
+    tap(response) { resp =>
+      resp.headerMap ++= (responseMap)
     }
 
   /**
@@ -66,6 +85,6 @@ case class SecureHeaderFilter(requestHeaders: HeaderMap = SecureHeaders.request,
   def apply(req: Request, service: Service[Request, Response]): Future[Response] =
     for {
       resp <- service(injectRequestHeaders(req))
-      _ <- (resp.headerMap ++= responseHeaders).toFuture
+      _ <- (injectResponseHeaders(resp)).toFuture
     } yield resp
 }
