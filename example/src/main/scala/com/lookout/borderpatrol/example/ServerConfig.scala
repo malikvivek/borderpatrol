@@ -2,6 +2,7 @@ package com.lookout.borderpatrol.example
 
 import java.net.URL
 
+import com.google.common.net.InternetDomainName
 import com.lookout.borderpatrol._
 import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.{BasicLoginManager, OAuth2LoginManager}
 import com.lookout.borderpatrol.server._
@@ -15,7 +16,6 @@ import io.circe.jawn._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import scala.io.Source
-
 
 case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String)
 
@@ -34,6 +34,7 @@ object EndpointConfig {
  * Server Config
  */
 case class ServerConfig(listeningPort: Int,
+                        allowedDomains: Set[InternetDomainName],
                         secretStore: SecretStoreApi,
                         sessionStore: SessionStore,
                         statsdExporterConfig: StatsdExporterConfig,
@@ -153,6 +154,7 @@ object ServerConfig {
   implicit val serverConfigEncoder: Encoder[ServerConfig] = Encoder.instance { serverConfig =>
     Json.fromFields(Seq(
       ("listeningPort", serverConfig.listeningPort.asJson),
+      ("allowedDomains", serverConfig.allowedDomains.asJson),
       ("secretStore", serverConfig.secretStore.asJson),
       ("sessionStore", serverConfig.sessionStore.asJson),
       ("statsdReporter", serverConfig.statsdExporterConfig.asJson),
@@ -166,6 +168,7 @@ object ServerConfig {
   implicit val serverConfigDecoder: Decoder[ServerConfig] = Decoder.instance { c =>
     for {
       listeningPort <- c.downField("listeningPort").as[Int]
+      allowedDomains <- c.downField("allowedDomains").as[Set[InternetDomainName]]
       secretStore <- c.downField("secretStore").as[SecretStoreApi]
       sessionStore <- c.downField("sessionStore").as[SessionStore]
       statsdExporterConfig <- c.downField("statsdReporter").as[StatsdExporterConfig]
@@ -184,7 +187,7 @@ object ServerConfig {
           if (healthCheckEndpointOpts.contains(None)) None else Some(healthCheckEndpointOpts.flatten)
         },
         DecodingFailure(s"Failed to decode endpoint(s) in the healthCheckEndpoints: ", c.history))
-    } yield ServerConfig(listeningPort, secretStore, sessionStore, statsdExporterConfig,
+    } yield ServerConfig(listeningPort, allowedDomains, secretStore, sessionStore, statsdExporterConfig,
       healthCheckEndpointConfigs, cids, sids, lms, eps)
   }
 
@@ -204,6 +207,16 @@ object ServerConfig {
       endpoints.map(m => validateHostsConfig(field, m.name, m.hosts)).flatten)
   }
 
+  /**
+    * Validate allowedDomains set to ensure that it is not empty
+    *
+    * @param field
+    * @param domainsSet
+    * @return error that the set is empty if domainsSet is empty
+    */
+  def validateAllowedDomains(field: String, domainsSet: Set[InternetDomainName]): Set[String] = {
+    cond(domainsSet.isEmpty, s"Cannot have empty set for field: '${field}'")
+  }
   /**
    * Validates the BorderPatrol Configuration
    * - for duplicates
@@ -226,7 +239,10 @@ object ServerConfig {
       validateServiceIdentifierConfig("serviceIdentifiers", serverConfig.serviceIdentifiers) ++
 
       //  Validate customerIdentifiers config
-      validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers))
+      validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers) ++
+
+      // Validate allowedDomains set
+      validateAllowedDomains("allowedDomains", serverConfig.allowedDomains))
   }
 
   /**

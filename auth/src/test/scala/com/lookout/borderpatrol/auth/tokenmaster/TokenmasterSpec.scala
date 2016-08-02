@@ -155,7 +155,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     Await.result(tokensz) should be(tokens)
   }
 
-  it should "throw BpOriginalRequestNotFound if it fails to find the original request from sessionStore" in {
+  it should "redirect to default service on failure to lookup original req from sessionStore" in {
     val testService = Service.mk[BorderRequest, IdentifyResponse[Tokens]] {
       req => Future(TokenmasterIdentifyRes(tokens)) }
 
@@ -170,10 +170,8 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
       BorderRequest(loginRequest, cust1k, one, sessionId))
 
     // Validate
-    val caught = the[BpOriginalRequestNotFound] thrownBy {
-      Await.result(output)
-    }
-    caught.msg should include("no request stored for ")
+    Await.result(output).status should be(Status.Found)
+    Await.result(output).location.get should include("/ent")
   }
 
   it should "throw Exception if Session lookup operation throws an exception" in {

@@ -18,9 +18,6 @@ case class BpSecretDecodeError(msg: String)
 case class BpSecretsDecodeError(msg: String)
   extends BpSessionError(s"An error decoding a Secrets occurred: $msg")
 
-case class BpOriginalRequestNotFound(msg: String)
-  extends BpSessionError(s"An error occurred interacting with the session store: $msg")
-
 case class BpConsulError(msg: String)
   extends BpSessionError(s"An error occurred getting a value from Consul: $msg")
 

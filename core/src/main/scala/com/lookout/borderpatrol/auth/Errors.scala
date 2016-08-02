@@ -43,3 +43,4 @@ case class BpUnauthorizedRequest(msg: String = "")
 
 case class BpInvalidRequest(msg: String = "")
   extends BpUserError(Status.BadRequest, s"${Status.BadRequest.reason}: $msg")
+

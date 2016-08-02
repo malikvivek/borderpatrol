@@ -2,6 +2,7 @@ package com.lookout.borderpatrol.server
 
 import java.net.URL
 
+import com.google.common.net.InternetDomainName
 import com.lookout.borderpatrol.auth.tokenmaster._
 import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers._
 import com.lookout.borderpatrol.sessionx.SecretStores.ConsulSecretStore
@@ -185,5 +186,23 @@ class ConfigSpec extends BorderPatrolSuite {
       "hosts configuration for failed3 in some: https urls have mismatching hostnames")
     validateHostsConfig("some", "failed4", Set()) should contain (
       "hosts configuration for failed4 in some: has unsupported protocol")
+  }
+
+  it should "uphold encode decode InternetDomainName to string" in {
+
+    val wiki = InternetDomainName.from("source.corp.wiki.com")
+    decodedInternetDomainNameJson(wiki).get should be (wiki)
+
+    val yahoo = InternetDomainName.from("yahoo.com")
+    encodeInternetDomainName(yahoo).toString() should be (decodedInternetDomainNameJson(yahoo).asJson.toString())
+
+    a[IllegalArgumentException] should be thrownBy {
+      decodeInternetDomainName.decodeJson(500.toString.asJson)
+    }
+
+  }
+
+  def decodedInternetDomainNameJson(internetDomainName: InternetDomainName): Option[InternetDomainName] = {
+    decodeInternetDomainName.decodeJson(internetDomainName.asJson).toOption
   }
 }
