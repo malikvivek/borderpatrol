@@ -30,9 +30,13 @@ object SecureHeaders {
     "Access-Control-Allow-Headers" -> "*,x-csrf-token,x-requested-with,Content-Type,If-Modified-Since,If-None-Match"
   val maxAge = "Access-Control-Max-Age" -> "86400"
 
-  val response = HeaderMap(StrictTransportSecurity, XFrameOptions, XXSSProtection,
-                           XContentTypeOptions, XDownloadOptions, XPermittedCrossDomainPolicies,
-                           allowMethods, allowHeaders, controlEnabled,exposeHeaders, maxAge)
+  def response(allowedDomains: Set[InternetDomainName]): HeaderMap = {
+    HeaderMap(StrictTransportSecurity, XFrameOptions, XXSSProtection,
+      XContentTypeOptions, XDownloadOptions, XPermittedCrossDomainPolicies,
+      allowMethods, allowHeaders, controlEnabled,exposeHeaders, maxAge,
+      SecureHeaders.allowOrigin -> allowedDomains.mkString(","))
+  }
+
   val request = HeaderMap()
 }
 
@@ -56,14 +60,12 @@ object SecureHeaders {
   *   X-Forwarded-For: the ip of this host appended to any existing values
   *
   * @param requestHeaders
-  * @param responseHeaders
   */
 case class SecureHeaderFilter(requestHeaders: HeaderMap = SecureHeaders.request,
-                              responseHeaders: HeaderMap = SecureHeaders.response,
                               allowedDomains: Set[InternetDomainName])
     extends SimpleFilter[Request, Response] {
   val localIp = InetAddress.getLocalHost.getHostAddress
-  val controlOrigin = SecureHeaders.allowOrigin -> allowedDomains.mkString(",")
+  lazy val responseMap = SecureHeaders.response(allowedDomains)
 
   def injectRequestHeaders(req: Request): Request =
     tap(req) { re =>
@@ -73,7 +75,7 @@ case class SecureHeaderFilter(requestHeaders: HeaderMap = SecureHeaders.request,
 
   private[this] def injectResponseHeaders(response: Response): Response =
     tap(response) { resp =>
-      resp.headerMap ++= (responseHeaders + controlOrigin)
+      resp.headerMap ++= (responseMap)
     }
 
   /**

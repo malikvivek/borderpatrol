@@ -12,17 +12,15 @@ class SecureHeadersSpec extends BorderPatrolSuite {
 
   behavior of "SecureHeaderFilter"
   val requestDefaults = SecureHeaders.request
-  val defaults = SecureHeaders.response
   val validDomains = Set("www.yahoo.com", "www.google.com", "localhost")
-  implicit val allowedDomains: Set[InternetDomainName] = validDomains map (InternetDomainName.from(_))
-  val filter = SecureHeaderFilter(requestDefaults, defaults, allowedDomains)
+  val allowedDomains: Set[InternetDomainName] = validDomains map (InternetDomainName.from(_))
+  val defaults = SecureHeaders.response(allowedDomains)
+  val filter = SecureHeaderFilter(requestDefaults, allowedDomains)
   val service = filter andThen testService(r => true)
 
   it should "inject all of the headers" in {
     val request = Request("/")
-    val map: HeaderMap = service(request).results.headerMap
-    val catchFalse = defaults.map( m => map.contains(m._1)).collect { case false => 1}
-    catchFalse.size should be (0)
+    service(request).results.headerMap.sameElements(defaults) should be(true)
   }
 
   it should "append X-Forwarded-For to an existing list into request" in {
