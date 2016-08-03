@@ -1,17 +1,16 @@
 package com.lookout.borderpatrol.auth.tokenmaster
 
 import com.lookout.borderpatrol.BpCommunicationError
-import com.lookout.borderpatrol.auth.BorderRequest
+import com.lookout.borderpatrol.auth.{BorderRequest, BpForbiddenRequest}
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
 import com.twitter.finagle.Service
-import com.twitter.finagle.http.{Status, Response, Request}
+import com.twitter.finagle.http.{Request, Response, Status}
 import com.twitter.finagle.http.service.RoutingService
 import com.twitter.util.Await
 
 
 class LoginManagersSpec extends BorderPatrolSuite {
-
   import coreTestHelpers._
   import tokenmasterTestHelpers._
 
@@ -63,7 +62,7 @@ class LoginManagersSpec extends BorderPatrolSuite {
     try {
       // Login POST request
       val request = req("sky", "/signin", ("code" -> "XYZ123"))
-      val borderRequest = BorderRequest(request, cust1, one, sessionid.untagged)
+      val borderRequest = BorderRequest(request, cust2, two, sessionid.untagged)
       request.headerMap.set("X-Forwarded-Proto", "https")
 
       // Execute
@@ -85,7 +84,7 @@ class LoginManagersSpec extends BorderPatrolSuite {
       // Execute
       val output = umbrellaLoginManager.redirectLocation(request)
     }
-    caught.getMessage should include("Host not found in HTTP Request")
+    caught.getMessage should include("Host not found in Request")
   }
 
   it should "throw a BpCommunicationError if it fails to reach OAuth2 IDP to convert code to token" in {
@@ -95,7 +94,7 @@ class LoginManagersSpec extends BorderPatrolSuite {
 
     // Login POST request
     val request = req("rainy", "/signblew", ("code" -> "XYZ123"))
-    val borderRequest = BorderRequest(request, cust1, one, sessionid.untagged)
+    val borderRequest = BorderRequest(request, cust2, two, sessionid.untagged)
 
     // Execute
     val output = rainyLoginManager.codeToToken(borderRequest)
@@ -111,14 +110,47 @@ class LoginManagersSpec extends BorderPatrolSuite {
   it should "throw an Exception if host value is not present in the request when calling codeToToken" in {
     // Create request
     val request = Request("/umb")
-    val borderRequest = BorderRequest(request, cust1, one, sessionid.untagged)
-//    val borderRequest = BorderRequest(req("", "/umb", ("code" -> "XYZ123")), cust1, one, sessionid.untagged)
+    val borderRequest = BorderRequest(request, cust2, two, sessionid.untagged)
 
     // Validate
     val caught = the[Exception] thrownBy {
       // Execute
       val output = umbrellaLoginManager.codeToToken(borderRequest)
     }
-    caught.getMessage should include("Host not found in HTTP BorderRequest")
+    caught.getMessage should include("Host not found in Request")
+  }
+
+  it should "throw a BpForbiddenRequest if it fails to receive OAuth2 code from oAuth2 server" in {
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login POST request
+    val request = req("enterprise", "/ent")
+    val borderRequest = BorderRequest(request, cust2, two, sessionid.untagged)
+
+    // Validate
+    val caught = the[BpForbiddenRequest] thrownBy {
+      // Execute
+      val output = umbrellaLoginManager.codeToToken(borderRequest)
+    }
+    caught.getMessage should include("Forbidden: OAuth2 code not found in HTTP Request")
+  }
+
+  it should "throw a BpForbiddenRequest and log error if it fails to receive OAuth2 code from oAuth2 server" in {
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login POST request
+    val request = req("enterprise", "/ent", ("error" -> "Access_denied"), ("error_description" -> "Something bad"))
+    val borderRequest = BorderRequest(request, cust2, two, sessionid.untagged)
+
+    // Validate
+    val caught = the[BpForbiddenRequest] thrownBy {
+      // Execute
+      val output = umbrellaLoginManager.codeToToken(borderRequest)
+    }
+    caught.getMessage should include("OAuth2 authentication failed with error: 'Access_denied: Something bad'")
   }
 }
