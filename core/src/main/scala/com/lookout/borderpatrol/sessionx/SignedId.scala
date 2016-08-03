@@ -26,6 +26,7 @@ import scala.util.{Success, Failure, Try}
  * @param signature the bytes of the signature(expires, entropy, secret.id)
  */
 case class SignedId(expires: Time, entropy: Entropy, secret: Secret, tag: Tag, signature: Signature) {
+  /* Displaying only last 8 bytes of SessionId in the logs*/
   def toLogIdString: String = Base64StringEncoder.encode(signature.toArray).takeRight(8)
 }
 
