@@ -24,6 +24,7 @@
 package com.lookout.borderpatrol.example
 
 import java.net.URL
+
 import com.lookout.borderpatrol.auth.tokenmaster.LoginManagers.{BasicLoginManager, OAuth2LoginManager}
 import com.lookout.borderpatrol.security.HostHeaderFilter
 import com.lookout.borderpatrol.{HealthCheckRegistry, ServiceMatcher}
@@ -31,7 +32,7 @@ import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.auth.tokenmaster.Tokenmaster._
 import com.lookout.borderpatrol.auth.tokenmaster._
 import com.lookout.borderpatrol.auth.tokenmaster.Tokens._
-import com.lookout.borderpatrol.server.HealthCheckService
+import com.lookout.borderpatrol.server.{AccessLogFilter, HealthCheckService}
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.util.Combinators._
 import com.twitter.finagle.http.path.Path
@@ -42,6 +43,7 @@ import com.twitter.finagle.http.service.RoutingService
 import com.twitter.finagle.{Filter, Service}
 import com.twitter.util.Future
 import io.circe._
+
 import scala.util.{Failure, Success, Try}
 
 
@@ -97,6 +99,8 @@ object service {
 
       case _ =>
         serviceChainFront andThen
+          /*Generate the Access Log*/
+          AccessLogFilter("bp-accesslogs","bp-access.log", (1*1024*1000)) andThen
           /* Validate that its our service */
           CustomerIdFilter(serviceMatcher) andThen
           /* Get or allocate Session/SignedId */
