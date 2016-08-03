@@ -85,7 +85,8 @@ object service {
 
     RoutingService.byPath {
       case "/health" =>
-        serviceChainFront andThen
+        /* Convert exceptions to responses */
+        ExceptionFilter() andThen
           HealthCheckService(registry, BpBuild.BuildInfo.version)
 
       /** Logout */
