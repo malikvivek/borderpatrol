@@ -99,7 +99,7 @@ object service {
 
       case _ =>
         serviceChainFront andThen
-          /*Generate the Access Log*/
+          /* Generate the Access Log */
           AccessLogFilter("bp-accesslogs","bp-access.log", (1*1024*1000)) andThen
           /* Validate that its our service */
           CustomerIdFilter(serviceMatcher) andThen
