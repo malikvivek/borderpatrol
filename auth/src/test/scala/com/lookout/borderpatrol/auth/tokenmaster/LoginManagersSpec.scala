@@ -84,7 +84,7 @@ class LoginManagersSpec extends BorderPatrolSuite {
       // Execute
       val output = umbrellaLoginManager.redirectLocation(request)
     }
-    caught.getMessage should include("Host not found in HTTP Request")
+    caught.getMessage should include("Host not found in Request")
   }
 
   it should "throw a BpCommunicationError if it fails to reach OAuth2 IDP to convert code to token" in {
@@ -117,7 +117,7 @@ class LoginManagersSpec extends BorderPatrolSuite {
       // Execute
       val output = umbrellaLoginManager.codeToToken(borderRequest)
     }
-    caught.getMessage should include("Host not found in HTTP BorderRequest")
+    caught.getMessage should include("Host not found in Request")
   }
 
   it should "throw a BpForbiddenRequest if it fails to receive OAuth2 code from oAuth2 server" in {

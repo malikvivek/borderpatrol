@@ -40,7 +40,7 @@ object LoginManagers {
     val clientSecret: String
 
     def redirectLocation(req: Request, params: Tuple2[String, String]*): String = {
-      val hostStr = req.host.getOrElse(throw BpInvalidRequest(s"Host not found in HTTP $req"))
+      val hostStr = req.host.getOrElse(throw BpInvalidRequest(s"Host not found in ${req}"))
       val scheme = req.headerMap.getOrElse("X-Forwarded-Proto", "http")
       val prompt = req.params.get("action") match {
         case Some(a) if a == "consent" => Map("prompt" -> "admin_consent")
@@ -55,7 +55,7 @@ object LoginManagers {
     }
 
     def codeToToken(req: BorderRequest): Future[Response] = {
-      val hostStr = req.req.host.getOrElse(throw BpInvalidRequest(s"Host not found in HTTP $req"))
+      val hostStr = req.req.host.getOrElse(throw BpInvalidRequest(s"Host not found in ${req.req}"))
       val scheme = req.req.headerMap.getOrElse("X-Forwarded-Proto", "http")
       val code = Helpers.scrubQueryParams(req.req.params, "code").fold {
         (Helpers.scrubQueryParams(req.req.params, "error"),
