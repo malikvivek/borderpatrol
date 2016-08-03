@@ -1,9 +1,7 @@
 package com.lookout.borderpatrol.auth.tokenmaster
 
 import java.net.URL
-
-import com.lookout.borderpatrol.auth.{BorderRequest, BpInvalidRequest, SessionIdRequest}
-import com.lookout.borderpatrol.sessionx.Session
+import com.lookout.borderpatrol.auth.{BorderRequest, BpForbiddenRequest, BpInvalidRequest}
 import com.lookout.borderpatrol.{Endpoint, LoginManager}
 import com.lookout.borderpatrol.util.Helpers
 import com.lookout.borderpatrol.util.Combinators.tap
@@ -59,12 +57,18 @@ object LoginManagers {
     def codeToToken(req: BorderRequest): Future[Response] = {
       val hostStr = req.req.host.getOrElse(throw BpInvalidRequest(s"Host not found in HTTP $req"))
       val scheme = req.req.headerMap.getOrElse("X-Forwarded-Proto", "http")
+      val code = Helpers.scrubQueryParams(req.req.params, "code").fold {
+        (Helpers.scrubQueryParams(req.req.params, "error"),
+          Helpers.scrubQueryParams(req.req.params, "error_description")) match {
+          case (Some(er), Some(erD)) =>
+            throw BpForbiddenRequest(s"OAuth2 authentication failed with error: '$er: $erD'")
+          case _ => throw BpForbiddenRequest(s"OAuth2 code not found in HTTP ${req.req}")
+        }
+      }(co => co)
       val request = tap(Request(Method.Post, tokenEndpoint.path.toString))(re => {
         re.contentType = "application/x-www-form-urlencoded"
         re.contentString = Request.queryString(("grant_type", "authorization_code"), ("client_id", clientId),
-          ("code", Helpers.scrubQueryParams(req.req.params, "code")
-            .getOrElse(throw BpInvalidRequest(s"OAuth2 code not found in HTTP ${req}"))),
-          ("redirect_uri", s"$scheme://$hostStr$loginConfirm"),
+          ("code", code), ("redirect_uri", s"$scheme://$hostStr$loginConfirm"),
           ("client_secret", clientSecret), ("resource", "00000002-0000-0000-c000-000000000000"))
           .drop(1) /* Drop '?' */
       })

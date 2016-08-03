@@ -26,6 +26,8 @@ class HelpersSpec extends BorderPatrolSuite {
     scrubQueryParams(req3.params, "destination") should be(Some("/abc"))
     val req4 = Request("logout?destination=/%0d%0aabc%0d%0a")
     scrubQueryParams(req4.params, "destination") should be(Some("/"))
+    val req6 = Request("logout?destination=abc%20efg")
+    scrubQueryParams(req6.params, "destination") should be(Some("abc efg"))
 
     /* Error conditions */
     scrubQueryParams(req1.params, "foo") should be(None)
