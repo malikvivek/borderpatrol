@@ -40,6 +40,7 @@ class AccessLogFilterSpec extends BorderPatrolSuite {
 
     // Validate
     Await.result(output).status should be(Status.Ok)
+    Thread.sleep(5)
     Source.fromFile(tempValidFile.toCanonical.toString).mkString should include("AccessLogV1")
   }
 }
