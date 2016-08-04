@@ -32,9 +32,8 @@ class AccessLogFilterSpec extends BorderPatrolSuite {
 
     // Validate
     Await.result(output).status should be(Status.Ok)
-    Thread.sleep(5)
+    Thread.sleep(10)
     val contents = Source.fromFile(tempValidFile.toCanonical.toString).mkString
-    print(s"Vivek's Access Log: ${contents}")
     contents should include("AccessLogV1")
     contents should include ("GET\tenterprise.example.com\t/ent\t-\t200")
   }
