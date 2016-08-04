@@ -17,7 +17,7 @@ class AccessLogFilterSpec extends BorderPatrolSuite {
 
     val name = "localAccessLogger"
     val tempValidFile = File.makeTemp("TempAccessLogFile", ".tmp")
-    val testFileSize: Long = 1*1024*1000
+    val testFileSize: Long = 1*1024*1024
     val Request = req("enterprise", "/ent")
 
     //  test service

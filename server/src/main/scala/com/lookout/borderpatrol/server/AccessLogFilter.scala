@@ -1,5 +1,6 @@
 package com.lookout.borderpatrol.server
 
+import com.lookout.borderpatrol.util.Combinators.tap
 import com.twitter.util._
 import com.twitter.finagle.{Service, SimpleFilter}
 import com.twitter.finagle.http.{Request, Response}
@@ -17,14 +18,6 @@ import com.twitter.util.Future
 case class AccessLogFilter(name: String, path: String, fileSize: Long)
   extends SimpleFilter[Request, Response] {
 
-  val logger: Logger = {
-    val logger = Logger.get(name)
-    logger.clearHandlers()
-    logger.setLevel(Logger.INFO)
-    logger.setUseParentHandlers(false)
-    logger
-  }
-
   lazy val accessLogHandler = FileHandler(
     filename = path,
     rollPolicy = Policy.MaxSize(new StorageUnit(fileSize)),
@@ -33,24 +26,14 @@ case class AccessLogFilter(name: String, path: String, fileSize: Long)
     formatter = BareFormatter
   ).apply()
 
-  logger.addHandler(new QueueingHandler(accessLogHandler))
-
-  /**
-    * Following code snippet provides a mechanism to replace the logging to a file by logging to
-    * either string or console using the local logger implemented above. Replace the require handler
-    * and pass it while adding the handler to a new QueueingHandler.
-    */
-
-  /**
-    * lazy val local = new Local[String]
-    * lazy val formatter = new Formatter {
-    *   override def format(record: javalog.LogRecord) =
-    *    local().getOrElse("MISSING!:") + formatText(record) + lineTerminator
-    * }
-    * lazy val stringHandler = new StringHandler(formatter, Some(Logger.INFO))
-    * lazy val consoleHandler = new ConsoleHandler(BareFormatter, Some(Logger.INFO))
-    * local() = "I"
-  */
+  val logger: Logger = {
+    tap(Logger.get(name)) { l =>
+      l.clearHandlers()
+      l.setLevel(Logger.INFO)
+      l.setUseParentHandlers(false)
+      l.addHandler(new QueueingHandler(accessLogHandler))
+    }
+  }
 
   def apply(req: Request, service: Service[Request, Response]): Future[Response] = {
     val startTime = Time.now

@@ -100,7 +100,7 @@ object service {
       case _ =>
         serviceChainFront andThen
           /* Generate the Access Log */
-          AccessLogFilter("bp-accesslogs","bp-access.log", (1*1024*1000)) andThen
+          AccessLogFilter("bp_accesslogs","/var/log/bp_access.log", (1*1024*1024)) andThen
           /* Validate that its our service */
           CustomerIdFilter(serviceMatcher) andThen
           /* Get or allocate Session/SignedId */
