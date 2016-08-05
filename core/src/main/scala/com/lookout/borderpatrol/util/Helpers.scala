@@ -14,7 +14,11 @@ object Helpers {
       /* These param values could be malformed and may contain special characters. So lets scrub them out and
        * choose the first valid string as param
        */
-      l.split(specialCharRegEx).filterNot(_.isEmpty).headOption.map(_.trim)
+      scrubAString(l)
     }
+  }
+
+  def scrubAString(toScrub: String): Option[String] = {
+    toScrub.split(specialCharRegEx).filterNot(_.isEmpty).headOption.map(_.trim)
   }
 }

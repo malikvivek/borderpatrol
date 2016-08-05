@@ -1,5 +1,6 @@
 package com.lookout.borderpatrol.test.auth
 
+import com.google.common.net.InternetDomainName
 import com.lookout.borderpatrol.{BpCommunicationError, BpNotFoundRequest, ServiceIdentifier}
 import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.sessionx.SessionStores.MemcachedStore
@@ -53,6 +54,8 @@ class BorderAuthSpec extends BorderPatrolSuite {
       Future.exception(new Exception("oopsie"))
     }
   }
+  val validHosts: Set[InternetDomainName] = Set(InternetDomainName.from("enterprise.example.com"))
+  val destinationValidator = DestinationValidator(validHosts)
 
   behavior of "rewriteRequest"
 
@@ -467,7 +470,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val request = reqPost("enterprise", cust1.loginManager.loginConfirm.toString, Buf.Empty)
 
     // Original request
-    val output = (SendToIdentityProvider(workingMap, sessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(workingMap, sessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
 
     //  Validate
@@ -487,7 +490,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val request = reqPost("enterprise", cust1.loginManager.loginConfirm.toString, Buf.Empty)
 
     // Original request
-    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust1, Some(one), None))
 
     //  Validate
@@ -508,7 +511,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
       ("destination" -> "blah"))
 
     // Original request
-    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust1, Some(one), None))
 
     //  Validate
@@ -531,7 +534,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     request.addCookie(cooki)
 
     // Execute
-    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
 
     // Validate
@@ -550,7 +553,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val request = req("enterprise", "ent")
 
     // Original request
-    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
 
     // Validate
@@ -574,7 +577,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     request.accept = Seq("application/json")
 
     // Original request
-    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
 
     // Validate
@@ -599,7 +602,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     request.headerMap.add("X-Forwarded-Proto", "https")
 
     // Original request
-    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust2, Some(two), Some(sessionId)))
 
     // Validate
@@ -622,7 +625,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val request = req("enterprise", "check")
 
     // Execute
-    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust1, Some(unproCheckpointSid), Some(sessionId)))
 
     // Validate
@@ -641,7 +644,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val request = req("enterprise", "unknown")
 
     // Original request
-    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust1, None, Some(sessionId)))
 
     // Validate
@@ -661,7 +664,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val request = req("enterprise", "ent")
 
     // Original request
-    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust1, Some(one), None))
 
     // Validate
@@ -683,7 +686,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val request = req("enterprise", "check")
 
     // Original request
-    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust1, Some(unproCheckpointSid), None))
 
     // Validate
@@ -699,7 +702,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val request = req("enterprise", "unknown")
 
     // Original request
-    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust1, None, None))
 
     // Validate
@@ -722,7 +725,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val request = reqPost("enterprise", cust1.loginManager.loginConfirm.toString, Buf.Empty)
 
     // Execute
-    val output = (SendToIdentityProvider(identityProviderMap, sessionStore) andThen sessionIdFilterTestService)(
+    val output = (SendToIdentityProvider(identityProviderMap, sessionStore, destinationValidator) andThen sessionIdFilterTestService)(
       SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
 
     // Validate
@@ -745,7 +748,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val request = reqPost("enterprise", cust1.loginManager.loginConfirm.toString, Buf.Empty)
 
     // Original request
-    val output = (SendToIdentityProvider(identityProviderMap, mockSessionStore) andThen testService)(
+    val output = (SendToIdentityProvider(identityProviderMap, mockSessionStore, destinationValidator) andThen testService)(
       SessionIdRequest(request, cust1, Some(one), None))
 
     // Verify
@@ -1019,7 +1022,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     request.addCookie(cooki2)
 
     // Execute
-    val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen LogoutService(sessionStore))(
+    val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen LogoutService(sessionStore, destinationValidator))(
       request)
 
     // Validate
@@ -1037,7 +1040,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     val request = req("enterprise", "/logout")
 
     // Execute
-    val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen LogoutService(sessionStore))(
+    val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen LogoutService(sessionStore, destinationValidator))(
       request)
 
     // Validate
@@ -1052,7 +1055,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     request.accept = Seq("application/json")
 
     // Execute
-    val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen LogoutService(sessionStore))(
+    val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen LogoutService(sessionStore, destinationValidator))(
       request)
 
     // Validate
@@ -1068,7 +1071,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     request.accept = Seq("application/json")
 
     // Execute
-    val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen LogoutService(sessionStore))(
+    val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen LogoutService(sessionStore, destinationValidator))(
       request)
 
     // Validate
