@@ -397,11 +397,11 @@ case class LogoutService(store: SessionStore, destinationValidator: DestinationV
       log.debug(s"Logging out Session: ${sid.toLogIdString}")
       store.delete(sid)
     })
-    // Redirect to (1) the logged out url, (2) suggested url or (3) default service path, in that order
-    val location: String = (req.customerId.loginManager.loggedOutUrl,
-      BorderAuth.extractDestination(req.req.params)(destinationValidator)) match {
+    // Redirect to (1) suggested url or (2) the logged out url or (3) default service path, in that order
+    val location: String = (BorderAuth.extractDestination(req.req.params)(destinationValidator),
+      req.customerId.loginManager.loggedOutUrl) match {
       case (Some(loc), _) => loc.toString
-      case (None, Some(loc)) => loc
+      case (Some(loc),None) => loc
       case _ => {
         log.info("Could not determine host: "+req.req.params.get("destination")+" using default")
         req.customerId.defaultServiceId.path.toString
@@ -410,7 +410,6 @@ case class LogoutService(store: SessionStore, destinationValidator: DestinationV
     BorderAuth.formatLogoutResponse(req.req, Status.Ok, location,
       s"After logout, redirecting to: '$location'").toFuture
   }
-
 }
 
 /**

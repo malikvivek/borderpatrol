@@ -1077,7 +1077,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     // Validate
     Await.result(output).status should be (Status.Ok)
     Await.result(output).contentType.get should include("application/json")
-    Await.result(output).contentString should include(s""""redirect_url" : "http://www.example.com"""")
+    Await.result(output).contentString should include(s""""redirect_url" : "/abc"""")
     Await.result(output).cookies.get(SignedId.sessionIdCookieName) should be (None)
   }
 }
