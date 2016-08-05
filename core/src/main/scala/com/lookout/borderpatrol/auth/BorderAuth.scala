@@ -114,6 +114,21 @@ object BorderAuth {
         else r.uri.replaceFirst(serviceId.path.toString, rwPath.toString)
       }
     }
+
+  /**
+    * Centralize attempt to fetch a 'destination' param. In future this could be parametrized.
+    * Try to get a scrubbed value that then needs to be checked against known host names.
+    *
+    * @param paramMap
+    * @param destinationValidator
+    * @return Option if a valid hostname (value) was extracted from paramMap
+    */
+  def attemptDestinationFetch(paramMap: ParamMap)(implicit destinationValidator: DestinationValidator): Option[String] =
+    for {
+      loc <- Helpers.scrubQueryParams(paramMap, "destination")
+      a <- destinationValidator.matchesValidHosts(loc)
+    } yield a
+
 }
 
 /**
@@ -180,7 +195,7 @@ case class SessionIdFilter(matcher: ServiceMatcher, store: SessionStore)(
  * @param secretStore
  */
 case class SendToIdentityProvider(identityProviderMap: Map[String, Service[BorderRequest, Response]],
-                                  store: SessionStore)(
+                                  store: SessionStore, destinationValidator: DestinationValidator)(
   implicit secretStore: SecretStoreApi, statsReceiver: StatsReceiver)
     extends SimpleFilter[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
@@ -239,7 +254,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
        */
       case (None, _)
         if Path(req.req.path).startsWith(req.customerId.loginManager.loginConfirm) => {
-        val location = Helpers.scrubQueryParams(req.req.params, "destination")
+        val location = BorderAuth.attemptDestinationFetch(req.req.params)(destinationValidator)
           .getOrElse(req.customerId.defaultServiceId.path.toString)
         for {
           sessionId <- SignedId.untagged
@@ -367,7 +382,8 @@ case class SendToUnprotectedService(store: SessionStore)
  * - sets the empty cookie in response
  * - redirects to default service path
  */
-case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreApi)
+case class LogoutService(store: SessionStore, destinationValidator: DestinationValidator)
+                        (implicit secretStore: SecretStoreApi)
     extends Service[CustomerIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
@@ -377,15 +393,19 @@ case class LogoutService(store: SessionStore)(implicit secretStore: SecretStoreA
       store.delete(sid)
     })
     // Redirect to (1) the logged out url, (2) suggested url or (3) default service path, in that order
-    val location = (req.customerId.loginManager.loggedOutUrl,
-      Helpers.scrubQueryParams(req.req.params, "destination")) match {
+    val location: String = (req.customerId.loginManager.loggedOutUrl,
+      BorderAuth.attemptDestinationFetch(req.req.params)(destinationValidator)) match {
       case (Some(loc), _) => loc.toString
       case (None, Some(loc)) => loc
-      case _ => req.customerId.defaultServiceId.path.toString
+      case _ => {
+        log.info("Could not determine host: "+req.req.params.get("destination")+" using default")
+        req.customerId.defaultServiceId.path.toString
+      }
     }
     BorderAuth.formatLogoutResponse(req.req, Status.Ok, location,
       s"After logout, redirecting to: '$location'").toFuture
   }
+
 }
 
 /**
