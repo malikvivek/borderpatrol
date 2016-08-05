@@ -254,8 +254,13 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
        */
       case (None, _)
         if Path(req.req.path).startsWith(req.customerId.loginManager.loginConfirm) => {
-        val location = BorderAuth.attemptDestinationFetch(req.req.params)(destinationValidator)
-          .getOrElse(req.customerId.defaultServiceId.path.toString)
+        val location = BorderAuth.attemptDestinationFetch(req.req.params)(destinationValidator) match {
+          case Some(s) => s
+          case _ => {
+            log.info("Could not determine host: "+req.req.params.get("destination")+" using default")
+            req.customerId.defaultServiceId.path.toString
+          }
+        }
         for {
           sessionId <- SignedId.untagged
           session <- Session(sessionId, Request(location)).toFuture
