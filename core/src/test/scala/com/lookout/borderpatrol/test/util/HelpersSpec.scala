@@ -91,4 +91,12 @@ class HelpersSpec extends BorderPatrolSuite {
     val req48 = toPostRequest("destination=\n\r/abc")
     scrubQueryParams(req48.params, "destination") should be(Some("/abc"))
   }
+
+  behavior of "scrubAString"
+  it should "scrub a string of special chars" in {
+    val dirtyValue = "destination\ndoo"
+    scrubAString(dirtyValue) should be (Some("destination"))
+    val dirtyValue2 = "\rabc"
+    scrubAString(dirtyValue2) should be (Some("abc"))
+  }
 }
