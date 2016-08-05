@@ -123,10 +123,10 @@ object BorderAuth {
     * @param destinationValidator
     * @return Option if a valid hostname (value) was extracted from paramMap
     */
-  def attemptDestinationFetch(paramMap: ParamMap)(implicit destinationValidator: DestinationValidator): Option[String] =
+  def extractDestination(paramMap: ParamMap)(implicit destinationValidator: DestinationValidator): Option[String] =
     for {
       loc <- Helpers.scrubQueryParams(paramMap, "destination")
-      a <- destinationValidator.matchesValidHosts(loc)
+      a <- destinationValidator.checkHosts(loc)
     } yield a
 
 }
@@ -254,7 +254,7 @@ case class SendToIdentityProvider(identityProviderMap: Map[String, Service[Borde
        */
       case (None, _)
         if Path(req.req.path).startsWith(req.customerId.loginManager.loginConfirm) => {
-        val location = BorderAuth.attemptDestinationFetch(req.req.params)(destinationValidator) match {
+        val location = BorderAuth.extractDestination(req.req.params)(destinationValidator) match {
           case Some(s) => s
           case _ => {
             log.info("Could not determine host: "+req.req.params.get("destination")+" using default")
@@ -399,7 +399,7 @@ case class LogoutService(store: SessionStore, destinationValidator: DestinationV
     })
     // Redirect to (1) the logged out url, (2) suggested url or (3) default service path, in that order
     val location: String = (req.customerId.loginManager.loggedOutUrl,
-      BorderAuth.attemptDestinationFetch(req.req.params)(destinationValidator)) match {
+      BorderAuth.extractDestination(req.req.params)(destinationValidator)) match {
       case (Some(loc), _) => loc.toString
       case (None, Some(loc)) => loc
       case _ => {

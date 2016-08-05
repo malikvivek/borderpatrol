@@ -29,8 +29,8 @@ case class DestinationValidator(hostEntries: Set[InternetDomainName]) {
     * @param location (could be a URL - if yes attempt to extract host from entry and use that for match)
     * @return
     */
-  def matchesValidHosts(location: String): Option[String] =
-    Try(new URL(location)) match {
+  def checkHosts(location: String): Option[String] =
+    Try (new URL(location)) match {
       case Success(s) if (!validHosts.contains(s.getHost)) => None
       case _ => Some(location)
     }
