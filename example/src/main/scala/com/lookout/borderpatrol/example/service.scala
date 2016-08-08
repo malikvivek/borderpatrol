@@ -79,6 +79,7 @@ object service {
                        secretStore: SecretStoreApi): Service[Request, Response] = {
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
     val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
+    implicit val destinationValidator = DestinationValidator(config.allowedDomains)
     val serviceChainFront: Filter[Request, Response, Request, Response] =
       /* Validate host if present to be present in pre-configured list*/
       HostHeaderFilter(config.allowedDomains) andThen
