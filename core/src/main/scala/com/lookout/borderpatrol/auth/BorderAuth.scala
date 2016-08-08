@@ -195,8 +195,8 @@ case class SessionIdFilter(matcher: ServiceMatcher, store: SessionStore)(
  * @param secretStore
  */
 case class SendToIdentityProvider(identityProviderMap: Map[String, Service[BorderRequest, Response]],
-                                  store: SessionStore, destinationValidator: DestinationValidator)(
-  implicit secretStore: SecretStoreApi, statsReceiver: StatsReceiver)
+                                  store: SessionStore)(
+  implicit destinationValidator: DestinationValidator, secretStore: SecretStoreApi, statsReceiver: StatsReceiver)
     extends SimpleFilter[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
   private[this] val statLoginRedirects = statsReceiver.counter("req.login.required.redirects")
@@ -387,8 +387,8 @@ case class SendToUnprotectedService(store: SessionStore)
  * - sets the empty cookie in response
  * - redirects to default service path
  */
-case class LogoutService(store: SessionStore, destinationValidator: DestinationValidator)
-                        (implicit secretStore: SecretStoreApi)
+case class LogoutService(store: SessionStore)(implicit destinationValidator: DestinationValidator,
+                        secretStore: SecretStoreApi)
     extends Service[CustomerIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
@@ -398,7 +398,7 @@ case class LogoutService(store: SessionStore, destinationValidator: DestinationV
       store.delete(sid)
     })
     // Redirect to (1) suggested url or (2) the logged out url or (3) default service path, in that order
-    val location: String = (BorderAuth.extractDestination(req.req.params)(destinationValidator),
+    val location: String = (BorderAuth.extractDestination(req.req.params),
       req.customerId.loginManager.loggedOutUrl) match {
       case (Some(loc), _) => loc.toString
       case (Some(loc),None) => loc

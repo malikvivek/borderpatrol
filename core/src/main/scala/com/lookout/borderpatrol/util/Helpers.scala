@@ -23,7 +23,8 @@ object Helpers {
   }
 
   /**
-    * Scrub a string passed in and return value
+    * The value could be malformed and may contain special characters. So lets scrub it and return the value
+    * if anything was found
     * @param toScrub
     * @return
     */

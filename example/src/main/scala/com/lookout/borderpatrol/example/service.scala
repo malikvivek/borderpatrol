@@ -79,7 +79,7 @@ object service {
                        secretStore: SecretStoreApi): Service[Request, Response] = {
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
     val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
-    val destinationValidator = DestinationValidator(config.allowedDomains)
+    implicit val destinationValidator = DestinationValidator(config.allowedDomains)
     val serviceChainFront: Filter[Request, Response, Request, Response] =
       /* Validate host if present to be present in pre-configured list*/
       HostHeaderFilter(config.allowedDomains) andThen
@@ -96,7 +96,7 @@ object service {
       case "/logout" =>
         serviceChainFront andThen
           CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
-          LogoutService(config.sessionStore, destinationValidator)
+          LogoutService(config.sessionStore)
 
       case _ =>
         serviceChainFront andThen
@@ -107,8 +107,7 @@ object service {
           /* Get or allocate Session/SignedId */
           SessionIdFilter(serviceMatcher, config.sessionStore) andThen
           /* If unauthenticated, send it to Identity Provider or login page */
-          SendToIdentityProvider(identityProviderChainMap(config.sessionStore), config.sessionStore,
-            destinationValidator) andThen
+          SendToIdentityProvider(identityProviderChainMap(config.sessionStore), config.sessionStore) andThen
           /* If authenticated and protected service, send it via Access Issuer chain */
           SendToAccessIssuer(accessIssuerChainMap(config.sessionStore)) andThen
           /* Authenticated or not, send it to unprotected service, if its destined to that */
