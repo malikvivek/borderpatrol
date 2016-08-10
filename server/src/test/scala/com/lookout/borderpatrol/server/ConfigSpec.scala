@@ -18,6 +18,7 @@ import io.circe.jawn._
 import io.circe.generic.auto._
 import io.circe.syntax._
 
+import scala.reflect.io.File
 
 class ConfigSpec extends BorderPatrolSuite {
   import coreTestHelpers._
@@ -200,6 +201,12 @@ class ConfigSpec extends BorderPatrolSuite {
       decodeInternetDomainName.decodeJson(500.toString.asJson)
     }
 
+  }
+
+  it should "Create a temp file to validate access log config" in {
+    val tempValidateAccessLogFile = File.makeTemp("TempAccessLogFile", ".tmp")
+    val result = validateAccessLogConfig(tempValidateAccessLogFile.toCanonical.toString)
+    result.isEmpty should be (true)
   }
 
   def decodedInternetDomainNameJson(internetDomainName: InternetDomainName): Option[InternetDomainName] = {

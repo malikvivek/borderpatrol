@@ -28,7 +28,7 @@ class AccessLogFilterSpec extends BorderPatrolSuite {
     }
 
     // Execute
-    val output = (AccessLogFilter(name, tempValidFile.toCanonical.toString, testFileSize) andThen testService) (Request)
+    val output = (AccessLogFilter(tempValidFile.toCanonical.toString, testFileSize) andThen testService) (Request)
 
     // Validate
     Await.result(output).status should be(Status.Ok)

@@ -10,26 +10,28 @@ import com.twitter.util.Future
 /**
   * Filter to generate access logs. The logs generated
   *
-  * @param name
-  * @param path
-  * @param fileSize
+  * @param fileName
+  * @param fileSizeInMegaBytes
   */
 
-case class AccessLogFilter(name: String, path: String, fileSize: Long)
+case class AccessLogFilter(fileName: String, fileSizeInMegaBytes: Long)
   extends SimpleFilter[Request, Response] {
 
+  lazy val loggerName = "BP_AccessLogger"
+
   lazy val accessLogHandler = FileHandler(
-    filename = path,
-    rollPolicy = Policy.MaxSize(new StorageUnit(fileSize)),
+    filename = fileName,
+    rollPolicy = Policy.MaxSize(new StorageUnit(fileSizeInMegaBytes*1024*1024)),
     level = Some(Level.INFO),
     append = true,
     formatter = BareFormatter
   ).apply()
 
   val logger: Logger = {
-    tap(Logger.get(name)) { l =>
+    tap(Logger.get(loggerName)) { l =>
       l.clearHandlers()
-      l.setLevel(Logger.INFO)
+//    l.setLevel(Logger.INFO) Logger level is commented out here to prevent the logger from forcing a log level
+//    This allows the AccessLog logger to be used as a separate logger, not under root logger.
       l.setUseParentHandlers(false)
       l.addHandler(new QueueingHandler(accessLogHandler))
     }

@@ -19,6 +19,12 @@ import scala.io.Source
 
 case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String)
 
+/**
+  * AccessLog Filter Configuration
+  * @param fileName
+  * @param fileSizeInMegaBytes
+  */
+case class AccessLogConfig(fileName: String, fileSizeInMegaBytes: Long)
 
 /**
  *  EndpointConfig
@@ -37,6 +43,7 @@ case class ServerConfig(listeningPort: Int,
                         allowedDomains: Set[InternetDomainName],
                         secretStore: SecretStoreApi,
                         sessionStore: SessionStore,
+                        accessLogConfig: AccessLogConfig,
                         statsdExporterConfig: StatsdExporterConfig,
                         healthCheckEndpointConfigs: Set[EndpointConfig],
                         customerIdentifiers: Set[CustomerIdentifier],
@@ -157,6 +164,7 @@ object ServerConfig {
       ("allowedDomains", serverConfig.allowedDomains.asJson),
       ("secretStore", serverConfig.secretStore.asJson),
       ("sessionStore", serverConfig.sessionStore.asJson),
+      ("accessLog", serverConfig.accessLogConfig.asJson),
       ("statsdReporter", serverConfig.statsdExporterConfig.asJson),
       ("endpoints", serverConfig.endpointConfigs.asJson),
       ("loginManagers", serverConfig.loginManagers.asJson),
@@ -171,6 +179,7 @@ object ServerConfig {
       allowedDomains <- c.downField("allowedDomains").as[Set[InternetDomainName]]
       secretStore <- c.downField("secretStore").as[SecretStoreApi]
       sessionStore <- c.downField("sessionStore").as[SessionStore]
+      accessLogConfig <- c.downField("accessLog").as[AccessLogConfig]
       statsdExporterConfig <- c.downField("statsdReporter").as[StatsdExporterConfig]
       eps <-c.downField("endpoints").as[Set[EndpointConfig]]
       lms <- c.downField("loginManagers").as(Decoder.decodeCanBuildFrom[LoginManager, Set](
@@ -187,8 +196,8 @@ object ServerConfig {
           if (healthCheckEndpointOpts.contains(None)) None else Some(healthCheckEndpointOpts.flatten)
         },
         DecodingFailure(s"Failed to decode endpoint(s) in the healthCheckEndpoints: ", c.history))
-    } yield ServerConfig(listeningPort, allowedDomains, secretStore, sessionStore, statsdExporterConfig,
-      healthCheckEndpointConfigs, cids, sids, lms, eps)
+    } yield ServerConfig(listeningPort, allowedDomains, secretStore, sessionStore, accessLogConfig,
+      statsdExporterConfig, healthCheckEndpointConfigs, cids, sids, lms, eps)
   }
 
   /**
@@ -241,8 +250,11 @@ object ServerConfig {
       //  Validate customerIdentifiers config
       validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers) ++
 
-      // Validate allowedDomains set
-      validateAllowedDomains("allowedDomains", serverConfig.allowedDomains))
+        // Validate allowedDomains set
+      validateAllowedDomains("allowedDomains", serverConfig.allowedDomains) ++
+
+        // Validate accessLog Config
+       validateAccessLogConfig(s"${serverConfig.accessLogConfig.fileName}"))
   }
 
   /**
@@ -283,4 +295,3 @@ trait ServerConfigMixin { self: App =>
   val configFile = flag("configFile", defaultConfigFile,
     "BorderPatrol config file in JSON format")
 }
-
