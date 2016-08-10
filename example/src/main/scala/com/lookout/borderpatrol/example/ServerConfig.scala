@@ -21,7 +21,7 @@ case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String
 
 /**
   * AccessLog Filter Configuration
-  * @param fileName
+  * @param fileName with absolute path.
   * @param fileSizeInMegaBytes
   */
 case class AccessLogConfig(fileName: String, fileSizeInMegaBytes: Long)
@@ -250,10 +250,10 @@ object ServerConfig {
       //  Validate customerIdentifiers config
       validateCustomerIdentifierConfig("customerIdentifiers", serverConfig.customerIdentifiers) ++
 
-        // Validate allowedDomains set
+      //  Validate allowedDomains set
       validateAllowedDomains("allowedDomains", serverConfig.allowedDomains) ++
 
-        // Validate accessLog Config
+      //  Validate accessLog Config
        validateAccessLogConfig(s"${serverConfig.accessLogConfig.fileName}"))
   }
 

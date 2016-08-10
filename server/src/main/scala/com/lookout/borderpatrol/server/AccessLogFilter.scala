@@ -6,6 +6,7 @@ import com.twitter.finagle.{Service, SimpleFilter}
 import com.twitter.finagle.http.{Request, Response}
 import com.twitter.logging.{Logger, _}
 import com.twitter.util.Future
+import com.twitter.conversions.storage._
 
 /**
   * Filter to generate access logs. The logs generated
@@ -17,12 +18,13 @@ import com.twitter.util.Future
 case class AccessLogFilter(fileName: String, fileSizeInMegaBytes: Long)
   extends SimpleFilter[Request, Response] {
 
-  lazy val loggerName = "BP_AccessLogger"
+  lazy val loggerName = "BorderPatrol_Access_Logs"
 
   lazy val accessLogHandler = FileHandler(
     filename = fileName,
-    rollPolicy = Policy.MaxSize(new StorageUnit(fileSizeInMegaBytes*1024*1024)),
+    rollPolicy = Policy.MaxSize(fileSizeInMegaBytes.megabytes),
     level = Some(Level.INFO),
+    rotateCount = 8,
     append = true,
     formatter = BareFormatter
   ).apply()

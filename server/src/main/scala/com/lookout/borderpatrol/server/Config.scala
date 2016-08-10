@@ -107,7 +107,7 @@ object Config {
   }
 
   def decodeCustomerIdentifier(sids: Map[String, ServiceIdentifier], lms: Map[String, LoginManager]):
-  Decoder[CustomerIdentifier] =
+    Decoder[CustomerIdentifier] =
     Decoder.instance { c =>
       for {
         subdomain <- c.downField("subdomain").as[String]
@@ -223,9 +223,8 @@ object Config {
 
     // Check if the path exists or not; Create if it does not or Fail if file cannot be created
     Try(Files.exists(configPath)).toOption match {
-      case Some(_) => Set.empty
-      case None if Try(Files.createFile(configPath)).isSuccess => Set.empty
-      case None => Set(s"Failed to create file: ${configPath}")
-    }
+      case Some(s) if s => Set.empty
+      case _ if Try(Files.createFile(configPath)).isSuccess => Set.empty
+      case _ => Set(s"Failed to create file: ${configPath}")}
   }
 }
