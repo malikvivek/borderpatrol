@@ -32,8 +32,8 @@ case class AccessLogFilter(fileName: String, fileSizeInMegaBytes: Long)
   val logger: Logger = {
     tap(Logger.get(loggerName)) { l =>
       l.clearHandlers()
-//    l.setLevel(Logger.INFO) Logger level is commented out here to prevent the logger from forcing a log level
-//    This allows the AccessLog logger to be used as a separate logger, not under root logger.
+      // No need to set log level here so as to prevent the logger from forcing a log level
+      // This allows the AccessLog logger to be used as a separate logger, not under root logger.
       l.setUseParentHandlers(false)
       l.addHandler(new QueueingHandler(accessLogHandler))
     }
