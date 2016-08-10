@@ -12,6 +12,10 @@
   "secretStore": {
     "type": "InMemorySecretStore"
   },
+  "accessLog": {
+    "fileName": "/var/log/bp_access.log",
+    "fileSizeInMegaBytes": 2
+  },
   "endpoints": [
     {
       "name": "tokenmaster-identity-example",

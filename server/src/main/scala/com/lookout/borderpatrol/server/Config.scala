@@ -1,5 +1,6 @@
 package com.lookout.borderpatrol.server
 
+
 import java.net.URL
 
 import com.lookout.borderpatrol._
@@ -15,7 +16,9 @@ import com.twitter.util.Duration
 import io.circe.{Encoder, _}
 import io.circe.syntax._
 import com.google.common.net.InternetDomainName
+import java.nio.file._
 
+import scala.util.{Try}
 
 /**
  * Where you will find the Secret Store and Session Store
@@ -24,7 +27,8 @@ object Config {
   val defaultSecretStore = SecretStores.InMemorySecretStore(Secrets(Secret(), Secret()))
   val defaultSessionStore = SessionStores.InMemoryStore
   private[this] val log = Logger.get(getClass.getPackage.getName)
-  def cond[T](p: => Boolean, v: T) : Set[T] = if (p) Set(v) else Set.empty[T]
+
+  def cond[T](p: => Boolean, v: T): Set[T] = if (p) Set(v) else Set.empty[T]
 
   // Encoder/Decoder for Path
   implicit val encodePath: Encoder[Path] = Encoder[String].contramap(_.toString)
@@ -37,19 +41,19 @@ object Config {
   // Encoder/Decoder for SessionStore
   implicit val encodeSessionStore: Encoder[SessionStore] = Encoder.instance {
     case x: InMemoryStore.type => Json.obj(("type", Json.fromString("InMemoryStore")))
-    case y: MemcachedStore =>  Json.obj(("type", Json.fromString("MemcachedStore")),
+    case y: MemcachedStore => Json.obj(("type", Json.fromString("MemcachedStore")),
       ("hosts", Json.fromString("localhost:123")))
   }
   implicit val decodeSessionStore: Decoder[SessionStore] = Decoder.instance { c =>
     c.downField("type").as[String].flatMap {
       case "InMemoryStore" => Xor.right(defaultSessionStore)
-      case "MemcachedStore"   =>
+      case "MemcachedStore" =>
         c.downField("hosts").as[String].map(hosts => SessionStores.MemcachedStore(
           Memcached.client
             .configured(FailureAccrualFactory.Param(1, () => Duration.fromSeconds(60)))
             .configured(Memcached.param.EjectFailedHost(true))
             .newRichClient(s"memcached=${hosts}")))
-      case other  => Xor.left(DecodingFailure(s"Invalid sessionStore: $other", c.history))
+      case other => Xor.left(DecodingFailure(s"Invalid sessionStore: $other", c.history))
     }
   }
 
@@ -69,7 +73,7 @@ object Config {
           hosts <- c.downField("hosts").as[Set[URL]]
           key <- c.downField("key").as[String]
         } yield ConsulSecretStore(key, hosts)
-      case other  => Xor.left(DecodingFailure(s"Invalid secretStore: $other", c.history))
+      case other => Xor.left(DecodingFailure(s"Invalid secretStore: $other", c.history))
     }
   }
 
@@ -101,8 +105,9 @@ object Config {
       ("defaultServiceIdentifier", cid.defaultServiceId.name.asJson),
       ("loginManager", cid.loginManager.name.asJson)))
   }
+
   def decodeCustomerIdentifier(sids: Map[String, ServiceIdentifier], lms: Map[String, LoginManager]):
-      Decoder[CustomerIdentifier] =
+    Decoder[CustomerIdentifier] =
     Decoder.instance { c =>
       for {
         subdomain <- c.downField("subdomain").as[String]
@@ -123,34 +128,34 @@ object Config {
   implicit val decodeInternetDomainName: Decoder[InternetDomainName] = Decoder[String].map(InternetDomainName.from(_))
 
   /**
-   * Validate Hosts (i.e. Set of URLs) configuration
-   *
-   * @param field
-   * @param name
-   * @param hosts
-   * @return set of all the errors encountered during validation
-   */
+    * Validate Hosts (i.e. Set of URLs) configuration
+    *
+    * @param field
+    * @param name
+    * @param hosts
+    * @return set of all the errors encountered during validation
+    */
   def validateHostsConfig(field: String, name: String, hosts: Set[URL]): Set[String] = {
     // Make sure urls in Manager have matching protocol
     (cond[String](hosts.map(_.getProtocol()).size != 1,
       s"hosts configuration for ${name} in ${field}: has differing protocols") ++
 
-    // Make sure hosts in Manager have either http or https protocol
-    cond(!hosts.map(_.getProtocol()).mkString.matches("http[s]*"),
-      s"hosts configuration for ${name} in ${field}: has unsupported protocol") ++
+      // Make sure hosts in Manager have either http or https protocol
+      cond(!hosts.map(_.getProtocol()).mkString.matches("http[s]*"),
+        s"hosts configuration for ${name} in ${field}: has unsupported protocol") ++
 
-    // Make sure https hosts have a matching hostname
-    cond(!hosts.filter(u => u.getProtocol == "https").isEmpty && hosts.map(u => u.getHost()).size != 1,
-      s"hosts configuration for ${name} in ${field}: https urls have mismatching hostnames"))
+      // Make sure https hosts have a matching hostname
+      cond(!hosts.filter(u => u.getProtocol == "https").isEmpty && hosts.map(u => u.getHost()).size != 1,
+        s"hosts configuration for ${name} in ${field}: https urls have mismatching hostnames"))
   }
 
   /**
-   * Validate SecretStore configuration
-   *
-   * @param field
-   * @param secretStores
-   * @return set of all the errors encountered during validation
-   */
+    * Validate SecretStore configuration
+    *
+    * @param field
+    * @param secretStores
+    * @return set of all the errors encountered during validation
+    */
   def validateSecretStoreConfig(field: String, secretStores: SecretStoreApi): Set[String] = {
     secretStores match {
       case x: ConsulSecretStore => validateHostsConfig(field, "consulSecretStore", x.consulUrls)
@@ -159,12 +164,12 @@ object Config {
   }
 
   /**
-   * Validate Login Manager configurartion
-   *
-   * @param field
-   * @param loginManagers
-   * @return set of all the errors encountered during validation
-   */
+    * Validate Login Manager configurartion
+    *
+    * @param field
+    * @param loginManagers
+    * @return set of all the errors encountered during validation
+    */
   def validateLoginManagerConfig(field: String, loginManagers: Set[LoginManager]): Set[String] = {
     // Find if loginManagers have duplicate entries
     cond(loginManagers.size > loginManagers.map(lm => lm.name).size,
@@ -172,12 +177,12 @@ object Config {
   }
 
   /**
-   * Validate serviceIdentifier configuration
-   *
-   * @param field
-   * @param sids
-   * @return set of all the errors encountered during validation
-   */
+    * Validate serviceIdentifier configuration
+    *
+    * @param field
+    * @param sids
+    * @return set of all the errors encountered during validation
+    */
   def validateServiceIdentifierConfig(field: String, sids: Set[ServiceIdentifier]): Set[String] = {
     // Log an info message if ServiceIdentifiers have duplicate entries for combination of (name, protected)
     if (sids.size > sids.map(sid => sid.name).size)
@@ -193,16 +198,33 @@ object Config {
   }
 
   /**
-   * Validate customerIdentifier configuration
-   *
-   * @param field
-   * @param cids
-   * @return set of all the errors encountered during validation
-   */
+    * Validate customerIdentifier configuration
+    *
+    * @param field
+    * @param cids
+    * @return set of all the errors encountered during validation
+    */
   def validateCustomerIdentifierConfig(field: String, cids: Set[CustomerIdentifier]): Set[String] = {
     // Find if CustomerIdentifiers have duplicate entries
     cond(cids.size > cids.map(cid => cid.subdomain).size,
       s"Duplicate entries for key (subdomain) are found in the field: ${field}")
   }
 
+  /**
+    * Validate accessLog configuration.
+    *
+    * @param filePath
+    */
+
+  def validateAccessLogConfig(filePath: String): Set[String] = {
+
+    val fs: FileSystem = FileSystems.getDefault()
+    val configPath = fs.getPath(filePath)
+
+    // Check if the path exists or not; Create if it does not or Fail if file cannot be created
+    Try(Files.exists(configPath)).toOption match {
+      case Some(s) if s => Set.empty
+      case _ if Try(Files.createFile(configPath)).isSuccess => Set.empty
+      case _ => Set(s"Failed to create file: ${configPath}")}
+  }
 }
