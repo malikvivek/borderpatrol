@@ -1,6 +1,7 @@
 package com.lookout.borderpatrol.server
 
 
+import java.io.File
 import java.net.URL
 
 import com.lookout.borderpatrol._
@@ -18,7 +19,7 @@ import io.circe.syntax._
 import com.google.common.net.InternetDomainName
 import java.nio.file._
 
-import scala.util.{Try}
+import scala.util.Try
 
 /**
  * Where you will find the Secret Store and Session Store
@@ -220,11 +221,13 @@ object Config {
 
     val fs: FileSystem = FileSystems.getDefault()
     val configPath = fs.getPath(filePath)
+    val parentPath = configPath.getParent()
 
-    // Check if the path exists or not; Create if it does not or Fail if file cannot be created
     Try(Files.exists(configPath)).toOption match {
       case Some(s) if s => Set.empty
+      case _ if Try {Files.createDirectory(parentPath);Files.createFile(configPath)}.isSuccess => Set.empty
       case _ if Try(Files.createFile(configPath)).isSuccess => Set.empty
-      case _ => Set(s"Failed to create file: ${configPath}")}
+      case _ => Set(s"Failed to create file: ${configPath}")
+    }
   }
 }

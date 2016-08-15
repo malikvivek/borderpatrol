@@ -88,13 +88,15 @@ object service {
 
     RoutingService.byPath {
       case "/health" =>
-        /* Convert exceptions to responses */
-        ExceptionFilter() andThen
+        AccessLogFilter(config.accessLogConfig.fileName, config.accessLogConfig.fileSizeInMegaBytes) andThen
+          /* Convert exceptions to responses */
+          ExceptionFilter() andThen
           HealthCheckService(registry, BpBuild.BuildInfo.version)
 
       /** Logout */
       case "/logout" =>
         serviceChainFront andThen
+          AccessLogFilter(config.accessLogConfig.fileName, config.accessLogConfig.fileSizeInMegaBytes) andThen
           CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
           LogoutService(config.sessionStore)
 
