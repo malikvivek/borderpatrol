@@ -46,7 +46,7 @@ object AccessIdRequest {
 object BorderAuth {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
-  private[this] def expectsJson(req: Request): Boolean = {
+  def expectsJson(req: Request): Boolean = {
     val decoder = Try(new QueryStringDecoder(req.uri)).toOption
     decoder.exists(_.getPath.endsWith(".json")) ||
       req.headerMap.get("Accept").exists(_.contains(MediaType.Json))
@@ -482,19 +482,10 @@ case class AccessFilter[A, B](implicit statsReceiver: StatsReceiver)
 case class ExceptionFilter() extends SimpleFilter[Request, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
-  /**
-   * Determines if the client expects to receive `application/json` content type.
-   */
-  private[this] def expectsJson(req: Request): Boolean = {
-    val decoder = Try(new QueryStringDecoder(req.uri)).toOption
-    decoder.exists(_.getPath.endsWith(".json")) ||
-      req.headerMap.get("Accept").exists(_.contains(MediaType.Json))
-  }
-
   private[this] def logAndResponse(req: Request, msg: String, status: Status, level: Level): Response = {
     log.log(level, s"BP Exception: $msg")
     tap(Response(status))(res => {
-      expectsJson(req) match {
+      BorderAuth.expectsJson(req) match {
         case true =>
           res.contentString = Json.fromFields(Seq(
             ("msg_source", "borderpatrol".asJson),
