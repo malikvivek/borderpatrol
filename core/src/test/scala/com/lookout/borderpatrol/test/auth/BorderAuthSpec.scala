@@ -6,6 +6,7 @@ import com.lookout.borderpatrol.auth._
 import com.lookout.borderpatrol.sessionx.SessionStores.MemcachedStore
 import com.lookout.borderpatrol.sessionx._
 import com.lookout.borderpatrol.test._
+import com.lookout.borderpatrol.util.Combinators.tap
 import com.twitter.finagle.http._
 import com.twitter.finagle.http.path.Path
 import com.twitter.finagle.http.service.RoutingService
@@ -56,6 +57,15 @@ class BorderAuthSpec extends BorderPatrolSuite {
   }
   val validHosts: Set[InternetDomainName] = Set(InternetDomainName.from("enterprise.example.com"))
   implicit val destinationValidator = DestinationValidator(validHosts)
+
+  behavior of "expectsJson"
+
+  it should "return true if request resource ends with .json or accept header contains application/json" in {
+    BorderAuth.expectsJson(Request("file.json")) should be(true)
+    BorderAuth.expectsJson(tap(Request("file"))(r => r.accept = Seq("application/json"))) should be(true)
+    BorderAuth.expectsJson(Request("file")) should be(false)
+    BorderAuth.expectsJson(tap(Request("file"))(r => r.setContentTypeJson())) should be(false)
+  }
 
   behavior of "rewriteRequest"
 
@@ -1067,7 +1077,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
   it should "succeed to logout the requests w/o sessionId w/ JSON response to loggedOut URL" in {
     // Create request
-    val request = req("sky", "/logout", ("destination", "/abc"))
+    val request = req("sky", "/logout")
     request.accept = Seq("application/json")
 
     // Execute
@@ -1077,7 +1087,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
     // Validate
     Await.result(output).status should be (Status.Ok)
     Await.result(output).contentType.get should include("application/json")
-    Await.result(output).contentString should include(s""""redirect_url" : "/abc"""")
+    Await.result(output).contentString should include(s""""redirect_url" : "http://www.example.com"""")
     Await.result(output).cookies.get(SignedId.sessionIdCookieName) should be (None)
   }
 }

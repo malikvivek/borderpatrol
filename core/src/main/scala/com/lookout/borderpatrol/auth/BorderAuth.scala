@@ -46,7 +46,7 @@ object AccessIdRequest {
 object BorderAuth {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
-  private[this] def expectsJson(req: Request): Boolean = {
+  def expectsJson(req: Request): Boolean = {
     val decoder = Try(new QueryStringDecoder(req.uri)).toOption
     decoder.exists(_.getPath.endsWith(".json")) ||
       req.headerMap.get("Accept").exists(_.contains(MediaType.Json))
@@ -400,8 +400,8 @@ case class LogoutService(store: SessionStore)(implicit destinationValidator: Des
     // Redirect to (1) suggested url or (2) the logged out url or (3) default service path, in that order
     val location: String = (BorderAuth.extractDestination(req.req.params),
       req.customerId.loginManager.loggedOutUrl) match {
-      case (Some(loc), _) => loc.toString
-      case (Some(loc),None) => loc
+      case (Some(loc), _) => loc
+      case (None, Some(loc)) => loc.toString
       case _ => {
         log.info("Could not determine host: "+req.req.params.get("destination")+" using default")
         req.customerId.defaultServiceId.path.toString
@@ -482,19 +482,10 @@ case class AccessFilter[A, B](implicit statsReceiver: StatsReceiver)
 case class ExceptionFilter() extends SimpleFilter[Request, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
-  /**
-   * Determines if the client expects to receive `application/json` content type.
-   */
-  private[this] def expectsJson(req: Request): Boolean = {
-    val decoder = Try(new QueryStringDecoder(req.uri)).toOption
-    decoder.exists(_.getPath.endsWith(".json")) ||
-      req.headerMap.get("Accept").exists(_.contains(MediaType.Json))
-  }
-
   private[this] def logAndResponse(req: Request, msg: String, status: Status, level: Level): Response = {
     log.log(level, s"BP Exception: $msg")
     tap(Response(status))(res => {
-      expectsJson(req) match {
+      BorderAuth.expectsJson(req) match {
         case true =>
           res.contentString = Json.fromFields(Seq(
             ("msg_source", "borderpatrol".asJson),
