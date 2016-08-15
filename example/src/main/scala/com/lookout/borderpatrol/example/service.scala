@@ -81,10 +81,12 @@ object service {
     val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
     implicit val destinationValidator = DestinationValidator(config.allowedDomains)
     val serviceChainFront: Filter[Request, Response, Request, Response] =
-      /* Validate host if present to be present in pre-configured list*/
-      HostHeaderFilter(config.allowedDomains) andThen
-      /* Convert exceptions to responses */
-      ExceptionFilter()
+      /* Generate the Access Log */
+      AccessLogFilter(config.accessLogConfig.fileName, config.accessLogConfig.fileSizeInMegaBytes) andThen
+        /* Validate host if present to be present in pre-configured list*/
+        HostHeaderFilter(config.allowedDomains) andThen
+        /* Convert exceptions to responses */
+        ExceptionFilter()
 
     RoutingService.byPath {
       case "/health" =>
@@ -102,8 +104,6 @@ object service {
 
       case _ =>
         serviceChainFront andThen
-          /* Generate the Access Log */
-          AccessLogFilter(config.accessLogConfig.fileName, config.accessLogConfig.fileSizeInMegaBytes) andThen
           /* Validate that its our service */
           CustomerIdFilter(serviceMatcher) andThen
           /* Get or allocate Session/SignedId */
