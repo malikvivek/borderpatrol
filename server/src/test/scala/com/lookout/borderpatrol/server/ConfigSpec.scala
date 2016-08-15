@@ -207,7 +207,8 @@ class ConfigSpec extends BorderPatrolSuite {
     val tempValidateAccessLogFile = File.makeTemp("TempAccessLogFile", ".tmp")
     validateAccessLogConfig(tempValidateAccessLogFile.toCanonical.toString).isEmpty should be (true)
     validateAccessLogConfig(tempValidateAccessLogFile.toCanonical.toString + ".xyz").isEmpty should be (true)
-    validateAccessLogConfig("/bad/directory/BadFileName.txt").nonEmpty should be (true)
+    validateAccessLogConfig(tempValidateAccessLogFile.toCanonical.toString).isEmpty should be (true)
+    validateAccessLogConfig("/bad/directory/bad/BadFileName.txt").isEmpty should be (false)
   }
 
   def decodedInternetDomainNameJson(internetDomainName: InternetDomainName): Option[InternetDomainName] = {
