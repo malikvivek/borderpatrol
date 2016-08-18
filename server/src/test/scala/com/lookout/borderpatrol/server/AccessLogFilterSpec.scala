@@ -3,6 +3,7 @@ package com.lookout.borderpatrol.server
 import com.lookout.borderpatrol.test.{BorderPatrolSuite, coreTestHelpers}
 import com.twitter.finagle.Service
 import com.twitter.finagle.http.{Request, Response, Status}
+import com.twitter.logging.Level
 import com.twitter.util.{Await, Future}
 
 import scala.io.Source
@@ -18,6 +19,7 @@ class AccessLogFilterSpec extends BorderPatrolSuite {
     val name = "localAccessLogger"
     val tempValidFile = File.makeTemp("TempAccessLogFile", ".tmp")
     val testFileSize: Long = 1*1024*1024
+    val testFileCount = 8
     val Request = req("enterprise", "/ent")
 
     //  test service
@@ -28,7 +30,8 @@ class AccessLogFilterSpec extends BorderPatrolSuite {
     }
 
     // Execute
-    val output = (AccessLogFilter(tempValidFile.toCanonical.toString, testFileSize) andThen testService) (Request)
+    val output = (AccessLogFilter(tempValidFile.toCanonical.toString, testFileSize, Level.INFO,
+      testFileCount) andThen testService) (Request)
 
     // Validate
     Await.result(output).status should be(Status.Ok)

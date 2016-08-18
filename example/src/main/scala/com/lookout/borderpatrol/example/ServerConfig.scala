@@ -11,6 +11,7 @@ import com.twitter.app.App
 import cats.data.Xor
 import com.twitter.finagle.http.path.Path
 import com.twitter.logging.Logger
+import com.twitter.logging.config.Level
 import io.circe.{Encoder, _}
 import io.circe.jawn._
 import io.circe.generic.auto._
@@ -18,13 +19,6 @@ import io.circe.syntax._
 import scala.io.Source
 
 case class StatsdExporterConfig(host: String, durationInSec: Int, prefix: String)
-
-/**
-  * AccessLog Filter Configuration
-  * @param fileName with absolute path.
-  * @param fileSizeInMegaBytes
-  */
-case class AccessLogConfig(fileName: String, fileSizeInMegaBytes: Long)
 
 /**
  *  EndpointConfig
@@ -43,7 +37,7 @@ case class ServerConfig(listeningPort: Int,
                         allowedDomains: Set[InternetDomainName],
                         secretStore: SecretStoreApi,
                         sessionStore: SessionStore,
-                        accessLogConfig: AccessLogConfig,
+                        accessLogConfig: Option[AccessLogConfig],
                         statsdExporterConfig: StatsdExporterConfig,
                         healthCheckEndpointConfigs: Set[EndpointConfig],
                         customerIdentifiers: Set[CustomerIdentifier],
@@ -179,7 +173,7 @@ object ServerConfig {
       allowedDomains <- c.downField("allowedDomains").as[Set[InternetDomainName]]
       secretStore <- c.downField("secretStore").as[SecretStoreApi]
       sessionStore <- c.downField("sessionStore").as[SessionStore]
-      accessLogConfig <- c.downField("accessLog").as[AccessLogConfig]
+      accessLogConfig <- c.downField("accessLog").as[Option[AccessLogConfig]]
       statsdExporterConfig <- c.downField("statsdReporter").as[StatsdExporterConfig]
       eps <-c.downField("endpoints").as[Set[EndpointConfig]]
       lms <- c.downField("loginManagers").as(Decoder.decodeCanBuildFrom[LoginManager, Set](
@@ -254,7 +248,7 @@ object ServerConfig {
       validateAllowedDomains("allowedDomains", serverConfig.allowedDomains) ++
 
       //  Validate accessLog Config
-       validateAccessLogConfig(s"${serverConfig.accessLogConfig.fileName}"))
+       validateAccessLogConfig(serverConfig.accessLogConfig))
   }
 
   /**

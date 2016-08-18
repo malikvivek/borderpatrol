@@ -11,23 +11,31 @@ import com.twitter.conversions.storage._
 /**
   * Filter to generate access logs. The logs generated
   *
-  * @param fileName
+  * @param output
   * @param fileSizeInMegaBytes
+  * @param accessLogLevel
+  * @param fileCount
   */
 
-case class AccessLogFilter(fileName: String, fileSizeInMegaBytes: Long)
+case class AccessLogFilter(output: String, fileSizeInMegaBytes: Long, accessLogLevel: Level = Level.INFO,
+                           fileCount: Int)
   extends SimpleFilter[Request, Response] {
 
   lazy val loggerName = "BorderPatrol_Access_Logs"
-
-  lazy val accessLogHandler = FileHandler(
-    filename = fileName,
-    rollPolicy = Policy.MaxSize(fileSizeInMegaBytes.megabytes),
-    level = Some(Level.INFO),
-    rotateCount = 8,
-    append = true,
-    formatter = BareFormatter
-  ).apply()
+  val accessLogHandler = {
+    if (output == "/dev/stderr" || output == "/dev/stdout")
+      ConsoleHandler(BareFormatter, Some(accessLogLevel))
+    else {
+      FileHandler(
+        filename = output,
+        rollPolicy = Policy.MaxSize(fileSizeInMegaBytes.megabytes),
+        level = Some(accessLogLevel),
+        rotateCount = fileCount,
+        append = true,
+        formatter = BareFormatter
+      )
+    }
+  }.apply()
 
   val logger: Logger = {
     tap(Logger.get(loggerName)) { l =>
@@ -35,6 +43,7 @@ case class AccessLogFilter(fileName: String, fileSizeInMegaBytes: Long)
       // No need to set log level here so as to prevent the logger from forcing a log level
       // This allows the AccessLog logger to be used as a separate logger, not under root logger.
       l.setUseParentHandlers(false)
+      // Add Handler to the QueueingHandler to initialize it
       l.addHandler(new QueueingHandler(accessLogHandler))
     }
   }
@@ -43,7 +52,7 @@ case class AccessLogFilter(fileName: String, fileSizeInMegaBytes: Long)
     val startTime = Time.now
     for {
       resp <- service(req)
-      _<- Future(logger.info(
+      _<- Future(logger.apply(accessLogLevel,
         /* IP Address */
         s"${req.xForwardedFor.getOrElse("-")}\t"+
           /* Start Time */

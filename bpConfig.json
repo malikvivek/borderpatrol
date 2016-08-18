@@ -13,8 +13,9 @@
     "type": "InMemorySecretStore"
   },
   "accessLog": {
-    "fileName": "/var/log/bp_access.log",
-    "fileSizeInMegaBytes": 2
+    "output": "/tmp/borderpatrol/bp_access.log",
+    "fileSizeInMegaBytes": 2,
+    "fileCount": 8
   },
   "endpoints": [
     {
