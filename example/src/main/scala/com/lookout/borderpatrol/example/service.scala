@@ -43,7 +43,6 @@ import com.twitter.finagle.http.service.RoutingService
 import com.twitter.finagle.{Filter, Service}
 import com.twitter.util.Future
 import io.circe._
-import com.twitter.logging.{Level}
 import scala.util.{Failure, Success, Try}
 
 object service {
@@ -74,7 +73,7 @@ object service {
 
   def accessLogFilter(config: ServerConfig): Filter[Request, Response, Request, Response] =
     config.accessLogConfig match {
-    case Some(conf) => AccessLogFilter(conf.output, conf.fileSizeInMegaBytes, Level.INFO, conf.fileCount)
+    case Some(conf) => AccessLogFilter(conf.output, conf.fileSizeInMegaBytes, conf.fileCount)
     case None => Filter.mk[Request, Response, Request, Response] { (req, serv) => serv(req) }
   }
 

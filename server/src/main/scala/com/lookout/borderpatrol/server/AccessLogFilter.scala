@@ -13,15 +13,14 @@ import com.twitter.conversions.storage._
   *
   * @param output
   * @param fileSizeInMegaBytes
-  * @param accessLogLevel
   * @param fileCount
   */
 
-case class AccessLogFilter(output: String, fileSizeInMegaBytes: Long, accessLogLevel: Level = Level.INFO,
-                           fileCount: Int)
+case class AccessLogFilter(output: String, fileSizeInMegaBytes: Long, fileCount: Int)
   extends SimpleFilter[Request, Response] {
 
-  lazy val loggerName = "BorderPatrol_Access_Logs"
+  val accessLogLevel: Level = Level.ALL
+  val loggerName = "BorderPatrol_Access_Logs"
   val accessLogHandler = {
     if (output == "/dev/stderr" || output == "/dev/stdout")
       ConsoleHandler(BareFormatter, Some(accessLogLevel))
@@ -40,10 +39,11 @@ case class AccessLogFilter(output: String, fileSizeInMegaBytes: Long, accessLogL
   val logger: Logger = {
     tap(Logger.get(loggerName)) { l =>
       l.clearHandlers()
-      // No need to set log level here so as to prevent the logger from forcing a log level
       // This allows the AccessLog logger to be used as a separate logger, not under root logger.
       l.setUseParentHandlers(false)
-      // Add Handler to the QueueingHandler to initialize it
+      //Set Log level for this logger.
+      l.setLevel(accessLogLevel)
+      // Add handler to QueuingHandler.
       l.addHandler(new QueueingHandler(accessLogHandler))
     }
   }
@@ -52,7 +52,7 @@ case class AccessLogFilter(output: String, fileSizeInMegaBytes: Long, accessLogL
     val startTime = Time.now
     for {
       resp <- service(req)
-      _<- Future(logger.apply(accessLogLevel,
+      _<- Future(logger.log(accessLogLevel,
         /* IP Address */
         s"${req.xForwardedFor.getOrElse("-")}\t"+
           /* Start Time */

@@ -16,7 +16,6 @@ class AccessLogFilterSpec extends BorderPatrolSuite {
 
   it should "successfully create a local file and log" in {
 
-    val name = "localAccessLogger"
     val tempValidFile = File.makeTemp("TempAccessLogFile", ".tmp")
     val testFileSize: Long = 1*1024*1024
     val testFileCount = 8
@@ -30,7 +29,7 @@ class AccessLogFilterSpec extends BorderPatrolSuite {
     }
 
     // Execute
-    val output = (AccessLogFilter(tempValidFile.toCanonical.toString, testFileSize, Level.INFO,
+    val output = (AccessLogFilter(tempValidFile.toCanonical.toString, testFileSize,
       testFileCount) andThen testService) (Request)
 
     // Validate

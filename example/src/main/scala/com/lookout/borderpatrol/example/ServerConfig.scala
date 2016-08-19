@@ -11,7 +11,6 @@ import com.twitter.app.App
 import cats.data.Xor
 import com.twitter.finagle.http.path.Path
 import com.twitter.logging.Logger
-import com.twitter.logging.config.Level
 import io.circe.{Encoder, _}
 import io.circe.jawn._
 import io.circe.generic.auto._
