@@ -203,12 +203,26 @@ class ConfigSpec extends BorderPatrolSuite {
 
   }
 
-  it should "Create a temp file to validate access log config" in {
+  it should "Succeed to Validate Access Log configuration" in {
     val tempValidateAccessLogFile = File.makeTemp("TempAccessLogFile", ".tmp")
-    validateAccessLogConfig(tempValidateAccessLogFile.toCanonical.toString).isEmpty should be (true)
-    validateAccessLogConfig(tempValidateAccessLogFile.toCanonical.toString + ".xyz").isEmpty should be (true)
-    validateAccessLogConfig(tempValidateAccessLogFile.toCanonical.toString).isEmpty should be (true)
-    validateAccessLogConfig("/bad/directory/bad/BadFileName.txt").isEmpty should be (false)
+    val tempFileSizeInMegaBytes = 1
+    val tempFileCount = 1
+    val goodOutputs = Set("/dev/stdout", "/dev/stderr", tempValidateAccessLogFile.toCanonical.toString)
+
+    goodOutputs.foreach { p =>
+      val conf = AccessLogConfig(p, tempFileSizeInMegaBytes, tempFileCount)
+      validateAccessLogConfig(Some(conf)).isEmpty should be(true)
+    }
+  }
+
+  it should "Fail to Validate Access Log Configuration" in {
+    val tempFileSizeInMegaBytes = 1
+    val tempFileCount = 1
+    val badOutputs = Set("/dev/foo", "/bad/path/filePath/badFile.txt")
+    badOutputs.foreach { p =>
+      val conf = AccessLogConfig(p, tempFileSizeInMegaBytes, tempFileCount)
+      validateAccessLogConfig(Some(conf)).isEmpty should be(false)
+    }
   }
 
   def decodedInternetDomainNameJson(internetDomainName: InternetDomainName): Option[InternetDomainName] = {

@@ -43,9 +43,7 @@ import com.twitter.finagle.http.service.RoutingService
 import com.twitter.finagle.{Filter, Service}
 import com.twitter.util.Future
 import io.circe._
-
 import scala.util.{Failure, Success, Try}
-
 
 object service {
   /**
@@ -72,6 +70,13 @@ object service {
     "tokenmaster.oauth2" -> tokenmasterAccessIssuerChain(sessionStore)
   )
 
+
+  def accessLogFilter(config: ServerConfig): Filter[Request, Response, Request, Response] =
+    config.accessLogConfig match {
+    case Some(conf) => AccessLogFilter(conf.output, conf.fileSizeInMegaBytes, conf.fileCount)
+    case None => Filter.mk[Request, Response, Request, Response] { (req, serv) => serv(req) }
+  }
+
   /**
    * The sole entry point for all service chains
    */
@@ -80,17 +85,14 @@ object service {
     val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
     val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
     implicit val destinationValidator = DestinationValidator(config.allowedDomains)
-    val serviceChainFront: Filter[Request, Response, Request, Response] =
-      /* Generate the Access Log */
-      AccessLogFilter(config.accessLogConfig.fileName, config.accessLogConfig.fileSizeInMegaBytes) andThen
-        /* Validate host if present to be present in pre-configured list*/
+    def serviceChainFront: Filter[Request, Response, Request, Response] =
+      accessLogFilter(config) andThen
         HostHeaderFilter(config.allowedDomains) andThen
-        /* Convert exceptions to responses */
         ExceptionFilter()
 
     RoutingService.byPath {
       case "/health" =>
-        AccessLogFilter(config.accessLogConfig.fileName, config.accessLogConfig.fileSizeInMegaBytes) andThen
+          accessLogFilter(config) andThen
           /* Convert exceptions to responses */
           ExceptionFilter() andThen
           HealthCheckService(registry, BpBuild.BuildInfo.version)
