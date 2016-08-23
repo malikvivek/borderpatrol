@@ -56,7 +56,7 @@ case class AccessLogFilter(output: String, fileSizeInMegaBytes: Long, fileCount:
         /* IP Address */
         s"${req.xForwardedFor.getOrElse("-")}\t"+
           /* Start Time */
-          s"${startTime.format("[yyyy/mm/dd:hh:mm:ss.sss]")}\t"+
+          s"${startTime.format("[yyyy/MM/dd:hh:mm:ss.sss]")}\t"+
           /* Reuest Method (GET/POST) */
           s"${req.method}\t" +
           /* Request Host */
