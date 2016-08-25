@@ -3,8 +3,8 @@ package com.lookout.borderpatrol.server
 import com.lookout.borderpatrol.test.{BorderPatrolSuite, coreTestHelpers}
 import com.twitter.finagle.Service
 import com.twitter.finagle.http.{Request, Response, Status}
-import com.twitter.logging.Level
 import com.twitter.util.{Await, Future}
+import com.lookout.borderpatrol.util.Combinators.tap
 
 import scala.io.Source
 import scala.reflect.io.File
@@ -38,5 +38,29 @@ class AccessLogFilterSpec extends BorderPatrolSuite {
     val contents = Source.fromFile(tempValidFile.toCanonical.toString).mkString
     contents should include("AccessLogV1")
     contents should include ("GET\tenterprise.example.com\t/ent\t-\t200")
+  }
+
+  it should "Cache and Log original request" in {
+    val testRequest = req("enterprise", "/ent")
+    val tempValidFile = File.makeTemp("TempAccessLogFile", ".tmp")
+    val testFileSize: Long = 1*1024*1024
+    val testFileCount = 8
+
+    //  test service
+    val testService = Service.mk[Request, Response] {
+      req => {
+        req.uri="/nonExistent"
+        Future.value(Response(Status.Ok))
+      }
+    }
+
+    // Execute
+    val output = (AccessLogFilter(tempValidFile.toCanonical.toString, testFileSize,
+      testFileCount) andThen testService) (testRequest)
+
+    //Validate
+    val contents = Source.fromFile(tempValidFile.toCanonical.toString).mkString
+    Await.result(output).status should be(Status.Ok)
+    Thread.sleep(10)
   }
 }
