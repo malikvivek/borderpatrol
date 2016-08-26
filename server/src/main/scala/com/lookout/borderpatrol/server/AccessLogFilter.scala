@@ -11,22 +11,22 @@ import com.twitter.conversions.storage._
 /**
   * Filter to generate access logs. The logs generated
   *
-  * @param output
+  * @param logDestination
   * @param fileSizeInMegaBytes
   * @param fileCount
   */
 
-case class AccessLogFilter(output: String, fileSizeInMegaBytes: Long, fileCount: Int)
+case class AccessLogFilter(logDestination: String, fileSizeInMegaBytes: Long, fileCount: Int)
   extends SimpleFilter[Request, Response] {
 
   val accessLogLevel: Level = Level.ALL
   val loggerName = "BorderPatrol_Access_Logs"
   val accessLogHandler = {
-    if (output == "/dev/stderr" || output == "/dev/stdout")
+    if (logDestination == "/dev/stderr" || logDestination == "/dev/stdout")
       ConsoleHandler(BareFormatter, Some(accessLogLevel))
     else {
       FileHandler(
-        filename = output,
+        filename = logDestination,
         rollPolicy = Policy.MaxSize(fileSizeInMegaBytes.megabytes),
         level = Some(accessLogLevel),
         rotateCount = fileCount,
