@@ -20,11 +20,11 @@ import scala.util.Try
 /**
   * AccessLog Filter Configuration
   *
-  * @param output with absolute path.
+  * @param logDestination with absolute path.
   * @param fileSizeInMegaBytes
   * @param fileCount
   */
-case class AccessLogConfig(output: String, fileSizeInMegaBytes: Long, fileCount: Int)
+case class AccessLogConfig(logDestination: String, fileSizeInMegaBytes: Long, fileCount: Int)
 /**
  * Where you will find the Secret Store and Session Store
  */
@@ -222,10 +222,10 @@ object Config {
     */
 
   def validateAccessLogConfig(accessLogConfig: Option[AccessLogConfig]): Set[String] = accessLogConfig match {
-    case Some(conf) if (conf.output == ("/dev/stdout") || conf.output == ("/dev/stderr")) => Set.empty
+    case Some(conf) if (conf.logDestination == ("/dev/stdout") || conf.logDestination == ("/dev/stderr")) => Set.empty
     case Some(conf) => {
       val fs: FileSystem = FileSystems.getDefault()
-      val configPath = fs.getPath(conf.output)
+      val configPath = fs.getPath(conf.logDestination)
       val parentPath = configPath.getParent()
       Try(Files.exists(configPath)).toOption match {
         case Some(s) if s => Set.empty

@@ -73,7 +73,7 @@ object service {
 
   def accessLogFilter(config: ServerConfig): Filter[Request, Response, Request, Response] =
     config.accessLogConfig match {
-    case Some(conf) => AccessLogFilter(conf.output, conf.fileSizeInMegaBytes, conf.fileCount)
+    case Some(conf) => AccessLogFilter(conf.logDestination, conf.fileSizeInMegaBytes, conf.fileCount)
     case None => Filter.mk[Request, Response, Request, Response] { (req, serv) => serv(req) }
   }
 

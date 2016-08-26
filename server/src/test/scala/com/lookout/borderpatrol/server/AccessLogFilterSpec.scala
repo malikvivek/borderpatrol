@@ -4,8 +4,6 @@ import com.lookout.borderpatrol.test.{BorderPatrolSuite, coreTestHelpers}
 import com.twitter.finagle.Service
 import com.twitter.finagle.http.{Request, Response, Status}
 import com.twitter.util.{Await, Future}
-import com.lookout.borderpatrol.util.Combinators.tap
-
 import scala.io.Source
 import scala.reflect.io.File
 
