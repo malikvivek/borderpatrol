@@ -5,7 +5,9 @@ import com.lookout.borderpatrol.sessionx.SecretStores.{ConsulHealthCheck, Consul
 import com.lookout.borderpatrol.sessionx.SessionStores.{MemcachedHealthCheck, MemcachedStore}
 import com.lookout.borderpatrol.HealthCheckRegistry
 import com.lookout.borderpatrol.server._
+import com.twitter.conversions.storage._
 import com.twitter.finagle.Http
+import com.twitter.finagle.Http.param.MaxHeaderSize
 import com.twitter.server.TwitterServer
 import com.twitter.util.Await
 
@@ -44,7 +46,11 @@ object BorderPatrolApp extends TwitterServer with ServerConfigMixin {
       serverConfig.statsdExporterConfig.prefix)
 
     // Create a server
-    val server1 = Http.serve(s":${serverConfig.listeningPort}", MainServiceChain)
+    val server1 = Http.server
+      .configured(MaxHeaderSize(32.kilobytes)) /* Sum of all headers should be less than 32k */
+      .withMaxRequestSize(50.megabytes) /* Size of request body should be less than 50M */
+      .withMaxResponseSize(50.megabytes) /* Size of response body should be less than 50M */
+      .serve(s":${serverConfig.listeningPort}", MainServiceChain)
     val server2 = Http.serve(s":${serverConfig.listeningPort+1}", getMockRoutingService)
     Await.all(server1, server2)
   }

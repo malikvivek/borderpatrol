@@ -57,8 +57,9 @@ class AccessLogFilterSpec extends BorderPatrolSuite {
       testFileCount) andThen testService) (testRequest)
 
     //Validate
-    val contents = Source.fromFile(tempValidFile.toCanonical.toString).mkString
     Await.result(output).status should be(Status.Ok)
     Thread.sleep(10)
+    val contents = Source.fromFile(tempValidFile.toCanonical.toString).mkString
+    contents should include("enterprise.example.com\t/ent")
   }
 }
