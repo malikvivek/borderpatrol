@@ -3,7 +3,7 @@ package com.lookout.borderpatrol
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
-
+import com.twitter.conversions.storage._
 import com.twitter.finagle.Http.Client
 import com.twitter.finagle.client.StackClient
 import com.twitter.finagle.http.path.Path
@@ -59,8 +59,11 @@ object Endpoint {
     val chain = tls(endpoint) //compose failFast(endpoint)
 
     chain(Http.Client(Client.stack, StackClient.defaultParams +
-      ProtocolLibrary("http") + StatsFilter.Param(TimeUnit.MICROSECONDS))).newService(hostAndPorts, name)
-  }
+      ProtocolLibrary("http") + StatsFilter.Param(TimeUnit.MICROSECONDS)))
+      .withMaxHeaderSize(32.kilobytes) /* Sum of all headers should be less than 32k */
+      .withMaxRequestSize(50.megabytes) /* Size of request body should be less than 50M */
+      .withMaxResponseSize(50.megabytes) /* Size of response body should be less than 50M */
+      .newService(hostAndPorts, name)  }
 
   /** Get or store client in cache */
   private[this] def getOrCreate(endpoint: Endpoint): Future[Service[Request, Response]] =
