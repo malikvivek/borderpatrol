@@ -3,6 +3,7 @@ package com.lookout.borderpatrol
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+
 import com.twitter.conversions.storage._
 import com.twitter.finagle.Http.Client
 import com.twitter.finagle.client.StackClient
@@ -11,8 +12,10 @@ import com.twitter.finagle.param.ProtocolLibrary
 import com.twitter.finagle.service.StatsFilter
 import com.twitter.finagle.{Http, Service}
 import com.twitter.finagle.http.{Request, Response}
+import com.twitter.finagle.tracing.NullTracer
 import com.twitter.logging.Logger
 import com.twitter.util.Future
+
 import scala.collection.JavaConverters._
 import scala.language.postfixOps
 
@@ -55,7 +58,10 @@ object Endpoint {
   /** Spawn a client */
   def client(name: String, endpoint: Endpoint): Service[Request, Response] = {
     // Find CSV of host & ports
-    val hostAndPorts = endpoint.hosts.map(u => u.getAuthority).mkString(",")
+    val hostAndPorts = endpoint.hosts.map { u =>
+      val port = if (u.getPort < 0) u.getDefaultPort else u.getPort
+      s"${u.getHost}:${port}"
+    }.mkString(",")
     val chain = tls(endpoint) //compose failFast(endpoint)
 
     chain(Http.Client(Client.stack, StackClient.defaultParams +
@@ -63,7 +69,9 @@ object Endpoint {
       .withMaxHeaderSize(32.kilobytes) /* Sum of all headers should be less than 32k */
       .withMaxRequestSize(50.megabytes) /* Size of request body should be less than 50M */
       .withMaxResponseSize(50.megabytes) /* Size of response body should be less than 50M */
-      .newService(hostAndPorts, name)  }
+      .withTracer(NullTracer)
+      .newService(hostAndPorts, name)
+  }
 
   /** Get or store client in cache */
   private[this] def getOrCreate(endpoint: Endpoint): Future[Service[Request, Response]] =

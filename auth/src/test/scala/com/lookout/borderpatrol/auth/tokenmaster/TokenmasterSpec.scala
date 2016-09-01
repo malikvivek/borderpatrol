@@ -67,30 +67,32 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
 
     val mixin = new OAuth2StateMixin {
       val accessClaimSet: JWTClaimsSet = accessToken.getJWTClaimsSet
-      val idClaimSet: JWTClaimsSet = idToken.getJWTClaimsSet
       val req: BorderRequest = borderRequest
     }
 
-    // Validate
-    mixin.aStringClaim("sub") should be("SomeAccessToken")
+    // Validate Access Token
+    mixin.stringClaim(accessToken.getJWTClaimsSet, "sub") should be("SomeAccessToken")
     val caught1 = the[BpTokenAccessError] thrownBy {
-      mixin.aStringClaim("bad")
+      mixin.stringClaim(accessToken.getJWTClaimsSet, "bad")
     }
-    caught1.msg should include("Failed to find string claim 'bad' in the Access Token in the Request")
-    mixin.iStringClaim("sub") should be("SomeIdToken")
+    caught1.msg should include("Failed to find string claim 'bad' in the Token in the Request")
+    mixin.stringClaim(accessToken.getJWTClaimsSet, "sub") should be("SomeAccessToken")
     val caught2 = the[BpTokenAccessError] thrownBy {
-      mixin.iStringClaim("bad")
+      mixin.stringClaim(accessToken.getJWTClaimsSet, "bad")
     }
-    caught2.msg should include("Failed to find string claim 'bad' in the Id Token in the Request")
+    caught2.msg should include("Failed to find string claim 'bad' in the Token in the Request")
+    mixin.anyClaim(accessToken.getJWTClaimsSet, "sub").asInstanceOf[String] should be("SomeAccessToken")
+
+    // Validate Id Token
     val caught3 = the[BpTokenAccessError] thrownBy {
-      mixin.aStringListClaim("bad")
+      mixin.stringListClaim(idToken.getJWTClaimsSet, "bad")
     }
-    caught3.msg should include("Failed to find string list claim 'bad' in the Access Token in the Request")
-    mixin.iStringListClaim("groups") should be(List("group1","group2"))
+    caught3.msg should include("Failed to find string list claim 'bad' in the Token in the Request")
+    mixin.stringListClaim(idToken.getJWTClaimsSet, "groups") should be(List("group1","group2"))
     val caught4 = the[BpTokenAccessError] thrownBy {
-      mixin.iStringListClaim("bad")
+      mixin.stringListClaim(idToken.getJWTClaimsSet, "bad")
     }
-    caught4.msg should include("Failed to find string list claim 'bad' in the Id Token in the Request")
+    caught4.msg should include("Failed to find string list claim 'bad' in the Token in the Request")
   }
 
   behavior of "TokenmasterPostLoginFilter"
@@ -456,7 +458,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
       // Mock the oAuth2 verifier
       val mockVerify = mock[OAuth2CodeVerify]
       when(mockVerify.codeToClaimsSet(borderRequest, umbrellaLoginManager)).thenReturn(
-        Future.value((accessToken.getJWTClaimsSet, idToken.getJWTClaimsSet)))
+        Future.value((accessToken.serialize(), accessToken.getJWTClaimsSet, idToken.getJWTClaimsSet)))
 
       // Execute
       val output = TokenmasterOAuth2Auth(mockVerify).apply(borderRequest)
@@ -486,7 +488,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     // Mock the oAuth2 verifier
     val mockVerify = mock[OAuth2CodeVerify]
     when(mockVerify.codeToClaimsSet(borderRequest, umbrellaLoginManager)).thenReturn(
-      Future.value((accessToken.getJWTClaimsSet, idToken.getJWTClaimsSet)))
+      Future.value((accessToken.serialize(), accessToken.getJWTClaimsSet, idToken.getJWTClaimsSet)))
 
     // Execute
     val output = TokenmasterOAuth2Auth(mockVerify).apply(borderRequest)
@@ -495,7 +497,7 @@ class TokenmasterSpec extends BorderPatrolSuite with MockitoSugar {
     val caught = the[BpTokenAccessError] thrownBy {
       Await.result(output).status should be(Status.Ok)
     }
-    caught.msg should include("Failed to find string claim 'sub' in the Access Token in the Request")
+    caught.msg should include("Failed to find string claim 'sub' in the Token in the Request")
   }
 
   behavior of "TokenmasterAccessIssuer"

@@ -75,33 +75,29 @@ object Tokenmaster {
    */
   trait OAuth2StateMixin {
     val accessClaimSet: JWTClaimsSet
-    val idClaimSet: JWTClaimsSet
     val req: BorderRequest
     private[this] val log = Logger.get(getClass.getPackage.getName)
 
-    def aStringClaim(claim: String): String = wrapOps[String]({ () => accessClaimSet.getStringClaim(claim)},
-      s"Failed to find string claim '$claim' in the Access Token in the Request",
+    def anyClaim(claimSet: JWTClaimsSet, claim: String): AnyRef = wrapOps(
+      { () => claimSet.getClaim(claim) },
+      s"Failed to find string claim '$claim' in the Token in the Request",
       BpTokenAccessError.apply)
 
-    def aStringListClaim(claim: String): List[String] = wrapOps[List[String]](
-      { () => accessClaimSet.getStringListClaim(claim).asScala.toList},
-      s"Failed to find string list claim '$claim' in the Access Token in the Request",
+    def stringClaim(claimSet: JWTClaimsSet, claim: String): String = wrapOps(
+      { () => claimSet.getStringClaim(claim) },
+      s"Failed to find string claim '$claim' in the Token in the Request",
       BpTokenAccessError.apply)
 
-    def iStringClaim(claim: String): String = wrapOps[String]({ () => idClaimSet.getStringClaim(claim)},
-      s"Failed to find string claim '$claim' in the Id Token in the Request",
-      BpTokenAccessError.apply)
-
-    def iStringListClaim(claim: String): List[String] = wrapOps[List[String]](
-      { () => idClaimSet.getStringListClaim(claim).asScala.toList},
-      s"Failed to find string list claim '$claim' in the Id Token in the Request",
+    def stringListClaim(claimSet: JWTClaimsSet, claim: String): List[String] = wrapOps[List[String]](
+      { () => claimSet.getStringListClaim(claim).asScala.toList },
+      s"Failed to find string list claim '$claim' in the Token in the Request",
       BpTokenAccessError.apply)
 
     lazy val oAuth2Credential: Seq[(String, Json)] = Seq(("ent_guid", req.customerId.guid.asJson),
       ("idp_guid", req.customerId.loginManager.guid.asJson),
-      ("external_id", aStringClaim("sub").asJson))
+      ("external_id", stringClaim(accessClaimSet, "sub").asJson))
 
-    private lazy val logUserId = s"ExternalId: ${aStringClaim("sub").takeRight(8)}"
+    private lazy val logUserId = s"ExternalId: ${stringClaim(accessClaimSet, "sub").takeRight(8)}"
 
     def authPayload(grants: Set[String]): String =
       Json.fromFields(Seq(("s", req.serviceId.name.asJson)) ++ oAuth2Credential ++
@@ -270,7 +266,7 @@ object Tokenmaster {
 
     def apply(req: BorderRequest): Future[Response] = {
       for {
-        (accessClaimSet, idClaimSet) <- oAuth2CodeVerify.codeToClaimsSet(req,
+        (_, accessClaimSet, idClaimSet) <- oAuth2CodeVerify.codeToClaimsSet(req,
           req.customerId.loginManager.as[OAuth2LoginManager])
         resp <- OAuth2Helper(accessClaimSet, idClaimSet, req).authenticate(Set.empty)
       } yield resp

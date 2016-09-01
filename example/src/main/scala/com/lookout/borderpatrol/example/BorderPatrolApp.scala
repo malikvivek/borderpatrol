@@ -8,6 +8,7 @@ import com.lookout.borderpatrol.server._
 import com.twitter.conversions.storage._
 import com.twitter.finagle.Http
 import com.twitter.finagle.Http.param.MaxHeaderSize
+import com.twitter.finagle.tracing.NullTracer
 import com.twitter.server.TwitterServer
 import com.twitter.util.Await
 
@@ -50,6 +51,7 @@ object BorderPatrolApp extends TwitterServer with ServerConfigMixin {
       .configured(MaxHeaderSize(32.kilobytes)) /* Sum of all headers should be less than 32k */
       .withMaxRequestSize(50.megabytes) /* Size of request body should be less than 50M */
       .withMaxResponseSize(50.megabytes) /* Size of response body should be less than 50M */
+      .withTracer(NullTracer)
       .serve(s":${serverConfig.listeningPort}", MainServiceChain)
     val server2 = Http.serve(s":${serverConfig.listeningPort+1}", getMockRoutingService)
     Await.all(server1, server2)
