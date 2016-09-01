@@ -144,7 +144,7 @@ object OAuth2 {
      * @return
      */
     def codeToClaimsSet(req: BorderRequest, loginManager: OAuth2LoginManagerMixin):
-      Future[(JWTClaimsSet, JWTClaimsSet)] = {
+      Future[(String, JWTClaimsSet, JWTClaimsSet)] = {
       for {
         aadToken <- loginManager.codeToToken(req).flatMap(res => res.status match {
           //  Parse for Tokens if Status.Ok
@@ -161,7 +161,7 @@ object OAuth2 {
         })
         idClaimSet <- wrapFuture({() => PlainJWT.parse(aadToken.idToken).getJWTClaimsSet}, BpTokenParsingError.apply)
         accessClaimSet <- getClaimsSet(req, loginManager, aadToken.accessToken)
-      } yield (accessClaimSet, idClaimSet)
+      } yield (aadToken.accessToken, accessClaimSet, idClaimSet)
     }
   }
 }

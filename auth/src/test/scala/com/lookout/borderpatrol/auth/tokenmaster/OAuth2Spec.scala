@@ -185,8 +185,8 @@ class OAuth2Spec extends BorderPatrolSuite {
       val output = new OAuth2CodeVerify().codeToClaimsSet(sessionIdRequest, umbrellaLoginManager)
 
       // Validate
-      Await.result(output)._1.getSubject should be("abc123")
-      Await.result(output)._1.getStringClaim("upn") should be("test@example.com")
+      Await.result(output)._2.getSubject should be("abc123")
+      Await.result(output)._2.getStringClaim("upn") should be("test@example.com")
     } finally {
       server.close()
     }
@@ -238,8 +238,8 @@ class OAuth2Spec extends BorderPatrolSuite {
       val output = new OAuth2CodeVerify().codeToClaimsSet(sessionIdRequest, umbrellaLoginManager)
 
       // Validate
-      Await.result(output)._1.getSubject should be("abc123")
-      Await.result(output)._1.getStringClaim("upn") should be("test@example.com")
+      Await.result(output)._2.getSubject should be("abc123")
+      Await.result(output)._2.getStringClaim("upn") should be("test@example.com")
     } finally {
       server.close()
     }
@@ -282,8 +282,8 @@ class OAuth2Spec extends BorderPatrolSuite {
       val output = oAuth2CodeVerify.codeToClaimsSet(sessionIdRequest, umbrellaLoginManager)
 
       // Validate
-      Await.result(output)._1.getSubject should be("abc123")
-      Await.result(output)._1.getStringClaim("upn") should be("test@example.com")
+      Await.result(output)._2.getSubject should be("abc123")
+      Await.result(output)._2.getStringClaim("upn") should be("test@example.com")
     } finally {
       server.close()
     }
