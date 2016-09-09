@@ -18,7 +18,7 @@ import com.twitter.util.{Await, Future, Time}
 
 class BorderAuthSpec extends BorderPatrolSuite {
 
-  import coreTestHelpers.{secretStore => store, _}
+  import coreTestHelpers._
 
   // Method to decode SessionData from the sessionId
   def getRequestFromSessionId(sid: SignedId): Future[Request] =
@@ -981,8 +981,8 @@ class BorderAuthSpec extends BorderPatrolSuite {
       "localhost:5678",
       RoutingService.byPath {
         case p1 if p1 contains one.path.toString => Service.mk[Request, Response] { req =>
-          assert(req.uri == one.path.toString)
-          assert(req.headerMap.get("Auth-Token") == Some("blah"))
+          req.uri should be(one.path.toString)
+          req.headerMap.get("Auth-Token").get should be ("blah")
           Response(Status.Ok).toFuture
         }
         case _ =>
@@ -1033,6 +1033,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
     // Execute
     val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen
+      SessionIdFilter(serviceMatcher, sessionStore) andThen
       LogoutService(sessionStore))(request)
 
     // Validate
@@ -1051,6 +1052,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
     // Execute
     val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen
+      SessionIdFilter(serviceMatcher, sessionStore) andThen
       LogoutService(sessionStore))(request)
 
     // Validate
@@ -1066,6 +1068,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
     // Execute
     val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen
+      SessionIdFilter(serviceMatcher, sessionStore) andThen
       LogoutService(sessionStore))(request)
 
     // Validate
@@ -1082,6 +1085,7 @@ class BorderAuthSpec extends BorderPatrolSuite {
 
     // Execute
     val output = (ExceptionFilter() andThen CustomerIdFilter(serviceMatcher) andThen
+      SessionIdFilter(serviceMatcher, sessionStore) andThen
       LogoutService(sessionStore))(request)
 
     // Validate
@@ -1089,5 +1093,121 @@ class BorderAuthSpec extends BorderPatrolSuite {
     Await.result(output).contentType.get should include("application/json")
     Await.result(output).contentString should include(s""""redirect_url" : "http://www.example.com"""")
     Await.result(output).cookies.get(SignedId.sessionIdCookieName) should be (None)
+  }
+
+  behavior of "OptionsFilter"
+
+  it should "send a Status.Ok for a OPTIONS request with SessionId and valid Service path" in {
+    val testService = Service.mk[SessionIdRequest, Response] { _ => fail("Must not invoke this service")}
+
+    // Mock sessionStore (we should not hit here)
+    val mockSessionStore = MemcachedStore(FailingMockClient)
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login POST request
+    val request = Request(Method.Options, "/ent")
+
+    // Original request
+    val output = (OptionsFilter(mockSessionStore) andThen testService)(
+      SessionIdRequest(request, cust1, Some(one), Some(sessionId)))
+
+    //  Validate
+    val resp = Await.result(output)
+    resp.status should be(Status.Ok)
+    SignedId.fromResponse(resp).get should be (sessionId)
+    resp.contentLength.get should be(0)
+  }
+
+  it should "send a Status.Ok for a OPTIONS request w/o SessionId and valid Service path" in {
+    val testService = Service.mk[SessionIdRequest, Response] { _ => fail("Must not invoke this service")}
+
+    // Login POST request
+    val request = Request(Method.Options, "/ent")
+
+    // Original request
+    val output = (OptionsFilter(sessionStore) andThen testService)(
+      SessionIdRequest(request, cust1, Some(one), None))
+
+    //  Validate
+    val resp = Await.result(output)
+    resp.status should be(Status.Ok)
+    SignedId.fromResponse(resp) should not be None
+    resp.contentLength.get should be(0)
+  }
+
+  it should "patch through a non OPTIONS request to upstream service" in {
+    val testService = Service.mk[SessionIdRequest, Response] { _ => Response(Status.Ok).toFuture }
+
+    // Login POST request
+    val request = req("enterprise", "/ent")
+
+    // Original request
+    val output = (OptionsFilter(sessionStore) andThen testService)(
+      SessionIdRequest(request, cust1, Some(one), None))
+
+    //  Validate
+    Await.result(output).status should be(Status.Ok)
+  }
+
+  it should "send a Status.MethodNotAllowed for a OPTIONS request w/o SessionId and invalid Service path" in {
+    val testService = Service.mk[SessionIdRequest, Response] { _ => fail("Must not invoke this service")}
+
+    // Login POST request
+    val request = Request(Method.Options, "/unknown")
+
+    // Original request
+    val output = (OptionsFilter(sessionStore) andThen testService)(
+      SessionIdRequest(request, cust1, None, None))
+
+    //  Validate
+    val resp = Await.result(output)
+    resp.status should be(Status.MethodNotAllowed)
+    SignedId.fromResponse(resp) should not be None
+    resp.contentLength.get should be(0)
+  }
+
+  it should "send a Status.MethodNotAllowed for a OPTIONS request with SessionId and invalid Service path" in {
+    val testService = Service.mk[SessionIdRequest, Response] { _ => fail("Must not invoke this service")}
+
+    // Mock sessionStore (we should not hit here)
+    val mockSessionStore = MemcachedStore(FailingMockClient)
+
+    // Allocate and Session
+    val sessionId = sessionid.untagged
+
+    // Login POST request
+    val request = Request(Method.Options, "/ent")
+
+    // Original request
+    val output = (OptionsFilter(mockSessionStore) andThen testService)(
+      SessionIdRequest(request, cust1, None, Some(sessionId)))
+
+    //  Validate
+    val resp = Await.result(output)
+    resp.status should be(Status.MethodNotAllowed)
+    SignedId.fromResponse(resp).get should be(sessionId)
+    resp.contentLength.get should be(0)
+  }
+
+  it should "propogate the exception raised by session.update operation for an OPIONS request w/o SessionId" in {
+    val testService = Service.mk[SessionIdRequest, Response] { _ => fail("Must not invoke this service")}
+
+    // Mock sessionStore (we should not hit here)
+    val mockSessionStore = MemcachedStore(FailingMockClient)
+
+    // Login POST request
+    val request = Request(Method.Options, "/ent")
+
+    // Original request
+    val output = (OptionsFilter(mockSessionStore) andThen testService)(
+      SessionIdRequest(request, cust1, Some(one), None))
+
+    //  Validate
+    val caught = the[Exception] thrownBy {
+      Await.result(output)
+    }
+    caught.getMessage should equal("oopsie")
   }
 }

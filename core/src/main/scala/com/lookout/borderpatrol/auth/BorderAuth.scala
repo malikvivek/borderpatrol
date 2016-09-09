@@ -389,26 +389,29 @@ case class SendToUnprotectedService(store: SessionStore)
  */
 case class LogoutService(store: SessionStore)(implicit destinationValidator: DestinationValidator,
                         secretStore: SecretStoreApi)
-    extends Service[CustomerIdRequest, Response] {
+    extends Service[SessionIdRequest, Response] {
   private[this] val log = Logger.get(getClass.getPackage.getName)
 
-  def apply(req: CustomerIdRequest): Future[Response] = {
-    SignedId.fromRequest(req.req, SignedId.sessionIdCookieName).foreach(sid => {
+  def apply(req: SessionIdRequest): Future[Response] = {
+    req.sessionIdOpt.foreach { sid =>
       log.debug(s"Logging out Session: ${sid.toLogIdString}")
       store.delete(sid)
-    })
-    // Redirect to (1) suggested url or (2) the logged out url or (3) default service path, in that order
+    }
+
+    /**
+      * Redirect in following order
+      * (1) url/path in query param
+      * (2) configured logged out url
+      * (3) default service path
+      */
     val location: String = (BorderAuth.extractDestination(req.req.params),
       req.customerId.loginManager.loggedOutUrl) match {
       case (Some(loc), _) => loc
       case (None, Some(loc)) => loc.toString
-      case _ => {
-        log.info("Could not determine host: "+req.req.params.get("destination")+" using default")
-        req.customerId.defaultServiceId.path.toString
-      }
+      case _ => req.customerId.defaultServiceId.path.toString
     }
     BorderAuth.formatLogoutResponse(req.req, Status.Ok, location,
-      s"After logout, redirecting to: '$location'").toFuture
+      s"After logout, redirecting to: '${location}'").toFuture
   }
 }
 
@@ -513,5 +516,37 @@ case class ExceptionFilter() extends SimpleFilter[Request, Response] {
 
   def apply(req: Request, service: Service[Request, Response]): Future[Response] = {
     service(req) handle errorHandler(req)
+  }
+}
+
+/**
+  * Options Filter
+  * - Intercept Requests with OPTIONS method and respond with 200 if service is found or 405 otherwise
+  * - For all other methods pass it thru to next filter
+  */
+case class OptionsFilter(store: SessionStore)(implicit secretStore: SecretStoreApi)
+    extends SimpleFilter[SessionIdRequest, Response] {
+  private[this] val log = Logger.get(getClass.getPackage.getName)
+
+  def apply(req: SessionIdRequest, service: Service[SessionIdRequest, Response]): Future[Response] = {
+    req.req.method match {
+      case Method.Options => {
+        for {
+          sessionId <- req.sessionIdOpt.fold {
+              /** Allocate a new sessionId */
+              for {
+                session <- Session(req.req)
+                _ <- store.update(session)
+              } yield session.id
+            }(_.toFuture)
+          resp <- tap(Response()) { r =>
+            r.status = req.serviceIdOpt.fold(Status.MethodNotAllowed)(_ => Status.Ok)
+            r.addCookie(sessionId.asCookie())
+            r.contentLength = 0
+          }.toFuture
+        } yield resp
+      }
+      case _ => service(req)
+    }
   }
 }

@@ -39,10 +39,11 @@ import com.twitter.finagle.http.path.Path
 import com.twitter.finagle.stats.StatsReceiver
 import com.twitter.io.Buf
 import com.twitter.finagle.http.{Method, Request, Response, Status}
-import com.twitter.finagle.http.service.RoutingService
+import com.twitter.finagle.http.service.{NotFoundService, RoutingService}
 import com.twitter.finagle.{Filter, Service}
 import com.twitter.util.Future
 import io.circe._
+
 import scala.util.{Failure, Success, Try}
 
 object service {
@@ -52,11 +53,11 @@ object service {
    * As of now, we only support `tokenmaster` as an Identity Provider
    */
   def identityProviderChainMap(sessionStore: SessionStore)(
-    implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
-  Map[String, Service[BorderRequest, Response]] = Map(
-    "tokenmaster.basic" -> tokenmasterBasicServiceChain(sessionStore),
-    "tokenmaster.oauth2" -> tokenmasterOAuth2ServiceChain(sessionStore)
-  )
+    implicit store: SecretStoreApi, statsReceiver: StatsReceiver): Map[String, Service[BorderRequest, Response]] = {
+    val basicMap = tokenmasterBasicServiceChain(sessionStore)
+    val oAuth2Map = tokenmasterOAuth2ServiceChain(sessionStore)
+    Map("tokenmaster.basic" -> basicMap, "tokenmaster.oauth2" -> oAuth2Map)
+  }
 
   /**
    * Get AccessIssuer map of name -> Service chain
@@ -64,11 +65,10 @@ object service {
    * As of now, we only support `tokenmaster` as an Access Issuer
    */
   def accessIssuerChainMap(sessionStore: SessionStore)(
-    implicit store: SecretStoreApi, statsReceiver: StatsReceiver):
-  Map[String, Service[BorderRequest, Response]] = Map(
-    "tokenmaster.basic" -> tokenmasterAccessIssuerChain(sessionStore),
-    "tokenmaster.oauth2" -> tokenmasterAccessIssuerChain(sessionStore)
-  )
+    implicit store: SecretStoreApi, statsReceiver: StatsReceiver): Map[String, Service[BorderRequest, Response]] = {
+    val aiMap = tokenmasterAccessIssuerChain(sessionStore)
+    Map("tokenmaster.basic" -> aiMap, "tokenmaster.oauth2" -> aiMap)
+  }
 
 
   def accessLogFilter(config: ServerConfig): Filter[Request, Response, Request, Response] =
@@ -82,41 +82,43 @@ object service {
    */
   def MainServiceChain(implicit config: ServerConfig, statsReceiver: StatsReceiver, registry: HealthCheckRegistry,
                        secretStore: SecretStoreApi): Service[Request, Response] = {
-    val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
-    val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
     implicit val destinationValidator = DestinationValidator(config.allowedDomains)
-    def serviceChainFront: Filter[Request, Response, Request, Response] =
-      accessLogFilter(config) andThen
+    val serviceMatcher = ServiceMatcher(config.customerIdentifiers, config.serviceIdentifiers)
+
+    /** Compute chains */
+    val notFoundService = Service.mk[SessionIdRequest, Response] { req => Response(Status.NotFound).toFuture }
+    val accessLog = accessLogFilter(config)
+    val frontChain: Filter[Request, Response, Request, Response] =
+      accessLog andThen
         HostHeaderFilter(config.allowedDomains) andThen
         ExceptionFilter()
+    val decoderChain: Filter[Request, Response, SessionIdRequest, Response] =
+      /* Get customerId */
+      CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
+        /* Get or allocate Session/SignedId */
+        SessionIdFilter(serviceMatcher, config.sessionStore) andThen
+        /* Handle Options request */
+        OptionsFilter(config.sessionStore)
+    val healthChain = accessLog andThen
+      /* Convert exceptions to responses */
+      ExceptionFilter() andThen
+      HealthCheckService(registry, BpBuild.BuildInfo.version)
+    val logoutChain = frontChain andThen decoderChain andThen LogoutService(config.sessionStore)
+    val wildChain = frontChain andThen decoderChain andThen
+      /* If unauthenticated, send it to Identity Provider or login page */
+      SendToIdentityProvider(identityProviderChainMap(config.sessionStore), config.sessionStore) andThen
+      /* If authenticated and protected service, send it via Access Issuer chain */
+      SendToAccessIssuer(accessIssuerChainMap(config.sessionStore)) andThen
+      /* Authenticated or not, send it to unprotected service, if its destined to that */
+      SendToUnprotectedService(config.sessionStore) andThen
+      /* Not found */
+      notFoundService
 
+    /** Routing */
     RoutingService.byPath {
-      case "/health" =>
-          accessLogFilter(config) andThen
-          /* Convert exceptions to responses */
-          ExceptionFilter() andThen
-          HealthCheckService(registry, BpBuild.BuildInfo.version)
-
-      /** Logout */
-      case "/logout" =>
-        serviceChainFront andThen
-          CustomerIdFilter(serviceMatcher) andThen /* Validate that its our service */
-          LogoutService(config.sessionStore)
-
-      case _ =>
-        serviceChainFront andThen
-          /* Validate that its our service */
-          CustomerIdFilter(serviceMatcher) andThen
-          /* Get or allocate Session/SignedId */
-          SessionIdFilter(serviceMatcher, config.sessionStore) andThen
-          /* If unauthenticated, send it to Identity Provider or login page */
-          SendToIdentityProvider(identityProviderChainMap(config.sessionStore), config.sessionStore) andThen
-          /* If authenticated and protected service, send it via Access Issuer chain */
-          SendToAccessIssuer(accessIssuerChainMap(config.sessionStore)) andThen
-          /* Authenticated or not, send it to unprotected service, if its destined to that */
-          SendToUnprotectedService(config.sessionStore) andThen
-          /* Not found */
-          notFoundService
+      case "/health" => healthChain
+      case "/logout" => logoutChain
+      case _ => wildChain
     }
   }
 
