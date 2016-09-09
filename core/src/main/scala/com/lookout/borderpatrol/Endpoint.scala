@@ -48,11 +48,12 @@ object Endpoint {
   }
 
   /**
-   * If endpoint pointing to an ELB (i.e. single host), then it is important to disable fail fast as the
+   * If endpoint pointing to an ELB (i.e. single host with https), then it is important to disable fail fast as the
    * remote load balancer has the visibility into which endpoints are up
    */
   def failFast(endpoint: Endpoint): Http.Client => Http.Client = { cl =>
-    if (endpoint.hosts.size == 1) cl.withSessionQualifier.noFailFast else cl
+    val isHttps = endpoint.hosts.exists(u => u.getProtocol == "https")
+    if (endpoint.hosts.size == 1 && isHttps) cl.withSessionQualifier.noFailFast else cl
   }
 
   /** Spawn a client */
@@ -62,7 +63,7 @@ object Endpoint {
       val port = if (u.getPort < 0) u.getDefaultPort else u.getPort
       s"${u.getHost}:${port}"
     }.mkString(",")
-    val chain = tls(endpoint) //compose failFast(endpoint)
+    val chain = tls(endpoint) compose failFast(endpoint)
 
     chain(Http.Client(Client.stack, StackClient.defaultParams +
       ProtocolLibrary("http") + StatsFilter.Param(TimeUnit.MICROSECONDS)))
@@ -75,15 +76,13 @@ object Endpoint {
 
   /** Get or store client in cache */
   private[this] def getOrCreate(endpoint: Endpoint): Future[Service[Request, Response]] =
-    cache.getOrElse(endpoint.name, {
-      //  Allocate a new client
-      val cl = client(endpoint.name, endpoint)
-      // putIfAbsent atomically inserts the client into the map,
-      val maybeC = cache.putIfAbsent(endpoint.name, cl)
-      // if maybeC has a value, we got pre-empted => abandon our new allocated cl
-      // and return the present one. Otherwise, return newly allocate cl.
-      maybeC.getOrElse(cl)
-    }).toFuture
+    this.synchronized {
+      cache.getOrElse(endpoint.name, {
+          val cl = client(endpoint.name, endpoint)
+          cache.putIfAbsent(endpoint.name, cl).getOrElse(cl)
+        }
+      ).toFuture
+    }
 
   /** Connect and send the request */
   def connect(endpoint: Endpoint, request: Request): Future[Response] = {

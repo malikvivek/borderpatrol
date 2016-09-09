@@ -58,7 +58,7 @@ case class AccessLogFilter(logDestination: String, fileSizeInMegaBytes: Long, fi
     val requestContentLength = req.contentLength.getOrElse("-")
     for {
       resp <- service(req)
-      _<- Future(logger.log(accessLogLevel,
+      _ <- Future(logger.log(accessLogLevel,
         /* IP Address */
         s"${requestIPAddress}\t"+
           /* Start Time */
