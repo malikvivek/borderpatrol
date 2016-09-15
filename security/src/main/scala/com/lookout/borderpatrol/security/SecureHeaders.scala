@@ -21,23 +21,12 @@ object SecureHeaders {
   val XContentTypeOptions = ("X-ContentType-Options", "nosniff")
   val XDownloadOptions = ("X-Download-Options", "noopen")
   val XPermittedCrossDomainPolicies = ("X-Permitted-Cross-Domain-Policies", "none")
-  /* CORS support headers */
-  val allowOrigin = "Access-Control-Allow-Origin"
-  val controlEnabled = "Access-Control-Allow-Credentials" -> "true"
-  val exposeHeaders = "Access-Control-Expose-Headers" -> "ETag,Set-Cookie"
-  val allowMethods = "Access-Control-Allow-Methods" -> "GET, POST, PATCH, PUT, DELETE, OPTIONS, HEAD"
-  val allowHeaders =
-    "Access-Control-Allow-Headers" -> "*,x-csrf-token,x-requested-with,Content-Type,If-Modified-Since,If-None-Match"
-  val maxAge = "Access-Control-Max-Age" -> "86400"
 
-  def response(allowedDomains: Set[InternetDomainName]): HeaderMap = {
+  val responseSecureHeaders: HeaderMap = {
     HeaderMap(StrictTransportSecurity, XFrameOptions, XXSSProtection,
-      XContentTypeOptions, XDownloadOptions, XPermittedCrossDomainPolicies,
-      allowMethods, allowHeaders, controlEnabled,exposeHeaders, maxAge,
-      SecureHeaders.allowOrigin -> allowedDomains.mkString(","))
+      XContentTypeOptions, XDownloadOptions, XPermittedCrossDomainPolicies)
   }
-
-  val request = HeaderMap()
+  val requestSecureHeaders = HeaderMap()
 }
 
 /**
@@ -61,11 +50,10 @@ object SecureHeaders {
   *
   * @param requestHeaders
   */
-case class SecureHeaderFilter(requestHeaders: HeaderMap = SecureHeaders.request,
-                              allowedDomains: Set[InternetDomainName])
+case class SecureHeaderFilter(requestHeaders: HeaderMap = SecureHeaders.requestSecureHeaders,
+                              responseHeaders: HeaderMap = SecureHeaders.responseSecureHeaders)
     extends SimpleFilter[Request, Response] {
   val localIp = InetAddress.getLocalHost.getHostAddress
-  lazy val responseMap = SecureHeaders.response(allowedDomains)
 
   def injectRequestHeaders(req: Request): Request =
     tap(req) { re =>
@@ -75,7 +63,7 @@ case class SecureHeaderFilter(requestHeaders: HeaderMap = SecureHeaders.request,
 
   private[this] def injectResponseHeaders(response: Response): Response =
     tap(response) { resp =>
-      resp.headerMap ++= (responseMap)
+      resp.headerMap ++= responseHeaders
     }
 
   /**
@@ -85,6 +73,6 @@ case class SecureHeaderFilter(requestHeaders: HeaderMap = SecureHeaders.request,
   def apply(req: Request, service: Service[Request, Response]): Future[Response] =
     for {
       resp <- service(injectRequestHeaders(req))
-      _ <- (injectResponseHeaders(resp)).toFuture
+      _ <- injectResponseHeaders(resp).toFuture
     } yield resp
 }
