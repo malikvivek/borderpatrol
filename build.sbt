@@ -27,7 +27,7 @@ lazy val compilerOptions = Seq(
 
 lazy val finagleVersion = "6.38.0"
 lazy val circeVersion = "0.4.0"
-lazy val twitterServerVersion = "1.21.0"
+lazy val twitterServerVersion = "1.23.0"
 lazy val nimbusVersion = "4.7"
 
 val testDependencies = Seq(
