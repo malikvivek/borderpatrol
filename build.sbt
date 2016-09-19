@@ -1,7 +1,7 @@
 import sbtunidoc.Plugin.UnidocKeys._
 import scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages
 
-lazy val Version = "0.2.43-SNAPSHOT"
+lazy val Version = "0.2.44-SNAPSHOT"
 
 lazy val buildSettings = Seq(
   organization := "com.lookout",
@@ -25,7 +25,7 @@ lazy val compilerOptions = Seq(
   "-Xlint"
 )
 
-lazy val finagleVersion = "6.36.0"
+lazy val finagleVersion = "6.38.0"
 lazy val circeVersion = "0.4.0"
 lazy val twitterServerVersion = "1.21.0"
 lazy val nimbusVersion = "4.7"
